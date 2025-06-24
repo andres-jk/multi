@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Resumen del Sistema{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Resumen del Sistema</h1>
+    
+    <div class="stats-container">
+        <div class="stat-card">
+            <h3>Productos</h3>
+            <p class="stat-number">{{ productos_count }}</p>
+            <div class="stat-detail">
+                <p><span>Disponibles:</span> {{ productos_disponibles }}</p>
+                <p><span>Reservados:</span> {{ productos_reservados }}</p>
+                <p><span>En Renta:</span> {{ productos_en_renta }}</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Pedidos</h3>
+            <p class="stat-number">{{ pedidos_count }}</p>
+            <div class="stat-detail">
+                <p><span>Pendientes:</span> {{ pedidos_pendientes }}</p>
+                <p><span>En Proceso:</span> {{ pedidos_en_proceso }}</p>
+                <p><span>Completados:</span> {{ pedidos_completados }}</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <h3>Recibos de Obra</h3>
+            <p class="stat-number">{{ recibos_count }}</p>
+            <div class="stat-detail">
+                <p><span>Pendientes:</span> {{ recibos_pendientes }}</p>
+                <p><span>En Uso:</span> {{ recibos_en_uso }}</p>
+                <p><span>Devueltos:</span> {{ recibos_devueltos }}</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="recent-activities">
+        <h2>Actividad Reciente</h2>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Actividad</th>
+                        <th>Usuario</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for actividad in actividades %}
+                    <tr>
+                        <td>{{ actividad.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ actividad.descripcion }}</td>
+                        <td>{{ actividad.usuario }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3">No hay actividades recientes.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-container {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 20px;
+    flex: 1;
+    min-width: 250px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.stat-card h3 {
+    margin: 0;
+    color: #333;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #FFD600;
+    margin: 10px 0;
+}
+
+.stat-detail {
+    margin-top: 15px;
+}
+
+.stat-detail p {
+    display: flex;
+    justify-content: space-between;
+    margin: 5px 0;
+}
+
+.stat-detail span {
+    font-weight: bold;
+}
+
+.recent-activities h2 {
+    margin-bottom: 15px;
+    color: #333;
+}
+</style>
+{% endblock %}

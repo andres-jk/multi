@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Agregar Nueva Dirección</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="calle" class="form-label">Calle y Número</label>
+                            <input type="text" class="form-control" id="calle" name="calle" 
+                                   placeholder="Ej: Calle 123 #45-67" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ciudad" class="form-label">Ciudad</label>
+                            <input type="text" class="form-control" id="ciudad" name="ciudad" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="departamento" class="form-label">Departamento</label>
+                            <input type="text" class="form-control" id="departamento" name="departamento" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="codigo_postal" class="form-label">Código Postal</label>
+                            <input type="text" class="form-control" id="codigo_postal" name="codigo_postal">
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="es_principal" name="es_principal">
+                            <label class="form-check-label" for="es_principal">Establecer como dirección principal</label>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Guardar Dirección</button>
+                            <a href="{% url 'usuarios:perfil' %}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

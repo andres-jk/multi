@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Administrar Productos{% endblock %}
+{% block nav %}
+<a href="/panel/admin/clientes/">Clientes</a>
+<a href="/panel/">Pedidos</a>
+<a href="{% url 'recibos:lista_recibos' %}">Recibos de Obra</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card card-admin-productos">
+    <h1 class="highlight">Administrar Productos</h1>
+    <form class="admin-productos-form" method="post" enctype="multipart/form-data" style="display:flex;flex-wrap:wrap;gap:1rem;">
+        {% csrf_token %}
+        <input type="text" name="nombre" placeholder="Nombre del producto" required>
+        <textarea name="descripcion" placeholder="Descripción" style="min-width:200px;" required></textarea>
+        <input type="number" name="precio" placeholder="Precio" min="0" step="0.01" required>
+        <input type="text" name="tipo_renta" placeholder="Tipo de renta" required>
+        <input type="number" name="cantidad" placeholder="Cantidad" min="1" required>
+        <input type="file" name="imagen" accept="image/*">
+        <button class="btn" type="submit">Agregar</button>
+    </form>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Tipo de Renta</th>
+                    <th>Cantidad</th>
+                    <th>Imagen</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in productos %}
+                <tr>
+                    <td>{{ producto.nombre }}</td>
+                    <td>{{ producto.descripcion }}</td>
+                    <td>${{ producto.precio }}</td>
+                    <td>{{ producto.tipo_renta }}</td>
+                    <td>{{ producto.cantidad_disponible }}</td>
+                    <td>
+                        {% if producto.imagen %}
+                            <img src="{{ producto.imagen.url }}" width="60" height="40" style="object-fit:cover;">
+                        {% else %}
+                            <span style="color:#FFD600;">Sin imagen</span>
+                        {% endif %}
+                    </td>
+                    <td>                        <a href="{% url 'pedidos:editar_producto' producto.id_producto %}" class="btn">Editar</a>
+                        <form method="post" action="{% url 'pedidos:eliminar_producto' producto.id_producto %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button class="btn" type="submit" onclick="return confirm('¿Eliminar este producto?')">Eliminar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">No hay productos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

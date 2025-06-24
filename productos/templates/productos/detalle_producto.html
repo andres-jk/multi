@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ producto.nombre }} - MultiAndamios{% endblock %}
+
+{% block content %}
+<div class="container product-detail">
+    <div class="card">
+        <div class="product-header">
+            <h1 class="highlight">{{ producto.nombre }}</h1>
+            <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-secondary">Volver al Catálogo</a>
+        </div>
+        
+        <div class="product-content">
+            <div class="product-image">
+                {% if producto.imagen %}
+                <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}">
+                {% else %}
+                <div class="no-image">No hay imagen disponible</div>
+                {% endif %}
+            </div>
+            
+            <div class="product-info">
+                <div class="price-section">
+                    <h2 class="price">${{ producto.precio }}</h2>
+                    <span class="rent-type">por {{ producto.tipo_renta }}</span>
+                </div>
+                
+                <div class="availability">
+                    <span class="{% if producto.cantidad_disponible > 0 %}in-stock{% else %}out-stock{% endif %}">
+                        {% if producto.cantidad_disponible > 0 %}
+                            Disponible ({{ producto.cantidad_disponible }} unidades)
+                        {% else %}
+                            No disponible
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="description">
+                    <h3>Descripción</h3>
+                    <p>{{ producto.descripcion }}</p>
+                </div>
+                
+                <div class="specs">
+                    <h3>Detalles</h3>
+                    <ul>
+                        <li><strong>Tipo de Renta:</strong> {{ producto.tipo_renta }}</li>
+                        <li><strong>Referencia:</strong> #{{ producto.id_producto }}</li>
+                    </ul>
+                </div>
+                
+                {% if producto.cantidad_disponible > 0 %}
+                <div class="add-to-cart">
+                    <form method="post" action="{% url 'usuarios:agregar_al_carrito' producto.id_producto %}">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label for="cantidad">Cantidad:</label>
+                            <input type="number" name="cantidad" id="cantidad" min="1" max="{{ producto.cantidad_disponible }}" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="meses_renta">Meses de renta:</label>
+                            <input type="number" name="meses_renta" id="meses_renta" min="1" value="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Añadir al Carrito</button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="not-available">
+                    <p>Este producto no está disponible actualmente.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

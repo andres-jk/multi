@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Devolución{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Registrar Devolución</h1>
+    <h2>Recibo de Obra #{{ recibo.id }}</h2>
+    
+    <div class="info-box">
+        <h3>Información del Recibo</h3>
+        <p><strong>Cliente:</strong> {{ recibo.cliente.usuario.get_full_name }}</p>
+        <p><strong>Producto:</strong> {{ recibo.producto.nombre }}</p>
+        <p><strong>Cantidad Total:</strong> {{ recibo.cantidad_solicitada }}</p>
+        <p><strong>Cantidad Devuelta:</strong> {{ recibo.cantidad_vuelta }}</p>
+        <p><strong>Cantidad Pendiente:</strong> {{ recibo.cantidad_pendiente }}</p>
+    </div>
+    
+    <form method="post" class="form">
+        {% csrf_token %}          <div class="form-group">
+            <label for="cantidad_buen_estado">Cantidad en Buen Estado:</label>
+            <input type="number" name="cantidad_buen_estado" id="cantidad_buen_estado" 
+                   min="0" max="{{ cantidad_pendiente }}" value="0" required>
+            <small>Estos productos se devolverán al inventario disponible</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="cantidad_danados">Cantidad con Daños:</label>
+            <input type="number" name="cantidad_danados" id="cantidad_danados" 
+                   min="0" max="{{ cantidad_pendiente }}" value="0" required>
+            <small>Estos productos necesitarán reparación antes de volver al inventario</small>
+        </div>
+        
+        <div class="form-group">
+            <label for="cantidad_inservibles">Cantidad Inservibles:</label>
+            <input type="number" name="cantidad_inservibles" id="cantidad_inservibles" 
+                   min="0" max="{{ cantidad_pendiente }}" value="0" required>
+            <small>Estos productos no podrán ser utilizados nuevamente</small>
+        </div>
+          <div class="cantidad-total-js">
+            <strong>Total de productos a registrar: <span id="total-devolucion">0</span> / {{ cantidad_pendiente }}</strong>
+        </div>
+        
+        <div class="form-group">
+            <label for="estado">Estado:</label>
+            <select name="estado" id="estado" required>
+                {% for value, label in recibo.ESTADO_CHOICES %}
+                    <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="condicion">Condición de Devolución:</label>
+            <textarea name="condicion" id="condicion" rows="3" required 
+                      placeholder="Describe el estado del equipo al momento de la devolución..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="notas">Notas de Devolución:</label>
+            <textarea name="notas" id="notas" rows="3" 
+                      placeholder="Observaciones o notas sobre la devolución..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Registrar Devolución</button>
+        <a href="{% url 'recibos:lista_recibos' %}" class="btn">Cancelar</a>
+    </form>
+</div>
+
+<style>
+.info-box {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.info-box h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.info-box p {
+    margin: 5px 0;
+}
+
+.cantidad-total-js {
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.cantidad-excedida {
+    color: red;
+    font-weight: bold;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {    const cantidadBuenEstado = document.getElementById('cantidad_buen_estado');
+    const cantidadDanados = document.getElementById('cantidad_danados');
+    const cantidadInservibles = document.getElementById('cantidad_inservibles');
+    const totalDevolucion = document.getElementById('total-devolucion');
+    const maxPermitido = {{ cantidad_pendiente }};
+    const submitBtn = document.querySelector('button[type="submit"]');
+    
+    function calcularTotal() {
+        const total = parseInt(cantidadBuenEstado.value || 0) + 
+                    parseInt(cantidadDanados.value || 0) + 
+                    parseInt(cantidadInservibles.value || 0);
+        
+        totalDevolucion.textContent = total;
+        
+        // Validar que el total no exceda la cantidad pendiente
+        if (total > maxPermitido) {
+            totalDevolucion.classList.add('cantidad-excedida');
+            submitBtn.disabled = true;
+        } else {
+            totalDevolucion.classList.remove('cantidad-excedida');
+            submitBtn.disabled = false;
+        }
+    }
+    
+    cantidadBuenEstado.addEventListener('input', calcularTotal);
+    cantidadDanados.addEventListener('input', calcularTotal);
+    cantidadInservibles.addEventListener('input', calcularTotal);
+    
+    // Inicializar
+    calcularTotal();
+});
+</script>
+{% endblock %}

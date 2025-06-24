@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Inicio - MultiAndamios{% endblock %}
+{% block nav %}
+<a href="{% url 'productos:catalogo_productos' %}">Productos</a>
+<a href="{% url 'usuarios:ver_carrito' %}">Carrito</a>
+{% if not user.is_authenticated %}
+<a href="/login/">Iniciar Sesión</a>
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="card card-welcome">
+    <h1><span class="highlight">Bienvenido a</span> <span class="brand">MultiAndamios</span></h1>
+    <p>¡Alquila los mejores equipos con nosotros!</p>
+</div>
+<div class="card card-terms">
+    <h2 class="highlight">Términos y condiciones</h2>
+    <ul class="styled-list">
+        <li>El cliente es responsable del equipo durante el periodo de alquiler.</li>
+        <li>La devolución debe hacerse en buen estado.</li>
+        <li>Consultar disponibilidad antes de reservar.</li>
+    </ul>
+</div>
+<div class="card card-featured">
+    <h2 class="highlight">Productos destacados</h2>
+    <div class="featured-products">
+        <div class="featured-product">
+            <img src="https://via.placeholder.com/180x120/FFD600/111?text=Producto+1" alt="Andamio Modular">
+            <h3>Andamio Modular</h3>
+            <p>Resistente y fácil de montar.</p>
+        </div>
+        <div class="featured-product">
+            <img src="https://via.placeholder.com/180x120/FFD600/111?text=Producto+2" alt="Plataforma Elevadora">
+            <h3>Plataforma Elevadora</h3>
+            <p>Ideal para trabajos en altura.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

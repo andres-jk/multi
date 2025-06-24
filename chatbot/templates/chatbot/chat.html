@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chat con Asistente IA - MultiAndamios{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card my-5">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h4 mb-0"><i class="fas fa-robot"></i> Chat con Asistente de MultiAndamios</h2>
+                </div>
+                <div class="card-body">
+                    <p class="mb-4">
+                        Bienvenido al chat con nuestro asistente IA. Aquí puedes hacer preguntas sobre nuestros productos, servicios, 
+                        precios, disponibilidad y más. Nuestro asistente está diseñado para brindarte información rápida y precisa.
+                    </p>
+                    
+                    <div class="text-center">
+                        <p>El chat se encuentra disponible en la esquina inferior derecha de la pantalla. 
+                        Haz clic en el ícono de chat para comenzar una conversación.</p>
+                        
+                        <button class="btn btn-primary" onclick="document.getElementById('chatButton').click()">
+                            <i class="fas fa-comment-dots me-2"></i> Abrir Chat
+                        </button>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <h3 class="h5">Temas populares:</h3>
+                    <ul>
+                        <li>Andamios disponibles y especificaciones</li>
+                        <li>Formaletas y encofrados</li>
+                        <li>Precios y cotizaciones</li>
+                        <li>Proceso de alquiler</li>
+                        <li>Entrega y logística</li>
+                        <li>Normas de seguridad</li>
+                        <li>Formas de pago</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

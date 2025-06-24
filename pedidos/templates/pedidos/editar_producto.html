@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Editar Producto{% endblock %}
+{% block nav %}
+<a href="/panel/admin/clientes/">Clientes</a>
+<a href="/panel/">Pedidos</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card card-admin-productos">
+    <h1 class="highlight">Editar Producto</h1>
+    <form class="admin-productos-form" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="text" name="nombre" value="{{ producto.nombre }}" required>
+        <input type="text" name="descripcion" value="{{ producto.descripcion }}" required>
+        <input type="number" name="precio" value="{{ producto.precio }}" min="0" required>
+        <input type="text" name="tipo_renta" value="{{ producto.tipo_renta }}" required>        <input type="number" name="cantidad" value="{{ producto.cantidad_disponible }}" min="1" required>
+        <input type="file" name="imagen" accept="image/*">
+        <button class="btn" type="submit">Guardar Cambios</button>
+        <a href="{% url 'pedidos:admin_productos' %}" class="btn">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

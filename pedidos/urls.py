@@ -1,0 +1,32 @@
+from django.urls import path
+from . import views
+
+app_name = 'pedidos'  # Agregar namespace
+
+urlpatterns = [
+    # URLs para administradores y empleados
+    path('admin/clientes/', views.lista_clientes, name='lista_clientes'),  # Lista de clientes (admin)
+    path('admin/productos/', views.admin_productos, name='admin_productos'),  # Admin productos (admin)
+    path('admin/productos/editar/<int:producto_id>/', views.editar_producto, name='editar_producto'),
+    path('admin/productos/eliminar/<int:producto_id>/', views.eliminar_producto, name='eliminar_producto'),
+    path('', views.lista_pedidos, name='lista_pedidos'),  # Lista de pedidos (admin)
+    path('<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),  # Detalle de pedido (admin)
+    path('<int:pedido_id>/remision/', views.generar_remision_pdf, name='generar_remision_pdf'),
+    path('<int:pedido_id>/factura/', views.generar_factura_pdf, name='generar_factura_pdf'),
+    
+    # URLs para clientes
+    path('mis-pedidos/', views.mis_pedidos, name='mis_pedidos'),  # Lista de pedidos del cliente
+    path('mis-pedidos/<int:pedido_id>/', views.detalle_mi_pedido, name='detalle_mi_pedido'),  # Detalle para el cliente
+    path('crear/', views.crear_pedido, name='crear_pedido'),  # Crear pedido (disponible para clientes)
+    path('<int:pedido_id>/programar-devolucion/', views.programar_devolucion, name='programar_devolucion'),  # Programar devolución
+]
+
+# Las rutas completas después de la configuración son:
+# /panel/admin/clientes/ - Lista de clientes (admin)
+# /panel/admin/productos/ - Admin productos (admin)
+# /panel/ - Lista de pedidos (admin)
+# /panel/<id>/ - Detalle de pedido (admin)
+# /panel/mis-pedidos/ - Lista de pedidos (cliente)
+# /panel/mis-pedidos/<id>/ - Detalle de pedido (cliente)
+# /panel/crear/ - Crear pedido (cliente)
+

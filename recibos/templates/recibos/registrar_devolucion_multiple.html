@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Devolución Múltiple{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Registrar Devolución Múltiple</h1>
+    <h2>Pedido #{{ pedido.id_pedido }}</h2>
+    
+    <div class="info-box">
+        <h3>Información del Pedido</h3>
+        <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+        <p><strong>Fecha del Pedido:</strong> {{ pedido.fecha|date:"d/m/Y" }}</p>
+        <p><strong>Dirección de Entrega:</strong> {{ pedido.direccion_entrega }}</p>
+    </div>
+    
+    <form method="post" class="form">
+        {% csrf_token %}
+        
+        <div class="recibos-pendientes">
+            <h3>Productos con Devoluciones Pendientes</h3>
+            
+            {% if recibos_pendientes %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Pendiente</th>
+                            <th>Buen Estado</th>
+                            <th>Con Daños</th>
+                            <th>Inservibles</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recibo in recibos_pendientes %}
+                        <tr>
+                            <td>{{ recibo.id }}</td>
+                            <td>{{ recibo.producto.nombre }}</td>
+                            <td>
+                                <span class="cantidad-pendiente">{{ recibo.cantidad_pendiente }}</span>
+                            </td>
+                            <td>
+                                <input type="number" name="buen_estado_{{ recibo.id }}" 
+                                       class="form-control buen-estado" 
+                                       min="0" max="{{ recibo.cantidad_pendiente }}" value="0"
+                                       data-recibo-id="{{ recibo.id }}">
+                            </td>
+                            <td>
+                                <input type="number" name="danados_{{ recibo.id }}" 
+                                       class="form-control danados" 
+                                       min="0" max="{{ recibo.cantidad_pendiente }}" value="0"
+                                       data-recibo-id="{{ recibo.id }}">
+                            </td>
+                            <td>
+                                <input type="number" name="inservibles_{{ recibo.id }}" 
+                                       class="form-control inservibles" 
+                                       min="0" max="{{ recibo.cantidad_pendiente }}" value="0"
+                                       data-recibo-id="{{ recibo.id }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="form-group">
+                <label for="estado_general">Estado General:</label>
+                <select name="estado_general" id="estado_general" required>
+                    <option value="DEVUELTO">Devuelto</option>
+                    <option value="DANADO">Dañado</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="notas_devolucion">Notas de Devolución:</label>
+                <textarea name="notas_devolucion" id="notas_devolucion" rows="3" 
+                          placeholder="Observaciones sobre la devolución..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="condicion_devolucion">Condición de Devolución:</label>
+                <textarea name="condicion_devolucion" id="condicion_devolucion" rows="3" 
+                          placeholder="Estado general de los productos devueltos..."></textarea>
+            </div>
+            
+            <div class="form-buttons">
+                <button type="submit" class="btn btn-primary">Registrar Devoluciones</button>
+                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn">Cancelar</a>
+            </div>
+            
+            {% else %}
+            <div class="alert alert-info">No hay recibos con devoluciones pendientes para este pedido.</div>
+            <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn">Volver al Detalle del Pedido</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+<style>
+.info-box {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid #FFD600;
+}
+
+.form-control {
+    width: 70px;
+    text-align: center;
+}
+
+.cantidad-total {
+    font-weight: bold;
+    padding: 10px;
+    margin: 15px 0;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    text-align: right;
+}
+
+.cantidad-excedida {
+    color: red;
+    font-weight: bold;
+}
+
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    color: #0c5460;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const reciboId = row.querySelector('.buen-estado').dataset.reciboId;
+        const cantidadPendiente = parseInt(row.querySelector('.cantidad-pendiente').textContent);
+        const buenEstadoInput = row.querySelector('.buen-estado');
+        const danadosInput = row.querySelector('.danados');
+        const inserviblesInput = row.querySelector('.inservibles');
+        
+        [buenEstadoInput, danadosInput, inserviblesInput].forEach(input => {
+            input.addEventListener('input', function() {
+                const buenEstado = parseInt(buenEstadoInput.value) || 0;
+                const danados = parseInt(danadosInput.value) || 0;
+                const inservibles = parseInt(inserviblesInput.value) || 0;
+                
+                const total = buenEstado + danados + inservibles;
+                
+                // Validar que no exceda la cantidad pendiente
+                if (total > cantidadPendiente) {
+                    row.classList.add('error');
+                    if (input === buenEstadoInput) {
+                        buenEstadoInput.value = Math.max(0, cantidadPendiente - danados - inservibles);
+                    } else if (input === danadosInput) {
+                        danadosInput.value = Math.max(0, cantidadPendiente - buenEstado - inservibles);
+                    } else {
+                        inserviblesInput.value = Math.max(0, cantidadPendiente - buenEstado - danados);
+                    }
+                } else {
+                    row.classList.remove('error');
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

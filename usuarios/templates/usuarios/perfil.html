@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4">Mi Perfil</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Información Personal</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Nombre:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+                    <p><strong>Email:</strong> {{ user.email }}</p>
+                    <p><strong>Usuario:</strong> {{ user.username }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Teléfono:</strong> {{ cliente.telefono|default:"No especificado" }}</p>
+                    <p><strong>Dirección Principal:</strong> {{ cliente.direccion|default:"No especificada" }}</p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <a href="{% url 'usuarios:actualizar_perfil' %}" class="btn btn-primary">Editar Perfil</a>
+                <a href="{% url 'usuarios:cambiar_contrasena' %}" class="btn btn-secondary">Cambiar Contraseña</a>
+            </div>
+        </div>
+    </div>
+
+    {% if direcciones %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Mis Direcciones</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for direccion in direcciones %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                {% if direccion.es_principal %}
+                                <span class="badge bg-primary">Principal</span>
+                                {% endif %}
+                            </h5>
+                            <p class="card-text">{{ direccion }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pedidos %}
+    <div class="card">
+        <div class="card-header">
+            <h4>Mis Pedidos Recientes</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Número de Pedido</th>
+                            <th>Fecha</th>
+                            <th>Estado</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pedido in pedidos %}
+                        <tr>
+                            <td>#{{ pedido.id }}</td>
+                            <td>{{ pedido.fecha_pedido|date:"d/m/Y" }}</td>
+                            <td>
+                                <span class="badge {% if pedido.estado == 'completado' %}bg-success{% elif pedido.estado == 'pendiente' %}bg-warning{% else %}bg-secondary{% endif %}">
+                                    {{ pedido.get_estado_display }}
+                                </span>
+                            </td>
+                            <td>${{ pedido.total|floatformat:2 }}</td>
+                            <td>
+                                <a href="#" class="btn btn-sm btn-info">Ver Detalles</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

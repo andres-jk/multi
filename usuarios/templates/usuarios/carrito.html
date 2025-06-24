@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Carrito{% endblock %}
+
+{% block nav %}
+<a href="{% url 'usuarios:inicio_cliente' %}">Inicio</a>
+<a href="{% url 'productos:catalogo_productos' %}">Productos</a>
+{% endblock %}
+
+{% block content %}
+<div class="card card-carrito">
+    <h1 class="highlight">Carrito de Alquiler</h1>
+      {% if items_carrito %}
+    <div class="documentos-botones" style="margin-bottom: 20px;">
+        <a href="{% url 'usuarios:generar_cotizacion_pdf' %}" class="btn btn-info" target="_blank">
+            <i class="fas fa-file-pdf"></i> Generar Cotización PDF
+        </a>
+        {% if user.is_staff or user.rol == 'admin' or user.rol == 'empleado' %}
+        <a href="{% url 'usuarios:generar_remision_pdf' %}" class="btn btn-info" target="_blank">
+            <i class="fas fa-file-export"></i> Generar Remisión PDF
+        </a>
+        {% endif %}
+    </div>
+
+    <form method="post" action="{% url 'usuarios:actualizar_carrito' %}">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Precio Unitario</th>
+                        <th>Cantidad</th>
+                        <th>Meses</th>
+                        <th>Subtotal</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items_carrito %}
+                    <tr>
+                        <td>{{ item.producto.nombre }}</td>
+                        <td>${{ item.producto.precio|floatformat:2 }}</td>
+                        <td>
+                            <input type="number" 
+                                   name="cantidad_{{ item.id }}" 
+                                   value="{{ item.cantidad }}" 
+                                   min="1" 
+                                   max="{{ item.producto.cantidad_disponible }}"
+                                   class="form-control cantidad-input"
+                                   style="width: 70px;">
+                        </td>
+                        <td>
+                            <input type="number"
+                                   name="meses_{{ item.id }}"
+                                   value="{{ item.meses_renta }}"
+                                   min="1"
+                                   max="12"
+                                   class="form-control meses-input"
+                                   style="width: 70px;">
+                        </td>
+                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                        <td>
+                            <a href="{% url 'usuarios:eliminar_del_carrito' item.id %}" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                        <td colspan="2"><strong>${{ total|floatformat:2 }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="cart-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-sync"></i> Actualizar carrito
+            </button>
+            <a href="{% url 'usuarios:checkout' %}" class="btn btn-success">
+                <i class="fas fa-shopping-cart"></i> Proceder al pago
+            </a>
+        </div>
+    </form>
+    {% else %}
+    <div class="empty-cart">
+        <p>No hay productos en el carrito.</p>
+        <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-primary">
+            <i class="fas fa-shopping-cart"></i> Ir al catálogo
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.documentos-botones {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 10px;
+}
+
+.documentos-botones .btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.documentos-botones .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.documentos-botones .btn i {
+    font-size: 1.1em;
+}
+
+.cart-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 20px;
+}
+
+.empty-cart {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.empty-cart p {
+    font-size: 1.2em;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.table-responsive {
+    margin-bottom: 20px;
+}
+
+.table th, .table td {
+    vertical-align: middle;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cantidadInputs = document.querySelectorAll('.cantidad-input, .meses-input');
+    
+    cantidadInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value < 1) {
+                this.value = 1;
+                showNotification('La cantidad debe ser mayor a 0', 'error');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

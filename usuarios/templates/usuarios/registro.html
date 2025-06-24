@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Registro{% endblock %}
+{% block nav %}
+<a href="/login/">Iniciar Sesión</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card card-login" style="max-width:500px;margin:auto;">
+    <h1 class="highlight">Registro de Usuario</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn" type="submit">Registrarse</button>
+    </form>
+</div>
+{% endblock %}

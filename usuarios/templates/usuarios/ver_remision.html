@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Remisión #{{ pedido.id }} - MultiAndamios{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Remisión #{{ pedido.id }}</h3>
+                <div>
+                    <a href="?pdf=1" class="btn btn-primary" target="_blank">
+                        <i class="bi bi-file-pdf"></i> Descargar PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Información de la empresa -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h4>MultiAndamios</h4>
+                    <p class="mb-1">Tegucigalpa, Honduras</p>
+                    <p class="mb-1">Tel: (+504) 2234-5678</p>
+                    <p class="mb-1">Email: info@multiandamios.hn</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-1"><strong>Fecha:</strong> {{ pedido.fecha_creacion|date:"d/m/Y" }}</p>
+                    {% if pedido.fecha_entrega %}
+                        <p class="mb-1"><strong>Fecha de Entrega:</strong> {{ pedido.fecha_entrega|date:"d/m/Y" }}</p>
+                    {% endif %}
+                    {% if fecha_vencimiento %}
+                        <p class="mb-1"><strong>Fecha de Vencimiento:</strong> {{ fecha_vencimiento|date:"d/m/Y" }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Información del cliente -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Cliente</h5>
+                    <p class="mb-1"><strong>{{ pedido.usuario.get_full_name }}</strong></p>
+                    <p class="mb-1">{{ pedido.direccion_entrega }}</p>
+                    <p class="mb-1">{{ pedido.ciudad }}, {{ pedido.departamento }}</p>
+                    {% if pedido.usuario.telefono %}
+                        <p class="mb-1">Tel: {{ pedido.usuario.telefono }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h5>Estado del Pedido</h5>
+                    <p class="mb-1">
+                        <span class="badge {% if pedido.estado == 'entregado' %}bg-success{% else %}bg-primary{% endif %}">
+                            {{ pedido.get_estado_display }}
+                        </span>
+                    </p>
+                    {% if metodo_pago %}
+                        <p class="mb-1"><strong>Método de Pago:</strong> {{ metodo_pago.get_tipo_display }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Detalles de productos -->
+            <h5 class="mb-3">Productos Alquilados</h5>
+            <div class="table-responsive mb-4">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-center">Período (Meses)</th>
+                            <th class="text-end">Precio/Mes</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td class="text-center">{{ detalle.cantidad }}</td>
+                            <td class="text-center">{{ detalle.meses_renta }}</td>
+                            <td class="text-end">L. {{ detalle.precio_unitario|floatformat:2 }}</td>
+                            <td class="text-end">L. {{ detalle.precio_unitario|multiply:detalle.cantidad|multiply:detalle.meses_renta|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                            <td class="text-end">L. {{ pedido.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>IVA (13%):</strong></td>
+                            <td class="text-end">L. {{ pedido.iva|floatformat:2 }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                            <td class="text-end"><strong>L. {{ pedido.total|floatformat:2 }}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% if pedido.notas %}
+            <div class="mb-4">
+                <h5>Notas</h5>
+                <p class="mb-0">{{ pedido.notas }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Términos y condiciones -->
+            <div class="card bg-light mb-4">
+                <div class="card-body">
+                    <h5>Términos y Condiciones</h5>
+                    <ul class="mb-0">
+                        <li>El período de alquiler comienza desde la fecha de entrega.</li>
+                        <li>Los productos deben ser devueltos en las mismas condiciones en que fueron entregados.</li>
+                        <li>Cualquier daño o pérdida será cobrado según el valor de mercado del producto.</li>
+                        <li>El pago debe realizarse dentro de los 30 días posteriores a la entrega.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Firmas -->
+            <div class="row mt-5">
+                <div class="col-md-6 text-center">
+                    <div class="border-top pt-2">
+                        <p class="mb-0">_____________________________</p>
+                        <p>Firma del Cliente</p>
+                    </div>
+                </div>
+                <div class="col-md-6 text-center">
+                    <div class="border-top pt-2">
+                        <p class="mb-0">_____________________________</p>
+                        <p>Por MultiAndamios</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de acción -->
+    <div class="mt-4 text-center">
+        <a href="{% url 'usuarios:detalle_pedido' pedido.id %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver al Pedido
+        </a>
+        {% if pedido.estado == 'pagado' %}
+            <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id %}" class="btn btn-info" target="_blank">
+                <i class="bi bi-file-pdf"></i> Ver Recibo de Pago
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

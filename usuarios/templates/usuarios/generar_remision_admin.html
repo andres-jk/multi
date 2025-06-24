@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Generar Remisión - Pedido #{{ pedido.id_pedido }} - MultiAndamios{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h2 class="mb-0">Generar Remisión - Pedido #{{ pedido.id_pedido }}</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Información del Cliente</h5>
+                    <p><strong>Nombre:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+                    <p><strong>Documento:</strong> {{ pedido.cliente.tipo_documento }} {{ pedido.cliente.numero_documento }}</p>
+                    <p><strong>Teléfono:</strong> {{ pedido.cliente.telefono }}</p>
+                    <p><strong>Email:</strong> {{ pedido.cliente.usuario.email }}</p>
+                </div>
+                
+                <div class="col-md-6">
+                    <h5>Información del Pedido</h5>
+                    <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado actual:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                    <p><strong>Dirección de entrega:</strong> {{ pedido.direccion_entrega }}</p>
+                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</p>
+                </div>
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unit.</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>${{ detalle.precio_unitario|floatformat:2 }}</td>
+                            <td>${{ detalle.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <form method="post" class="mb-4">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="estado_pedido" class="form-label">Actualizar Estado del Pedido</label>
+                            <select name="estado_pedido" id="estado_pedido" class="form-select">
+                                {% for estado, nombre in estados %}
+                                <option value="{{ estado }}" {% if pedido.estado_pedido_general == estado %}selected{% endif %}>
+                                    {{ nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-file-pdf"></i> Generar Remisión PDF
+                    </button>
+                    <a href="{% url 'usuarios:ver_remision' pedido.id_pedido %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-eye"></i> Vista Previa
+                    </a>
+                    <a href="{% url 'usuarios:detalle_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Volver al Pedido
+                    </a>
+                </div>
+            </form>
+
+            {% if pedido.notas %}
+            <div class="mt-4">
+                <h5>Notas del Pedido</h5>
+                <p>{{ pedido.notas }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

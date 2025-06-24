@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Devolución{% endblock %}
+{% block nav %}
+<a href="/empleado/recibo-obra/">Recibo de Obra</a>
+<a href="/admin/">Panel Admin</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card" style="max-width:400px;margin:auto;">
+    <h1 style="color:#FFD600;">Devolución</h1>
+    <form>
+        <label style="color:#FFD600;">Ingrese el número de productos devueltos:</label>
+        <input type="number" min="1" placeholder="Cantidad devuelta" style="width:120px;">
+        <button class="btn" type="submit">Registrar devolución</button>
+    </form>
+</div>
+{% endblock %}

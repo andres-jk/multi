@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block content %}
+<div class="container my-4">
+    <h2 class="mb-4">Finalizar Pedido #{{ pedido.id_pedido }}</h2>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Resumen del pedido -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Resumen del Pedido</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Meses</th>
+                        <th>Precio/Mes</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in detalles %}
+                    <tr>
+                        <td>{{ detalle.producto.nombre }}</td>
+                        <td>{{ detalle.cantidad }}</td>
+                        <td>{{ detalle.meses_renta }}</td>
+                        <td>${{ detalle.precio_unitario|floatformat:0|intcomma }}</td>
+                        <td>${{ detalle.subtotal|floatformat:0|intcomma }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" class="text-end"><strong>Total:</strong></td>
+                        <td><strong>${{ total|floatformat:0|intcomma }}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- Datos bancarios -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h4 class="mb-0">Datos Bancarios para Transferencia</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Banco:</strong> {{ datos_bancarios.banco }}</p>
+                    <p><strong>Tipo de Cuenta:</strong> {{ datos_bancarios.tipo_cuenta }}</p>
+                    <p><strong>Número de Cuenta:</strong> {{ datos_bancarios.numero_cuenta }}</p>
+                    <p><strong>Titular:</strong> {{ datos_bancarios.titular }}</p>
+                    <p><strong>NIT:</strong> {{ datos_bancarios.nit }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de método de pago -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">Registrar Pago</h4>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="{{ pago_form.tipo.id_for_label }}" class="form-label fw-bold">Método de Pago</label>
+                    {{ pago_form.tipo }}
+                    <div class="form-text">Seleccione el método de pago que utilizará</div>
+                </div>
+
+                <div class="mb-4" id="referencia-container">
+                    <label for="{{ pago_form.numero_referencia.id_for_label }}" class="form-label fw-bold">Número de Referencia/Transacción</label>
+                    {{ pago_form.numero_referencia }}
+                    <div class="form-text">Para transferencias o pagos electrónicos, ingrese el número de la transacción</div>
+                </div>
+
+                <div class="mb-4" id="comprobante-container">
+                    <label for="{{ pago_form.comprobante.id_for_label }}" class="form-label fw-bold">Comprobante de Pago</label>
+                    {{ pago_form.comprobante }}
+                    <div class="form-text">Adjunte una imagen o PDF del comprobante de pago</div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg">Confirmar Pago</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoSelect = document.querySelector('select[name="tipo"]');
+    const referenciaContainer = document.getElementById('referencia-container');
+    const comprobanteContainer = document.getElementById('comprobante-container');
+
+    function actualizarCampos() {
+        const tipo = tipoSelect.value;
+        if (tipo === 'efectivo') {
+            referenciaContainer.style.display = 'none';
+            comprobanteContainer.style.display = 'none';
+        } else {
+            referenciaContainer.style.display = 'block';
+            comprobanteContainer.style.display = 'block';
+        }
+    }
+
+    tipoSelect.addEventListener('change', actualizarCampos);
+    actualizarCampos(); // Ejecutar al cargar
+});
+</script>
+{% endblock %}

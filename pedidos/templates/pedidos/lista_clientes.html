@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Lista de Clientes{% endblock %}
+{% block nav %}
+<a href="/panel/">Pedidos</a>
+<a href="/panel/admin/productos/">Administrar Productos</a>
+<a href="{% url 'recibos:lista_recibos' %}">Recibos de Obra</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card card-clientes">
+    <h1 class="highlight">Lista de Clientes</h1>
+    <form method="get" class="form-busqueda" style="margin-bottom: 20px;">
+        <input type="text" name="busqueda_identidad" placeholder="Buscar por N° Identidad" value="{{ request.GET.busqueda_identidad }}" />
+        <button type="submit">Buscar</button>
+    </form>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>N° Identidad</th>
+                    <th>Usuario</th>
+                    <th>Nombre</th>
+                    <th>Apellido</th>
+                    <th>Email</th>
+                    <th>Teléfono</th>
+                    <th>Dirección</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td>{{ cliente.usuario.numero_identidad }}</td>
+                    <td>{{ cliente.usuario.username }}</td>
+                    <td>{{ cliente.usuario.first_name }}</td>
+                    <td>{{ cliente.usuario.last_name }}</td>
+                    <td>{{ cliente.usuario.email }}</td>
+                    <td>{{ cliente.telefono }}</td>
+                    <td>{{ cliente.direccion }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">No hay clientes registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

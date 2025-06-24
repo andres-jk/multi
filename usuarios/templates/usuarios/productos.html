@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block title %}Catálogo de Productos{% endblock %}
+{% block nav %}
+<a href="{% url 'usuarios:inicio_cliente' %}">Inicio</a>
+<a href="{% url 'usuarios:ver_carrito' %}">Carrito</a>
+{% if not user.is_authenticated %}
+<a href="{% url 'usuarios:login' %}">Iniciar Sesión</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card card-productos">
+    <h1 class="highlight">Catálogo de Productos</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <form class="search-form" method="get">
+        <div class="search-container">
+            <input type="text" name="busqueda" placeholder="Buscar por nombre, descripción o tipo..." 
+                   value="{{ query }}" id="search-input">
+            <button class="btn" type="submit">Buscar</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Imagen</th>
+                    <th>Nombre</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Disponible</th>
+                    <th>Cantidad</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in productos %}
+                <tr>
+                    <td>
+                        {% if producto.imagen %}
+                            <img src="{{ producto.imagen.url }}" class="img-product" width="80" height="60" style="object-fit:cover;">
+                        {% else %}
+                            <img src="https://via.placeholder.com/80x60/FFD600/111?text=Prod" class="img-product">
+                        {% endif %}
+                    </td>
+                    <td>{{ producto.nombre }}</td>
+                    <td>{{ producto.descripcion|default:"Sin descripción"|truncatewords:20 }}</td>
+                    <td>${{ producto.precio }}/mes</td>
+                    <td>{{ producto.cantidad_disponible }}</td>
+                    <td>
+                        <form method="post" action="{% url 'productos:agregar_al_carrito' producto.id_producto %}" 
+                              class="form-inline" onsubmit="return validarCantidad(this);">
+                            {% csrf_token %}
+                            <input type="number" name="cantidad" min="1" 
+                                   max="{{ producto.cantidad_disponible }}" value="1" 
+                                   class="input-small" required
+                                   data-disponible="{{ producto.cantidad_disponible }}">
+                            <button class="btn" type="submit">Agregar</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">
+                        {% if query %}
+                            No se encontraron productos que coincidan con "{{ query }}"
+                        {% else %}
+                            No hay productos disponibles
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if productos.has_other_pages %}
+    <div class="pagination">
+        {% if productos.has_previous %}
+            <a href="?page={{ productos.previous_page_number }}{% if query %}&busqueda={{ query }}{% endif %}" class="btn">&laquo; Anterior</a>
+        {% endif %}
+        
+        <span class="current-page">
+            Página {{ productos.number }} de {{ productos.paginator.num_pages }}
+        </span>
+        
+        {% if productos.has_next %}
+            <a href="?page={{ productos.next_page_number }}{% if query %}&busqueda={{ query }}{% endif %}" class="btn">Siguiente &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function validarCantidad(form) {
+    const input = form.querySelector('input[name="cantidad"]');
+    const cantidad = parseInt(input.value);
+    const disponible = parseInt(input.dataset.disponible);
+    
+    if (cantidad <= 0) {
+        alert('La cantidad debe ser mayor a 0');
+        return false;
+    }
+    
+    if (cantidad > disponible) {
+        alert(`Solo hay ${disponible} unidades disponibles`);
+        return false;
+    }
+    
+    return true;
+}
+</script>
+{% endblock %}
+

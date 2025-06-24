@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de Pedido #{{ pedido.id_pedido }}{% endblock %}
+
+{% block content %}
+<div class="card card-pedidos">
+    <h1 class="highlight">Pedido #{{ pedido.id_pedido }}</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="pedido-info">
+        <p><strong>Cliente:</strong> {{ pedido.cliente }}</p>
+        <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+        <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+        <p><strong>Dirección de entrega:</strong> {{ pedido.direccion_entrega }}</p>
+        {% if pedido.notas %}
+        <p><strong>Notas:</strong> {{ pedido.notas }}</p>
+        {% endif %}        {% if user.is_staff or user.rol == 'admin' %}
+        <div class="actions" style="margin: 20px 0;">
+            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Recibo Individual</a>
+            <a href="{% url 'recibos:crear_recibo_consolidado' pedido.id_pedido %}" class="btn btn-success">Crear Recibo Único con Múltiples Productos</a>
+            <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn btn-secondary">Generar Factura</a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Meses</th>
+                    <th>Precio/Mes</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in pedido.detalles.all %}
+                <tr>
+                    <td>{{ detalle.producto.nombre }}</td>
+                    <td>{{ detalle.cantidad }}</td>
+                    <td>{{ detalle.meses_renta }}</td>
+                    <td>${{ detalle.precio_unitario }}</td>
+                    <td>${{ detalle.subtotal }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                    <td><strong>${{ pedido.total }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Sección de Recibos de Obra -->
+    <div class="recibos-obra-section">
+        <h2>Recibos de Obra</h2>
+        
+        {% if pedido.recibos_obra.exists %}
+        <div class="table-responsive">
+            <table class="table recibos-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Estado</th>
+                        <th>Pendiente</th>
+                        <th>Fecha Entrega</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recibo in pedido.recibos_obra.all %}
+                    <tr class="{% if recibo.cantidad_pendiente > 0 %}pendiente{% else %}completado{% endif %}">
+                        <td>{{ recibo.id }}</td>
+                        <td>{{ recibo.producto.nombre }}</td>
+                        <td>{{ recibo.cantidad_solicitada }}</td>
+                        <td><span class="estado-badge {{ recibo.estado|lower }}">{{ recibo.get_estado_display }}</span></td>
+                        <td>{{ recibo.cantidad_pendiente }}</td>
+                        <td>{{ recibo.fecha_entrega|date:"d/m/Y" }}</td>
+                        <td>
+                            {% if recibo.cantidad_pendiente > 0 %}
+                            <a href="{% url 'recibos:registrar_devolucion' recibo.id %}" class="btn btn-sm btn-primary">Registrar Devolución</a>
+                            {% endif %}
+                            <a href="{% url 'recibos:generar_pdf' recibo.id %}" class="btn btn-sm btn-secondary">Ver PDF</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
+        <div class="recibos-actions">
+            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Nuevo Recibo</a>
+            <a href="{% url 'recibos:registrar_devolucion_multiple' pedido.id_pedido %}" class="btn btn-success">Registrar Devolución Múltiple</a>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <p>No hay recibos de obra asociados a este pedido.</p>
+        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
+        <div class="recibos-actions">
+            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Recibo</a>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+    
+    <div class="pedido-actions">
+        <a href="{% url 'pedidos:lista_pedidos' %}" class="btn">Volver a la lista</a>
+        <a href="{% url 'pedidos:generar_remision_pdf' pedido.id_pedido %}" class="btn" target="_blank">Descargar Remisión</a>
+        <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn" target="_blank">Descargar Factura</a>
+    </div>
+</div>
+
+<style>
+.pedido-info {
+    background: rgba(255, 214, 0, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.pedido-info p {
+    margin: 0.5rem 0;
+}
+
+.recibos-obra {
+    margin-top: 2rem;
+    background: rgba(255, 214, 0, 0.05);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.recibos-obra h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+    border-bottom: 2px solid rgba(255, 214, 0, 0.5);
+    padding-bottom: 0.5rem;
+}
+
+.pedido-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.recibos-obra-section {
+    margin-top: 2rem;
+}
+
+.recibos-table {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.estado-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.875rem;
+}
+
+.estado-badge.en-proceso {
+    background-color: #007bff;
+}
+
+.estado-badge.completado {
+    background-color: #28a745;
+}
+
+.estado-badge.devuelto {
+    background-color: #dc3545;
+}
+
+.estado-badge.pendiente {
+    background-color: #ffc107;
+}
+</style>
+{% endblock %}

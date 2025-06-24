@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de mi Pedido #{{ pedido.id_pedido }}{% endblock %}
+
+{% block content %}
+<div class="card card-pedidos">
+    <h1 class="highlight">Mi Pedido #{{ pedido.id_pedido }}</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    <div class="pedido-info">
+        <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+        <p><strong>Estado:</strong> <span class="badge {% if pedido.estado_pedido_general == 'PENDIENTE' %}badge-warning{% elif pedido.estado_pedido_general == 'EN_PROCESO' %}badge-primary{% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success{% else %}badge-secondary{% endif %}">{{ pedido.get_estado_pedido_general_display }}</span></p>
+        <p><strong>Dirección de entrega:</strong> {{ pedido.direccion_entrega }}</p>
+        {% if pedido.notas %}
+        <p><strong>Notas:</strong> {{ pedido.notas }}</p>
+        {% endif %}
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Meses</th>
+                    <th>Precio/Mes</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for detalle in pedido.detalles.all %}
+                <tr>
+                    <td>{{ detalle.producto.nombre }}</td>
+                    <td>{{ detalle.cantidad }}</td>
+                    <td>{{ detalle.meses_renta }}</td>
+                    <td>${{ detalle.precio_unitario }}</td>
+                    <td>${{ detalle.subtotal }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                    <td><strong>${{ pedido.total }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Sección de Recibos de Obra (versión para cliente) -->
+    {% if recibos %}
+    <div class="recibos-obra-section">
+        <h2>Estado de Mis Productos</h2>
+        
+        <div class="table-responsive">
+            <table class="table recibos-table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Estado</th>
+                        <th>Fecha Entrega</th>
+                        <th>Documentos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recibo in recibos %}
+                    <tr class="{% if recibo.cantidad_pendiente > 0 %}pendiente{% else %}completado{% endif %}">
+                        <td>{{ recibo.producto.nombre }}</td>
+                        <td>{{ recibo.cantidad_solicitada }}</td>
+                        <td><span class="estado-badge {{ recibo.estado|lower }}">{{ recibo.get_estado_display }}</span></td>
+                        <td>{{ recibo.fecha_entrega|date:"d/m/Y" }}</td>
+                        <td>
+                            <a href="{% url 'recibos:generar_pdf' recibo.id %}" class="btn btn-sm btn-secondary">Ver Recibo</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="pedido-actions">
+        <a href="{% url 'pedidos:mis_pedidos' %}" class="btn">Volver a mis pedidos</a>
+        <a href="{% url 'usuarios:inicio_cliente' %}" class="btn">Ir al inicio</a>
+    </div>
+</div>
+
+<style>
+.pedido-info {
+    background: rgba(255, 214, 0, 0.1);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.pedido-info p {
+    margin: 0.5rem 0;
+}
+
+.recibos-obra-section {
+    margin-top: 2rem;
+    background: rgba(255, 214, 0, 0.05);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.recibos-obra-section h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    color: #333;
+    border-bottom: 2px solid rgba(255, 214, 0, 0.5);
+    padding-bottom: 0.5rem;
+}
+
+.pedido-actions {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.estado-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.875rem;
+}
+
+.badge {
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-weight: normal;
+    font-size: 0.875rem;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-primary {
+    background-color: #007bff;
+    color: #fff;
+}
+
+.badge-success {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.estado-badge.en_uso,
+.estado-badge.en-uso {
+    background-color: #007bff;
+}
+
+.estado-badge.devuelto {
+    background-color: #28a745;
+}
+
+.estado-badge.danado,
+.estado-badge.dañado {
+    background-color: #dc3545;
+}
+
+.estado-badge.pendiente {
+    background-color: #ffc107;
+    color: #212529;
+}
+</style>
+{% endblock %}

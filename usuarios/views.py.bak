@@ -1,0 +1,1083 @@
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth import login, authenticate, logout
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import UserCreationForm
+from django.conf import settings
+from django.http import HttpResponse
+from django import forms
+from django.utils import timezone
+from pedidos.models import Pedido, DetallePedido
+from productos.models import Producto
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import mm, inch, cm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Paragraph, Table, TableStyle, Image, Spacer
+
+from datetime import datetime, timedelta
+import os
+import uuid
+
+from .forms import MetodoPagoForm
+from .models import Usuario, Cliente, MetodoPago
+
+class RegistroForm(UserCreationForm):
+    numero_identidad = forms.CharField(label='Número de Identidad', max_length=20)
+    first_name = forms.CharField(label='Nombre', max_length=30)
+    last_name = forms.CharField(label='Apellido', max_length=30)
+    email = forms.EmailField(label='Correo')
+    direccion = forms.CharField(label='Dirección', max_length=255)
+    telefono = forms.CharField(label='Teléfono', max_length=20, required=False)
+
+    class Meta:
+        model = Usuario
+        fields = ('numero_identidad', 'username', 'first_name', 'last_name', 'email', 'direccion', 'telefono', 'password1', 'password2')
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.numero_identidad = self.cleaned_data['numero_identidad']
+        if commit:
+            user.save()
+        return user
+
+def registro(request):
+    if request.method == 'POST':
+        form = RegistroForm(request.POST)
+        if form.is_valid():
+            usuario = form.save()
+            # Si el usuario es cliente, crea el objeto Cliente relacionado
+            if usuario.rol == 'cliente':
+                Cliente.objects.create(
+                    usuario=usuario,
+                    telefono=form.cleaned_data.get('telefono', ''),
+                    direccion=form.cleaned_data.get('direccion', '')
+                )
+            login(request, usuario)
+            return redirect('inicio_cliente')
+    else:
+        form = RegistroForm()
+    return render(request, 'usuarios/registro.html', {'form': form})
+
+def inicio(request):
+    return render(request, 'usuarios/inicio.html')
+
+def productos(request):
+    productos = Producto.objects.all()
+    return render(request, 'usuarios/productos.html', {'productos': productos})
+
+def agregar_al_carrito(request, producto_id):
+    if request.method == 'POST':
+        try:
+            cantidad = int(request.POST.get('cantidad', 1))
+        except (TypeError, ValueError):
+            cantidad = 1
+        try:
+            meses = int(request.POST.get('tiempo_renta', 1))
+            if meses < 1:
+                meses = 1
+        except (TypeError, ValueError):
+            meses = 1
+
+        try:
+            producto = Producto.objects.get(id_producto=producto_id)
+            carrito = request.session.get('carrito', {})
+            key = str(producto_id)
+            cantidad_disponible = producto.cantidad_disponible
+            
+            # Verificar cantidad actual en carrito para calcular el incremento real
+            cantidad_actual_carrito = carrito[key]['cantidad'] if key in carrito else 0
+            
+            # Sumar cantidad si ya existe, pero no superar stock
+            if key in carrito:
+                nueva_cantidad = carrito[key]['cantidad'] + cantidad
+                if nueva_cantidad > cantidad_disponible + cantidad_actual_carrito:
+                    nueva_cantidad = cantidad_disponible + cantidad_actual_carrito
+                
+                # Calcular el incremento real (lo que se agrega)
+                incremento_real = nueva_cantidad - cantidad_actual_carrito
+                
+                carrito[key]['cantidad'] = nueva_cantidad
+                
+                # Solo actualiza meses si el usuario lo cambia (si es diferente)
+                if carrito[key].get('meses', 1) != meses:
+                    carrito[key]['meses'] = meses
+            else:
+                if cantidad > cantidad_disponible:
+                    cantidad = cantidad_disponible
+                
+                incremento_real = cantidad
+                
+                carrito[key] = {
+                    'nombre': producto.nombre,
+                    'precio_unitario': float(producto.precio),
+                    'cantidad': cantidad,
+                    'meses': meses,
+                    'imagen': producto.imagen.url if producto.imagen else '',
+                }
+            
+            # Actualizar el inventario - reducir la cantidad disponible
+            if incremento_real > 0:
+                # No permitir cantidades negativas
+                nueva_cantidad_producto = max(0, producto.cantidad_disponible - incremento_real)
+                producto.cantidad_disponible = nueva_cantidad_producto
+                producto.save()
+                
+                # Registrar timestamp para la reserva del carrito
+                carrito[key]['timestamp'] = timezone.now().isoformat()
+            
+            # Actualiza subtotal siempre
+            carrito[key]['subtotal'] = carrito[key]['precio_unitario'] * carrito[key]['cantidad'] * carrito[key]['meses']
+            request.session['carrito'] = carrito
+            
+            messages.success(request, f'Se agregaron {incremento_real} unidades de {producto.nombre} al carrito')
+            return redirect('productos')
+        except Producto.DoesNotExist:
+            messages.error(request, 'El producto no existe')
+        except Exception as e:
+            messages.error(request, f'Error al agregar producto: {str(e)}')
+    
+    return redirect('productos')
+
+def carrito(request):
+    carrito = request.session.get('carrito', {})
+    productos_eliminados = []  # Lista para almacenar productos eliminados durante la validación
+    
+    # Verificar la disponibilidad de los productos y limpiar el carrito si es necesario
+    for key, item in list(carrito.items()):
+        try:
+            producto = Producto.objects.get(id_producto=int(key))
+            
+            # Verificar tiempo de reserva (30 minutos máximo)
+            if 'timestamp' in item:
+                timestamp = datetime.fromisoformat(item['timestamp'])
+                tiempo_actual = timezone.now()
+                tiempo_limite = timedelta(minutes=30)
+                
+                if tiempo_actual - timestamp > tiempo_limite:
+                    # La reserva ha expirado, devolver productos al inventario
+                    producto.cantidad_disponible += item['cantidad']
+                    producto.save()
+                    productos_eliminados.append({
+                        'nombre': item['nombre'],
+                        'cantidad': item['cantidad'],
+                        'motivo': 'La reserva ha expirado (máximo 30 minutos)'
+                    })
+                    del carrito[key]
+                    continue
+        except Producto.DoesNotExist:
+            # El producto ya no existe, no podemos devolverlo al inventario
+            productos_eliminados.append({
+                'nombre': item.get('nombre', 'Producto desconocido'),
+                'cantidad': item.get('cantidad', 0),
+                'motivo': 'El producto ya no existe en la base de datos'
+            })
+            del carrito[key]
+    
+    # Mostrar mensajes sobre productos eliminados
+    if productos_eliminados:
+        for prod in productos_eliminados:
+            messages.warning(
+                request, 
+                f"Se eliminó {prod['nombre']} ({prod['cantidad']} unidades) del carrito. Motivo: {prod['motivo']}"
+            )
+        request.session['carrito'] = carrito
+    
+    if request.method == 'POST':
+        # Actualizar cantidades y meses
+        for key in list(carrito.keys()):
+            try:
+                producto = Producto.objects.get(id_producto=int(key))
+                cantidad_actual = carrito[key]['cantidad']
+                
+                cantidad = request.POST.get(f'cantidad_{key}')
+                meses = request.POST.get(f'meses_{key}')
+                
+                if cantidad and meses:
+                    nueva_cantidad = int(cantidad)
+                    if nueva_cantidad > 0:
+                        # Ajustar el inventario según la diferencia
+                        diferencia = nueva_cantidad - cantidad_actual
+                        
+                        if diferencia > 0:  # Usuario quiere más unidades
+                            # Verificar si hay suficiente stock
+                            if diferencia <= producto.cantidad_disponible:
+                                # Actualizar el carrito y el inventario
+                                carrito[key]['cantidad'] = nueva_cantidad
+                                producto.cantidad_disponible -= diferencia
+                                producto.save()
+                            else:
+                                # No hay suficiente stock
+                                maximo_posible = producto.cantidad_disponible + cantidad_actual
+                                carrito[key]['cantidad'] = maximo_posible
+                                producto.cantidad_disponible = 0
+                                producto.save()
+                                messages.warning(
+                                    request, 
+                                    f"Solo hay {maximo_posible} unidades disponibles de {producto.nombre}"
+                                )
+                        elif diferencia < 0:  # Usuario quiere menos unidades
+                            # Devolver al inventario
+                            carrito[key]['cantidad'] = nueva_cantidad
+                            producto.cantidad_disponible += abs(diferencia)
+                            producto.save()
+                        
+                        # Actualizar meses y subtotal
+                        carrito[key]['meses'] = int(meses)
+                        carrito[key]['subtotal'] = carrito[key]['precio_unitario'] * carrito[key]['cantidad'] * carrito[key]['meses']
+                    else:
+                        # Si la cantidad es 0 o negativa, eliminar del carrito
+                        # y devolver al inventario
+                        producto.cantidad_disponible += cantidad_actual
+                        producto.save()
+                        del carrito[key]
+            except Producto.DoesNotExist:
+                # El producto ya no existe, eliminarlo del carrito
+                del carrito[key]
+                messages.error(request, f"Uno de los productos ya no está disponible y fue eliminado del carrito")
+            except Exception as e:
+                messages.error(request, f"Error al actualizar el carrito: {str(e)}")
+                
+        request.session['carrito'] = carrito
+        messages.success(request, 'Carrito actualizado')
+    
+    # Calcular subtotales y total
+    total = 0
+    for key, item in list(carrito.items()):
+        try:
+            if 'precio_unitario' not in item:
+                # Si no existe precio_unitario, intentar recuperar el precio del producto
+                producto = Producto.objects.get(id_producto=int(key))
+                item['precio_unitario'] = float(producto.precio)
+            
+            if 'meses' not in item:
+                item['meses'] = 1
+                
+            item['subtotal'] = item['precio_unitario'] * item['cantidad'] * item['meses']
+            total += item['subtotal']
+        except:
+            # Si hay algún error con este item, mejor eliminarlo
+            del carrito[key]
+    
+    request.session['carrito'] = carrito
+    
+    return render(request, 'usuarios/carrito.html', {
+        'carrito': carrito,
+        'total': total
+    })
+
+def eliminar_del_carrito(request, producto_id):
+    carrito = request.session.get('carrito', {})
+    key = str(producto_id)
+    
+    if key in carrito:
+        try:
+            # Obtener la cantidad que estaba en el carrito antes de eliminarla
+            cantidad_en_carrito = carrito[key]['cantidad']
+            
+            # Devolver esta cantidad al inventario
+            producto = Producto.objects.get(id_producto=producto_id)
+            producto.cantidad_disponible += cantidad_en_carrito
+            producto.save()
+            
+            # Mensaje de confirmación
+            messages.success(request, f'Se eliminó {producto.nombre} del carrito y se devolvieron {cantidad_en_carrito} unidades al inventario')
+            
+            # Eliminar del carrito
+            del carrito[key]
+            request.session['carrito'] = carrito
+            
+        except Producto.DoesNotExist:
+            messages.error(request, 'No se pudo devolver al inventario: el producto ya no existe')
+            # Aun así eliminamos del carrito
+            del carrito[key]
+            request.session['carrito'] = carrito
+        except Exception as e:
+            messages.error(request, f'Error al eliminar del carrito: {str(e)}')
+    
+    return redirect('usuarios:carrito')
+
+def login_view(request):
+    mensaje = ''
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return redirect('inicio_cliente')
+        else:
+            mensaje = 'Usuario o contraseña incorrectos.'
+    return render(request, 'usuarios/login.html', {'mensaje': mensaje})
+
+@login_required
+def logout_view(request):
+    logout(request)
+    return redirect('login')
+def draw_emisor_receptor_box(p, emisor, receptor, x, y, width):
+    box_height = 70
+    col_sep = x + width // 2
+    p.setStrokeColor(colors.black)
+    p.setLineWidth(1)
+    p.roundRect(x, y - box_height, width, box_height, 8, stroke=1, fill=0)
+    # Emisor
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(x + 10, y - 15, "Emisor:")
+    p.setFont("Helvetica", 9)
+    p.drawString(x + 10, y - 30, f"{emisor['nombre']}")
+    p.drawString(x + 10, y - 42, f"NIT: {emisor['nif']}")
+    p.drawString(x + 10, y - 54, f"Dirección: {emisor['direccion']}")
+    p.drawString(x + 10, y - 66, f"Tel: {emisor['telefono']}")
+    # Receptor
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(col_sep + 10, y - 15, "Receptor:")
+    p.setFont("Helvetica", 9)
+    p.drawString(col_sep + 10, y - 30, f"{receptor['nombre']}")
+    p.drawString(col_sep + 10, y - 42, f"NIF/CIF: {receptor['nif']}")
+    p.drawString(col_sep + 10, y - 54, f"Dirección: {receptor['direccion']}")
+
+def draw_table_header(p, headers, x, y, col_widths, height=18):
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(x, y - height, sum(col_widths), height, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 9)
+    x0 = x
+    for i, h in enumerate(headers):
+        p.drawString(x0 + 4, y - height + 5, h)
+        x0 += col_widths[i]
+
+def draw_table_row(p, row, x, y, col_widths, height=16):
+    p.setFillColor(colors.white)
+    p.rect(x, y - height, sum(col_widths), height, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica", 9)
+    x0 = x
+    for i, cell in enumerate(row):
+        p.drawString(x0 + 4, y - height + 4, str(cell))
+        x0 += col_widths[i]
+
+def generar_cotizacion_pdf(request):
+    carrito = request.session.get('carrito', {})
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="cotizacion.pdf"'
+    
+    # Inicializar el PDF
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    
+    def draw_page_header():
+        # Encabezado con fondo amarillo
+        p.setFillColor(colors.HexColor("#FFD600"))
+        p.rect(0, height - 60, width, 60, fill=1, stroke=0)
+        
+        # Logo o Título
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 22)
+        p.drawCentredString(width/2, height - 40, "COTIZACIÓN")
+        
+        # Información de la empresa
+        p.setFont("Helvetica", 10)
+        p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
+    
+    # Primera página
+    draw_page_header()
+    y = height - 80
+    
+    # Marco para información
+    p.setLineWidth(0.5)
+    p.rect(40, y - 160, width - 80, 140, stroke=1, fill=0)
+    
+    # Información de la empresa y cliente
+    emisor = {
+        'nombre': 'MULTIANDAMIOS S.A.S.',
+        'nit': 'NIT 900.252.510-1',
+        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+        'telefono': '+57 310 574 2020',
+        'email': 'info@multiandamios.co'
+    }
+    
+    user = request.user
+    receptor = {
+        'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
+        'nit': getattr(user, 'numero_identidad', 'N/A'),
+        'direccion': getattr(user, 'direccion', 'N/A'),
+        'telefono': getattr(user, 'telefono', 'N/A'),
+        'email': user.email or 'N/A'
+    }
+    
+    # Dividir el espacio en dos columnas
+    col_width = (width - 100) / 2
+    
+    # Títulos de secciones
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y - 15, "DATOS DEL PROVEEDOR")
+    p.drawString(width/2 + 10, y - 15, "DATOS DEL CLIENTE")
+    
+    # Información del emisor
+    y -= 35
+    p.setFont("Helvetica", 10)
+    for key, value in emisor.items():
+        label = key.upper() + ": "
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(50, y, label)
+        p.setFont("Helvetica", 9)
+        p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
+        y -= 15
+    
+    # Información del receptor
+    y = height - 115
+    for key, value in receptor.items():
+        label = key.upper() + ": "
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(width/2 + 10, y, label)
+        p.setFont("Helvetica", 9)
+        p.drawString(width/2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
+        y -= 15
+    
+    # Información de la cotización
+    y = height - 200
+    p.setFont("Helvetica", 10)
+    fecha = datetime.now()
+    p.drawString(50, y, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
+    p.drawString(width - 200, y, f"Cotización #: {uuid.uuid4().hex[:8].upper()}")
+    
+    # Tabla de productos
+    y -= 40
+    headers = ["Descripción", "Cant.", "Meses", "Precio Unit.", "Subtotal"]
+    col_widths = [250, 60, 60, 80, 80]  # Ajuste de anchos
+    row_height = 20
+    
+    # Fondo del encabezado
+    p.setFillColor(colors.HexColor("#F5F5F5"))
+    p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+    
+    # Textos del encabezado
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 10)
+    x = 40
+    for i, header in enumerate(headers):
+        p.drawString(x + 5, y - 15, header)
+        x += col_widths[i]
+    
+    # Contenido de la tabla
+    y -= row_height
+    p.setFont("Helvetica", 9)
+    total_sin_iva = 0
+    
+    for item in carrito.values():
+        if y < 180:  # Nueva página si no hay espacio
+            p.showPage()
+            draw_page_header()
+            y = height - 100
+            p.setFont("Helvetica", 9)
+        
+        tiempo_renta = item.get('tiempo_renta', item.get('meses', 1))
+        precio_unitario = item['precio_unitario'] if 'precio_unitario' in item else item.get('precio', 0)
+        cantidad = item.get('cantidad', 1)
+        subtotal = precio_unitario * cantidad * tiempo_renta
+        total_sin_iva += subtotal
+        
+        # Marco de la fila
+        p.rect(40, y - row_height, sum(col_widths), row_height, stroke=1, fill=0)
+        
+        # Contenido de la fila
+        x = 40
+        producto = item.get('nombre', 'N/A')
+        # Descripción
+        p.drawString(x + 5, y - 15, producto[:40] + '...' if len(producto) > 40 else producto)
+        x += col_widths[0]
+        # Cantidad
+        p.drawRightString(x + col_widths[1] - 5, y - 15, str(cantidad))
+        x += col_widths[1]
+        # Meses
+        p.drawRightString(x + col_widths[2] - 5, y - 15, str(tiempo_renta))
+        x += col_widths[2]
+        # Precio unitario
+        p.drawRightString(x + col_widths[3] - 5, y - 15, f"${precio_unitario:,.0f}")
+        x += col_widths[3]
+        # Subtotal
+        p.drawRightString(x + col_widths[4] - 5, y - 15, f"${subtotal:,.0f}")
+        
+        y -= row_height
+    
+    # Cálculo del IVA y total
+    iva = total_sin_iva * 0.19
+    total_con_iva = total_sin_iva + iva
+    
+    # Totales
+    y -= 10
+    p.setFont("Helvetica-Bold", 10)
+    # Subtotal
+    p.drawString(width - 200, y, "SUBTOTAL:")
+    p.drawRightString(width - 40, y, f"${total_sin_iva:,.0f}")
+    # IVA
+    y -= 20
+    p.drawString(width - 200, y, "IVA (19%):")
+    p.drawRightString(width - 40, y, f"${iva:,.0f}")
+    # Total con IVA
+    y -= 20
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(width - 210, y - 5, 170, 25, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(width - 200, y, "TOTAL CON IVA:")
+    p.drawRightString(width - 40, y, f"${total_con_iva:,.0f}")
+    
+    # Precios por sector
+    y -= 60
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, "COSTOS DE TRANSPORTE POR SECTOR")
+    y -= 20
+    
+    sectores = [
+        ("Bogotá - Zona Norte", "$80.000"),
+        ("Bogotá - Zona Sur", "$90.000"),
+        ("Bogotá - Zona Occidente", "$85.000"),
+        ("Bogotá - Zona Oriente", "$85.000"),
+        ("Chía - Cajicá", "$120.000"),
+        ("Cota - Funza - Mosquera", "$110.000"),
+        ("Soacha - Sibaté", "$100.000")
+    ]
+    
+    p.setFont("Helvetica", 9)
+    for sector, precio in sectores:
+        p.drawString(50, y, f"• {sector}")
+        p.drawRightString(250, y, precio)
+        y -= 15
+    
+    # Términos y condiciones
+    y -= 20
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y, "Términos y Condiciones:")
+    y -= 20
+    p.setFont("Helvetica", 9)
+    terminos = [
+        "• Esta cotización tiene una validez de 30 días calendario.",
+        "• Los precios incluyen IVA del 19%.",
+        "• El tiempo mínimo de alquiler es de 1 mes.",
+        "• Se requiere un depósito de seguridad equivalente a 1 mes de alquiler.",
+        "• La entrega está sujeta a disponibilidad y verificación de existencias.",
+        "• Los costos de transporte varían según el sector y no están incluidos en esta cotización.",
+        "• El servicio de instalación tiene un costo adicional según el proyecto."
+    ]
+    
+    for termino in terminos:
+        if y < 80:  # Nueva página si no hay espacio
+            p.showPage()
+            draw_page_header()
+            y = height - 100
+            p.setFont("Helvetica", 9)
+        p.drawString(50, y, termino)
+        y -= 15
+    
+    # Firma
+    y -= 30
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(50, y, "Firma Digital")
+    y -= 15
+    try:
+        firma_path = os.path.join(settings.STATIC_ROOT or settings.STATICFILES_DIRS[0], 'firmas', 'firma_multiandamios.png')
+        if os.path.exists(firma_path):
+            p.drawImage(firma_path, 50, y - 30, width=100, height=30, mask='auto')
+        else:
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(50, y - 15, "MultiAndamios")
+    except Exception:
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(50, y - 15, "MultiAndamios")
+    
+    # Pie de página
+    p.setFont("Helvetica", 8)
+    p.drawString(50, 30, "MULTIANDAMIOS S.A.S. - Todos los derechos reservados")
+    p.drawRightString(width - 50, 30, f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    
+    p.save()
+    return response
+
+def generar_factura_pdf(request):
+    carrito = request.session.get('carrito', {})
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="factura.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 40
+
+    # Encabezado
+    p.setFont("Helvetica-Bold", 16)
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(0, y, width, 30, fill=1, stroke=0)
+    p.setFillColor(colors.black)
+    p.drawString(50, y + 8, "FACTURA - MULTIANDAMIOS S.A.S.")
+    y -= 40
+
+    # Datos emisor/receptor
+    emisor = {
+        'nombre': 'MULTIANDAMIOS S.A.S.',
+        'nif': 'NIT 900.252.510-1',
+        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+        'telefono': '+57 310 574 2020',
+        'email': 'info@multiandamios.co',
+        'web': 'https://multiandamios.co/'
+    }
+    user = request.user
+    receptor = {
+        'nombre': f"{user.first_name} {user.last_name}",
+        'nif': getattr(user, 'numero_identidad', 'N/A'),
+        'direccion': getattr(user, 'direccion', 'N/A')
+    }
+    draw_emisor_receptor_box(p, emisor, receptor, 40, y, width - 80)
+    y -= 80
+
+    # Fecha y número
+    numero_factura = f"F-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    fecha_emision = datetime.now().strftime("%d/%m/%Y %H:%M")
+    p.setFont("Helvetica", 10)
+    p.drawString(50, y, f"Número y serie: {numero_factura}")
+    p.drawString(250, y, f"Fecha de emisión: {fecha_emision}")
+    y -= 20
+
+    # Tabla de productos
+    headers = ["Descripción", "Cantidad", "Meses", "Precio Unitario", "Subtotal"]
+    col_widths = [120, 60, 50, 80, 80]
+    draw_table_header(p, headers, 40, y, col_widths)
+    y -= 18
+    total = 0
+    for item in carrito.values():
+        tiempo_renta = item.get('tiempo_renta', item.get('meses', 1))
+        precio_unitario = item['precio_unitario'] if 'precio_unitario' in item else item.get('precio', 0)
+        cantidad = item.get('cantidad', 1)
+        subtotal = item.get('subtotal', precio_unitario * cantidad * tiempo_renta)
+        row = [
+            item['nombre'],
+            cantidad,
+            tiempo_renta,
+            f"${precio_unitario:.2f}",
+            f"${subtotal:.2f}"
+        ]
+        draw_table_row(p, row, 40, y, col_widths)
+        y -= 16
+        total += subtotal
+        if y < 100:
+            p.showPage()
+            y = height - 40
+            draw_table_header(p, headers, 40, y, col_widths)
+            y -= 18
+    y -= 10
+
+    # Calculo de IVA
+    iva_porcentaje = 0.21  # 21%
+    iva = round(total * iva_porcentaje, 2)
+    total_con_iva = round(total + iva, 2)
+
+    # Mostrar totales e IVA
+    p.setFont("Helvetica", 10)
+    p.setFillColor(colors.white)
+    p.rect(40, y - 54, sum(col_widths), 54, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.drawString(45, y - 12, f"Base imponible: ${total:.2f}")
+    p.drawString(45, y - 24, f"IVA (21%): ${iva:.2f}")
+    p.setFont("Helvetica-Bold", 12)
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(40, y - 50, sum(col_widths), 22, fill=1, stroke=0)
+    p.setFillColor(colors.black)
+    p.drawString(45, y - 43, f"Importe total: ${total_con_iva:.2f}")
+    y -= 60
+
+    # Observaciones
+    p.setFont("Helvetica", 9)
+    p.setFillColor(colors.black)
+    p.drawString(40, y - 10, "Observaciones: Esta cotización incluye IVA. El costo de transporte depende de la zona de entrega y se cotiza aparte.")
+    y -= 20
+
+    # Listado de precios de transporte por zona (ejemplo)
+    zonas = [
+        ("Bogotá (urbano)", 50000),
+        ("Cundinamarca (hasta 50km)", 120000),
+        ("Cundinamarca (más de 50km)", 200000),
+        ("Otras ciudades principales", 350000),
+        ("Ciudades lejanas o especiales", 500000),
+    ]
+    p.setFont("Helvetica-Bold", 10)
+    p.drawString(40, y, "Ejemplo de precios de transporte según zona:")
+    y -= 16
+    p.setFont("Helvetica", 9)
+    for zona, precio in zonas:
+        p.drawString(50, y, f"- {zona}: ${precio:,.0f}")
+        y -= 14
+        if y < 60:
+            p.showPage()
+            y = height - 40
+    p.setFont("Helvetica-Oblique", 8)
+    p.drawString(40, y, "* La empresa está ubicada en Cra. 129 #22C 69, Bogotá. El costo de transporte aumenta según la distancia.")
+    p.showPage()
+    p.save()
+    return response
+
+def generar_factura_pdf(request):
+    carrito = request.session.get('carrito', {})
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="factura.pdf"'
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    y = height - 40
+
+    # Encabezado
+    p.setFont("Helvetica-Bold", 16)
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(0, y, width, 30, fill=1, stroke=0)
+    p.setFillColor(colors.black)
+    p.drawString(50, y + 8, "FACTURA - MULTIANDAMIOS S.A.S.")
+    y -= 40
+
+    # Datos emisor/receptor
+    emisor = {
+        'nombre': 'MULTIANDAMIOS S.A.S.',
+        'nif': 'NIT 900.252.510-1',
+        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+        'telefono': '+57 310 574 2020',
+        'email': 'info@multiandamios.co',
+        'web': 'https://multiandamios.co/'
+    }
+    user = request.user
+    receptor = {
+        'nombre': f"{user.first_name} {user.last_name}",
+        'nif': getattr(user, 'numero_identidad', 'N/A'),
+        'direccion': getattr(user, 'direccion', 'N/A')
+    }
+    draw_emisor_receptor_box(p, emisor, receptor, 40, y, width - 80)
+    y -= 80
+
+    # Fecha y número
+    numero_factura = f"F-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    fecha_emision = datetime.now().strftime("%d/%m/%Y %H:%M")
+    p.setFont("Helvetica", 10)
+    p.drawString(50, y, f"Número y serie: {numero_factura}")
+    p.drawString(250, y, f"Fecha de emisión: {fecha_emision}")
+    y -= 20
+
+    # Tabla de productos
+    headers = ["Descripción", "Cantidad", "Meses", "Precio Unitario", "Subtotal"]
+    col_widths = [120, 60, 50, 80, 80]
+    draw_table_header(p, headers, 40, y, col_widths)
+    y -= 18
+    total = 0
+    for item in carrito.values():
+        tiempo_renta = item.get('tiempo_renta', item.get('meses', 1))
+        precio_unitario = item['precio_unitario'] if 'precio_unitario' in item else item.get('precio', 0)
+        cantidad = item.get('cantidad', 1)
+        subtotal = item.get('subtotal', precio_unitario * cantidad * tiempo_renta)
+        row = [
+            item['nombre'],
+            cantidad,
+            tiempo_renta,
+            f"${precio_unitario:.2f}",
+            f"${subtotal:.2f}"
+        ]
+        draw_table_row(p, row, 40, y, col_widths)
+        y -= 16
+        total += subtotal
+        if y < 100:
+            p.showPage()
+            y = height - 40
+            draw_table_header(p, headers, 40, y, col_widths)
+            y -= 18
+    y -= 10
+
+    # Totales e IVA
+    iva = round(total * 0.21, 2)
+    total_con_iva = round(total + iva, 2)
+    p.setFont("Helvetica", 10)
+    p.setFillColor(colors.white)
+    p.rect(40, y - 54, sum(col_widths), 54, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.drawString(45, y - 12, f"Base imponible: ${total:.2f}")
+    p.drawString(45, y - 28, f"IVA (21%): ${iva:.2f}")
+    p.setFont("Helvetica-Bold", 12)
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(40, y - 50, sum(col_widths), 22, fill=1, stroke=0)
+    p.setFillColor(colors.black)
+    p.drawString(45, y - 38, f"Importe total: ${total_con_iva:.2f}")
+    y -= 60
+
+    # Formas de pago
+    p.setFont("Helvetica", 9)
+    p.setFillColor(colors.black)
+    p.drawString(40, y, "Formas de pago: Transferencia bancaria, efectivo. Pago inmediato.")
+    p.showPage()
+    p.save()
+    return response
+
+def generar_remision_pdf(request):
+    # Verificar si hay items en el carrito
+    carrito = request.session.get('carrito', {})
+    if not carrito:
+        messages.error(request, 'El carrito está vacío')
+        return redirect('carrito')
+
+    # Crear el response con el tipo de contenido PDF
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="remision.pdf"'
+
+    # Crear el documento PDF
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # Configurar estilos
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        alignment=1,
+        spaceAfter=30,
+        textColor=colors.black,
+    )
+
+    # Agregar título
+    p.setFillColor(colors.yellow)
+    p.rect(0, height - 80, width, 50, fill=True)
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 20)
+    p.drawCentredString(width/2, height - 50, "REMISIÓN DE ENTREGA DE EQUIPOS")
+
+    # Calcular fechas
+    fecha_actual = datetime.now()
+    fecha_entrega = fecha_actual + timedelta(hours=24)
+    # Encontrar el máximo número de meses en el carrito
+    max_meses = max(item.get('meses', 1) for item in carrito.values())
+    fecha_devolucion = fecha_entrega + timedelta(days=30 * max_meses)
+
+    # Buscar el logo en diferentes ubicaciones
+    possible_logo_paths = [
+        os.path.join(settings.BASE_DIR, 'static', 'logo_multiandamios.png'),
+        os.path.join(settings.BASE_DIR, 'media', 'productos', 'Logo-Teinco-Color.webp'),
+        os.path.join(settings.BASE_DIR, 'static', 'logo_multiandamios.jpg'),
+    ]
+    
+    logo_path = next((path for path in possible_logo_paths if os.path.exists(path)), None)
+    if logo_path:
+        p.drawImage(logo_path, 50, height - 150, width=100, height=50, preserveAspectRatio=True)
+
+    # Información de la empresa
+    p.setFont("Helvetica", 10)
+    p.drawString(50, height - 180, "MULTIANDAMIOS S.A.S. | NIT 900.232.510-1")
+    p.drawString(50, height - 195, "Dirección: Cra. 128 #22A-45, Bogotá, Colombia")
+    p.drawString(50, height - 210, "Tel: +57 310 574 2020 | Email: info@multiandamios.co")
+    p.drawString(50, height - 225, "Web: https://multiandamios.co/")
+
+    # Información del cliente
+    p.drawString(350, height - 180, f"Cliente: {request.user.get_full_name()}")
+    p.drawString(350, height - 195, f"NIT/Cédula: {request.user.numero_identidad if hasattr(request.user, 'numero_identidad') else 'N/A'}")
+    p.drawString(350, height - 210, f"Dirección: {getattr(request.user, 'direccion', 'N/A')}")
+    p.drawString(350, height - 225, f"Email: {request.user.email}")
+
+    # Detalles de la remisión
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, height - 270, "Detalles del alquiler:")
+    p.setFont("Helvetica", 10)
+    p.drawString(50, height - 290, f"Fecha y hora de entrega: {fecha_entrega.strftime('%d/%m/%Y %H:%M')}")
+    p.drawString(50, height - 305, f"Fecha estimada de devolución: {fecha_devolucion.strftime('%d/%m/%Y %H:%M')}")
+
+    # Tabla de equipos
+    data = [['Código', 'Descripción', 'Cantidad', 'Estado', 'Observaciones']]
+    for key, item in carrito.items():
+        data.append([
+            key,
+            item['nombre'],
+            str(item['cantidad']),
+            'Usado',
+            ''
+        ])
+
+    table = Table(data, colWidths=[60, 200, 60, 80, 140])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.yellow),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    table.wrapOn(p, width, height)
+    table.drawOn(p, 50, height - 450)
+
+    # Condiciones de uso
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(50, height - 500, "Condiciones de uso y responsabilidad:")
+    p.setFont("Helvetica", 9)
+    conditions = [
+        "- El cliente es responsable del equipo durante el período de alquiler.",
+        "- La devolución debe hacerse en buen estado, salvo el desgaste normal.",
+        "- Cualquier daño, pérdida o mal uso será asumido por el cliente.",
+        "- El equipo debe ser utilizado conforme a las instrucciones y normas de seguridad."
+    ]
+    for i, condition in enumerate(conditions):
+        p.drawString(50, height - 520 - (i * 15), condition)
+
+    # Firmas
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, height - 600, "Firma y nombre de quien entrega:")
+    p.drawString(350, height - 600, "Firma y nombre de quien recibe:")
+    
+    # Firma alternativa usando texto estilizado
+    p.setFont("Helvetica-Bold", 24)  # Tamaño más grande para la firma
+    p.setFillColor(colors.HexColor('#000080'))  # Color azul oscuro
+    p.drawString(50, height - 650, "MultiAndamios")
+    
+    # Agregar línea debajo de la firma
+    p.setStrokeColor(colors.HexColor('#000080'))
+    p.setLineWidth(1.5)
+    p.line(50, height - 660, 230, height - 660)
+    
+    # Nombre y cargo
+    p.setFont("Helvetica", 10)
+    p.setFillColor(colors.black)
+    p.drawString(50, height - 680, "Representante Autorizado")
+    
+    # Línea para firma de recepción
+    p.setLineWidth(1)
+    p.setStrokeColor(colors.black)
+    p.line(350, height - 670, 550, height - 670)
+
+    # Footer
+    p.setFont("Helvetica", 8)
+    p.drawString(50, 30, f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    p.drawString(width - 250, 30, f"Número de remisión: R-{datetime.now().strftime('%Y%m%d%H%M%S')}")
+
+    p.showPage()
+    p.save()
+    return response
+
+def generar_recibo_pdf(request):
+    Process the order from the cart and create a new Pedido instance
+    """
+    carrito = request.session.get('carrito', {})
+    if not carrito:
+        raise ValueError("El carrito está vacío")
+    
+    # Obtener el objeto Cliente relacionado con el Usuario
+    try:
+        cliente = Cliente.objects.get(usuario=request.user)
+    except Cliente.DoesNotExist:
+        # Si no existe el cliente, lo creamos
+        cliente = Cliente.objects.create(
+            usuario=request.user,
+            telefono=getattr(request.user, 'telefono', ''),
+            direccion=getattr(request.user, 'direccion', '')
+        )
+    
+    # Crear el pedido
+    pedido = Pedido.objects.create(
+        cliente=cliente,  # Usar el objeto Cliente en lugar del Usuario
+        fecha=timezone.now(),
+        total=sum(item['subtotal'] for item in carrito.values()),
+        estado_pedido_general='confirmado',
+        direccion_entrega=getattr(request.user, 'direccion', '') or cliente.direccion,
+        metodo_pago=request.POST.get('metodo_pago', ''),
+        ref_pago=request.POST.get('ref_pago', '')
+    )
+    
+    # Crear detalles del pedido
+    for item_id, item in carrito.items():
+        try:
+            producto = Producto.objects.get(id_producto=int(item_id))
+            DetallePedido.objects.create(
+                pedido=pedido,
+                producto=producto,
+                cantidad=item['cantidad'],
+                precio_unitario=item['precio_unitario'],
+                subtotal=item['subtotal'],
+                meses_renta=item.get('meses', 1)
+            )
+        except Producto.DoesNotExist:
+            # Si el producto no existe, continuamos con el siguiente
+            continue
+    
+    return pedido
+
+@login_required
+def pago_recibo(request):
+    if not request.user.is_authenticated:
+        return redirect('usuarios:login')
+    
+    carrito = request.session.get('carrito', {})
+    if not carrito:
+        return redirect('productos:catalogo_productos')
+    
+    total = sum(item['subtotal'] for item in carrito.values())
+    
+    # Datos de la empresa
+    emisor = {
+        'nombre': 'Multiandamios',
+        'nif': '900.252.510-1',
+        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+        'telefono': '+57 310 574 2020',
+        'email': 'info@multiandamios.co',
+        'web': 'https://multiandamios.co/'
+    }
+    
+    # Datos bancarios para transferencias
+    datos_bancarios = {
+        'banco': 'Banco de Bogotá',
+        'tipo_cuenta': 'Cuenta Corriente',
+        'numero_cuenta': '123456789',
+        'titular': 'MULTIANDAMIOS S.A.S.',
+        'nit': '900.252.510-1'
+    }
+    
+    if request.method == 'POST':
+        pago_form = MetodoPagoForm(request.POST, request.FILES)
+        if pago_form.is_valid():
+            try:
+                # Guardar el método de pago
+                metodo_pago = pago_form.save(commit=False)
+                metodo_pago.usuario = request.user
+                metodo_pago.monto = total
+                metodo_pago.save()
+                
+                # Crear el pedido
+                pedido = procesar_pedido(request)
+                # Vincular el método de pago al pedido
+                pedido.metodo_pago = metodo_pago.tipo
+                pedido.ref_pago = metodo_pago.numero_referencia
+                pedido.save()
+                
+                # Limpiar el carrito
+                request.session['carrito'] = {}
+                # Redirigir a confirmación
+                return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
+            except Exception as e:
+                messages.error(request, f'Error al procesar el pago: {str(e)}')
+                return redirect('usuarios:carrito')
+    else:
+        pago_form = MetodoPagoForm()
+    
+    context = {
+        'carrito': carrito,
+        'total': total,
+        'emisor': emisor,
+        'datos_bancarios': datos_bancarios,
+        'pago_form': pago_form,  # Agregar el formulario al contexto
+    }
+    
+    return render(request, 'usuarios/pago.html', context)
+
+@login_required
+def confirmacion_pago(request, pedido_id):
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
+    context = {
+        'pedido': pedido,
+        'detalles': pedido.detalles.all()
+    }
+    return render(request, 'usuarios/confirmacion_pago.html', context)
+
+

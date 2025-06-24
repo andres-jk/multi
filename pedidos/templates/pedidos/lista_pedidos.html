@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Lista de Pedidos{% endblock %}
+{% block nav %}
+<a href="/panel/admin/clientes/">Clientes</a>
+<a href="/panel/admin/productos/">Administrar Productos</a>
+<a href="{% url 'recibos:lista_recibos' %}">Recibos de Obra</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card card-pedidos">
+    <h1 class="highlight">Lista de Pedidos</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID Pedido</th>
+                    <th>Cliente</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Dirección de Entrega</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in pedidos %}
+                <tr>
+                    <td>{{ pedido.id_pedido }}</td>
+                    <td>{{ pedido.cliente }}</td>
+                    <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ pedido.estado_pedido_general }}</td>
+                    <td>{{ pedido.direccion_entrega }}</td>
+                    <td>
+                        <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-info">Ver</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">No hay pedidos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

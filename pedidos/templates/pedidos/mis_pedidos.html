@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Mis Pedidos{% endblock %}
+{% block content %}
+<div class="card card-pedidos">
+    <h1 class="highlight">Mis Pedidos</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Pedido #</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Dirección de Entrega</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in pedidos %}
+                <tr>
+                    <td>{{ pedido.id_pedido }}</td>
+                    <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <span class="badge {% if pedido.estado_pedido_general == 'PENDIENTE' %}badge-warning{% elif pedido.estado_pedido_general == 'EN_PROCESO' %}badge-primary{% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success{% else %}badge-secondary{% endif %}">
+                            {{ pedido.get_estado_pedido_general_display }}
+                        </span>
+                    </td>
+                    <td>{{ pedido.direccion_entrega }}</td>
+                    <td>
+                        <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-info">Ver Detalles</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">No tienes pedidos registrados.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-primary">Ver Catálogo</a>
+        <a href="{% url 'usuarios:inicio_cliente' %}" class="btn">Volver al Inicio</a>
+    </div>
+</div>
+
+<style>
+.badge {
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    font-weight: normal;
+    font-size: 0.875rem;
+}
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+.badge-primary {
+    background-color: #007bff;
+    color: #fff;
+}
+.badge-success {
+    background-color: #28a745;
+    color: #fff;
+}
+.badge-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+</style>
+{% endblock %}

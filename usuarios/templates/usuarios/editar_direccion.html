@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Editar Dirección</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="calle" class="form-label">Calle y Número</label>
+                            <input type="text" class="form-control" id="calle" name="calle" 
+                                   value="{{ direccion.calle }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ciudad" class="form-label">Ciudad</label>
+                            <input type="text" class="form-control" id="ciudad" name="ciudad" 
+                                   value="{{ direccion.ciudad }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="departamento" class="form-label">Departamento</label>
+                            <input type="text" class="form-control" id="departamento" name="departamento" 
+                                   value="{{ direccion.departamento }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="codigo_postal" class="form-label">Código Postal</label>
+                            <input type="text" class="form-control" id="codigo_postal" name="codigo_postal" 
+                                   value="{{ direccion.codigo_postal|default:'' }}">
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="es_principal" name="es_principal"
+                                   {% if direccion.es_principal %}checked{% endif %}>
+                            <label class="form-check-label" for="es_principal">Establecer como dirección principal</label>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                            <a href="{% url 'usuarios:perfil' %}" class="btn btn-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

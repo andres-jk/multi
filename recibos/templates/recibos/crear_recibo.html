@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear Recibo de Obra{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Crear Recibo de Obra</h1>
+    <h2>Pedido #{{ pedido.id_pedido }}</h2>
+    
+    <form method="post" class="form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="producto">Producto:</label>
+            <select name="producto" id="producto" required>
+                {% for detalle in detalles %}
+                    <option value="{{ detalle.producto.id_producto }}">
+                        {{ detalle.producto.nombre }} ({{ detalle.cantidad }} unidades)
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="cantidad">Cantidad:</label>
+            <input type="number" name="cantidad" id="cantidad" min="1" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="condicion">Condición del Equipo:</label>
+            <textarea name="condicion" id="condicion" rows="3" required placeholder="Describe el estado actual del equipo..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="notas">Notas Adicionales:</label>
+            <textarea name="notas" id="notas" rows="3" placeholder="Observaciones o notas importantes..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Generar Recibo</button>
+        <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+
+{% block title %}MultiAndamios - Alquiler de Andamios y Equipos{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <h1 class="hero-title">Bienvenido a <span class="highlight-text">MultiAndamios</span></h1>
+        <p class="hero-subtitle">La solución perfecta para sus proyectos de construcción</p>
+        <div class="hero-buttons">
+            <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-hero">Ver Catálogo</a>
+            <a href="#servicios" class="btn btn-hero-outline">Nuestros Servicios</a>
+        </div>
+    </div>
+</div>
+
+<div class="company-stats">
+    <div class="stat-item">
+        <div class="stat-number">10+</div>
+        <div class="stat-label">Años de Experiencia</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">500+</div>
+        <div class="stat-label">Clientes Satisfechos</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-number">1000+</div>
+        <div class="stat-label">Proyectos Completados</div>
+    </div>
+</div>
+
+<div class="container">    <section class="featured-products-section">
+        <h2 class="section-title">Productos Destacados</h2>
+        <div class="product-grid">
+            {% if productos_destacados %}
+                {% for producto in productos_destacados %}
+                <div class="product-card">
+                    <div class="ribbon">Popular</div>
+                    {% if producto.imagen %}
+                    <div class="product-image">
+                        <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}">
+                    </div>
+                    {% endif %}
+                    <div class="product-info">
+                        <h3>{{ producto.nombre }}</h3>
+                        <div class="product-meta">
+                            <div class="availability">
+                                <i class="fas fa-check-circle"></i> Disponible
+                            </div>
+                            <div class="product-type">
+                                {{ producto.tipo_renta|default:"Unidad" }}
+                            </div>
+                        </div>
+                        <p class="product-price">${{ producto.precio }} <span class="price-period">/ {{ producto.tipo_renta|default:"Unidad" }}</span></p>
+                        <p class="product-description">{{ producto.descripcion|default:""|truncatechars:100 }}</p>
+                        <div class="product-actions">
+                            <a href="{% url 'productos:detalle_producto' producto.id_producto %}" class="btn btn-product">Ver Detalles</a>
+                            <a href="#" class="btn-favorite" title="Agregar a favoritos"><i class="fas fa-heart"></i></a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-products">
+                    <i class="fas fa-box-open fa-4x"></i>
+                    <p>No hay productos destacados disponibles en este momento.</p>
+                    <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-primary">Ver Catálogo Completo</a>
+                </div>
+            {% endif %}
+        </div>
+    </section>    <section id="servicios" class="services-section">
+        <h2 class="section-title">Nuestros Servicios</h2>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-tools"></i>
+                </div>
+                <h3>Alquiler de Equipos</h3>
+                <p>Ofrecemos equipos de construcción de alta calidad para todo tipo de proyectos, con tarifas competitivas y plazos flexibles.</p>
+                <div class="service-features">
+                    <div class="feature"><i class="fas fa-check"></i> Equipos certificados</div>
+                    <div class="feature"><i class="fas fa-check"></i> Plazos flexibles</div>
+                    <div class="feature"><i class="fas fa-check"></i> Descuentos por volumen</div>
+                </div>
+                <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-service">Explorar Equipos</a>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <h3>Entrega y Retiro</h3>
+                <p>Servicio de entrega y retiro de equipos en el lugar de su proyecto, con puntualidad y eficiencia garantizadas.</p>
+                <div class="service-features">
+                    <div class="feature"><i class="fas fa-check"></i> Entregas programadas</div>
+                    <div class="feature"><i class="fas fa-check"></i> Cobertura amplia</div>
+                    <div class="feature"><i class="fas fa-check"></i> Servicio profesional</div>
+                </div>
+                <a href="#contacto" class="btn btn-service">Consultar Cobertura</a>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">
+                    <i class="fas fa-hard-hat"></i>
+                </div>
+                <h3>Asesoría Técnica</h3>
+                <p>Asesoramiento técnico para ayudarle a elegir los equipos adecuados para su proyecto, garantizando eficiencia y seguridad.</p>
+                <div class="service-features">
+                    <div class="feature"><i class="fas fa-check"></i> Personal calificado</div>
+                    <div class="feature"><i class="fas fa-check"></i> Visitas a obra</div>
+                    <div class="feature"><i class="fas fa-check"></i> Soporte continuo</div>
+                </div>
+                <a href="#contacto" class="btn btn-service">Solicitar Asesoría</a>
+            </div>
+        </div>
+    </section>    <section class="about-section">
+        <div class="about-container">
+            <div class="about-image">
+                <img src="/media/productos/Logo-Teinco-Color.webp" alt="MultiAndamios Equipo">
+            </div>
+            <div class="about-content">
+                <h2 class="section-title">Sobre Nosotros</h2>
+                <div class="about-text">
+                    <p class="about-highlight">MultiAndamios es una empresa líder en el alquiler de andamios y equipos para la construcción. Con más de 10 años de experiencia en el mercado, nos caracterizamos por ofrecer productos de alta calidad y un servicio excepcional.</p>
+                    <p>Nuestro compromiso es proporcionar soluciones eficientes y seguras para nuestros clientes, garantizando siempre la puntualidad en la entrega y el mejor asesoramiento técnico.</p>
+                    <div class="about-values">
+                        <div class="value-item">
+                            <div class="value-icon"><i class="fas fa-medal"></i></div>
+                            <div class="value-title">Calidad</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-icon"><i class="fas fa-shield-alt"></i></div>
+                            <div class="value-title">Seguridad</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-icon"><i class="fas fa-handshake"></i></div>
+                            <div class="value-title">Compromiso</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-icon"><i class="fas fa-clipboard-check"></i></div>
+                            <div class="value-title">Responsabilidad</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="contacto" class="cta-section">
+        <div class="cta-overlay"></div>
+        <div class="cta-content">
+            <h2>¿Listo para comenzar su proyecto?</h2>
+            <p>Contáctenos hoy mismo para obtener una cotización personalizada y asesoramiento para su proyecto.</p>
+            <div class="cta-buttons">
+                <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-cta-primary">Explorar Productos</a>
+                <a href="{% url 'usuarios:login' %}" class="btn btn-cta-secondary">Iniciar Sesión</a>
+            </div>
+        </div>
+    </section>
+    
+    <section class="testimonials-section">
+        <h2 class="section-title">Lo que dicen nuestros clientes</h2>
+        <div class="testimonials-container">
+            <div class="testimonial-card">
+                <div class="testimonial-rating">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                </div>
+                <p class="testimonial-text">"Excelente servicio y calidad de equipos. La entrega fue puntual y el asesoramiento técnico fue de gran ayuda para nuestro proyecto."</p>
+                <div class="testimonial-author">
+                    <div class="author-name">Carlos Rodríguez</div>
+                    <div class="author-company">Constructora ABC</div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-rating">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                </div>
+                <p class="testimonial-text">"Hemos trabajado con MultiAndamios en varios proyectos y siempre han respondido con profesionalismo y eficiencia. Altamente recomendado."</p>
+                <div class="testimonial-author">
+                    <div class="author-name">Laura Méndez</div>
+                    <div class="author-company">Ingeniería y Desarrollos M&M</div>
+                </div>
+            </div>
+            <div class="testimonial-card">
+                <div class="testimonial-rating">
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star"></i>
+                    <i class="fas fa-star-half-alt"></i>
+                </div>
+                <p class="testimonial-text">"La calidad de los andamios es excepcional y el servicio al cliente es muy profesional. Sin duda seguiremos contando con ellos para futuros proyectos."</p>
+                <div class="testimonial-author">
+                    <div class="author-name">Javier Torres</div>
+                    <div class="author-company">Torres Construcciones S.A.S</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

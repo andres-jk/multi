@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Devolución de Recibo Consolidado{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Registrar Devolución de Recibo Consolidado</h1>
+    <h2>Recibo de Obra #{{ recibo.id }}</h2>
+    
+    <div class="info-box">
+        <h3>Información General</h3>
+        <p><strong>Cliente:</strong> {{ recibo.cliente.usuario.get_full_name }}</p>
+        <p><strong>Pedido:</strong> #{{ recibo.pedido.id_pedido }}</p>
+        <p><strong>Fecha de Entrega:</strong> {{ recibo.fecha_entrega|date:"d/m/Y H:i" }}</p>
+    </div>
+    
+    <form method="post" class="form">
+        {% csrf_token %}
+        
+        <h3>Productos Entregados</h3>
+        
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad Entregada</th>
+                        <th>Cantidad Devuelta</th>
+                        <th>Buen Estado</th>
+                        <th>Dañados</th>
+                        <th>Inservibles</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in detalles %}
+                    <tr>
+                        <td>{{ detalle.producto.nombre }}</td>
+                        <td>{{ detalle.cantidad_solicitada }}</td>
+                        <td>{{ detalle.cantidad_vuelta }}/{{ detalle.cantidad_solicitada }}</td>
+                        <td>
+                            <input type="number" name="buen_estado_{{ detalle.id }}" 
+                                   id="buen_estado_{{ detalle.id }}" 
+                                   min="0" max="{{ detalle.cantidad_pendiente }}" value="0" 
+                                   class="form-control cantidad-input">
+                        </td>
+                        <td>
+                            <input type="number" name="danados_{{ detalle.id }}" 
+                                   id="danados_{{ detalle.id }}" 
+                                   min="0" max="{{ detalle.cantidad_pendiente }}" value="0" 
+                                   class="form-control cantidad-input">
+                        </td>
+                        <td>
+                            <input type="number" name="inservibles_{{ detalle.id }}" 
+                                   id="inservibles_{{ detalle.id }}" 
+                                   min="0" max="{{ detalle.cantidad_pendiente }}" value="0" 
+                                   class="form-control cantidad-input">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="form-group">
+            <label for="estado">Estado General:</label>
+            <select name="estado" id="estado" class="form-control">
+                {% for value, label in estados %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="condicion_devolucion">Condición de Devolución:</label>
+            <textarea name="condicion_devolucion" id="condicion_devolucion" rows="3" required placeholder="Describe el estado de los equipos al momento de la devolución..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="notas_devolucion">Notas Adicionales:</label>
+            <textarea name="notas_devolucion" id="notas_devolucion" rows="3" placeholder="Observaciones o notas importantes..."></textarea>
+        </div>
+        
+        <div class="form-buttons">
+            <button type="submit" class="btn btn-primary" id="submit-btn">Registrar Devolución</button>
+            <a href="{% url 'recibos:lista_recibos' %}" class="btn">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.info-box {
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-left: 4px solid #FFD600;
+    color: #333333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.info-box h3 {
+    color: #000000;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.info-box p {
+    margin-bottom: 8px;
+    font-size: 1.05em;
+    color: #333333;
+}
+
+.info-box p strong {
+    color: #000000;
+    font-weight: bold;
+}
+
+.form-control {
+    width: 70px;
+    text-align: center;
+}
+
+.form-buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+select.form-control {
+    width: auto;
+    min-width: 200px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    color: #333;
+}
+
+textarea.form-control {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+h1.highlight, h2, h3 {
+    color: #000000;
+}
+
+.table {
+    color: #333333;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.table th {
+    background-color: #FFD600;
+    color: #000000;
+    padding: 10px;
+    text-align: center;
+}
+
+.table td {
+    padding: 8px;
+    vertical-align: middle;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    color: #000000;
+    font-weight: bold;
+    font-size: 1.05em;
+    display: block;
+    margin-bottom: 5px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación de formulario
+    document.querySelector('form').addEventListener('submit', function(e) {
+        let isValid = false;
+        
+        // Verificar si al menos un producto tiene devolución
+        {% for detalle in detalles %}
+        const buenEstado{{ detalle.id }} = parseInt(document.getElementById('buen_estado_{{ detalle.id }}').value) || 0;
+        const danados{{ detalle.id }} = parseInt(document.getElementById('danados_{{ detalle.id }}').value) || 0;
+        const inservibles{{ detalle.id }} = parseInt(document.getElementById('inservibles_{{ detalle.id }}').value) || 0;
+        
+        if (buenEstado{{ detalle.id }} > 0 || danados{{ detalle.id }} > 0 || inservibles{{ detalle.id }} > 0) {
+            isValid = true;
+            
+            // Verificar que no exceda la cantidad pendiente
+            const total{{ detalle.id }} = buenEstado{{ detalle.id }} + danados{{ detalle.id }} + inservibles{{ detalle.id }};
+            if (total{{ detalle.id }} > {{ detalle.cantidad_pendiente }}) {
+                alert('La cantidad total devuelta para {{ detalle.producto.nombre }} excede la cantidad pendiente ({{ detalle.cantidad_pendiente }}).');
+                e.preventDefault();
+                return false;
+            }
+        }
+        {% endfor %}
+        
+        if (!isValid) {
+            alert('Debe registrar al menos un producto devuelto.');
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}
