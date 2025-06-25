@@ -16,95 +16,113 @@
     {% endif %}
 
     <div class="row">
-        <!-- Resumen del pedido -->
-        <div class="col-md-8">
-            <div class="card mb-4">
+        <div class="col-md-7">
+            <form method="post" id="checkout-form">
+                {% csrf_token %}
+                
+                {% include 'usuarios/divipola_selectors.html' with departamentos=departamentos %}
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="mb-0">Transporte y Notas</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label for="notas" class="form-label">Instrucciones especiales de entrega:</label>
+                            <textarea name="notas" id="notas" class="form-control" rows="3" 
+                                    placeholder="Por ejemplo: horario de entrega preferido, punto de referencia, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg w-100 mb-4">
+                    Confirmar y Continuar al Pago
+                </button>
+            </form>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card sticky-top">
                 <div class="card-header">
                     <h2 class="mb-0">Resumen del Pedido</h2>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Cantidad</th>
-                                    <th>Meses</th>
-                                    <th>Precio/Mes</th>
-                                    <th>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for item in items %}
-                                <tr>
-                                    <td>{{ item.producto.nombre }}</td>
-                                    <td>{{ item.cantidad }}</td>
-                                    <td>{{ item.meses_renta }}</td>
-                                    <td>${{ item.producto.precio|floatformat:2 }}</td>
-                                    <td>${{ item.subtotal|floatformat:2 }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                                    <td><strong>${{ total|floatformat:2 }}</strong></td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    <ul class="list-group list-group-flush">
+                        {% for item in items %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ item.producto.nombre }} (x{{ item.cantidad }})
+                            <span>${{ item.subtotal|floatformat:2|intcomma }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between">
+                        <strong>Subtotal:</strong>
+                        <span id="subtotal">${{ subtotal|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <strong>IVA (19%):</strong>
+                        <span id="iva">${{ iva|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <strong>Transporte:</strong>
+                        <span id="transporte-resumen">$0.00</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between h4">
+                        <strong>Total:</strong>
+                        <strong id="total-resumen">${{ total|floatformat:2|intcomma }}</strong>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Formulario de checkout -->
-        <div class="col-md-4">
-            <form method="post" class="card">
-                {% csrf_token %}
-                <div class="card-header">
-                    <h3 class="mb-0">Detalles de Entrega</h3>
-                </div>
-                <div class="card-body">
-                    <!-- Selección de dirección -->
-                    <div class="form-group mb-3">
-                        <label for="direccion"><strong>Dirección de Entrega:</strong></label>
-                        <select name="direccion" id="direccion" class="form-select" required>
-                            <option value="">Selecciona una dirección</option>
-                            {% for direccion in direcciones %}
-                            <option value="{{ direccion.id }}">
-                                {{ direccion.calle }}, {{ direccion.ciudad }}, {{ direccion.departamento }}
-                                {% if direccion.es_principal %} (Principal){% endif %}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <div class="mt-2">
-                            <a href="{% url 'usuarios:agregar_direccion' %}" class="btn btn-sm btn-outline-primary">
-                                Agregar Nueva Dirección
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Notas adicionales -->
-                    <div class="form-group mb-3">
-                        <label for="notas"><strong>Notas adicionales:</strong></label>
-                        <textarea name="notas" id="notas" class="form-control" rows="3" 
-                                placeholder="Instrucciones especiales de entrega..."></textarea>
-                    </div>
-
-                    <!-- Botón de confirmar pedido -->
-                    <button type="submit" class="btn btn-primary btn-lg w-100">
-                        Confirmar Pedido
-                    </button>
-                </div>
-            </form>
-
-            <!-- Volver al carrito -->
-            <div class="mt-3">
-                <a href="{% url 'usuarios:ver_carrito' %}" class="btn btn-outline-secondary w-100">
-                    Volver al Carrito
-                </a>
             </div>
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const municipioSelect = document.getElementById('id_municipio');
+        const subtotal = parseFloat('{{ subtotal|stringformat:"f" }}');
+        const iva = parseFloat('{{ iva|stringformat:"f" }}');
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 }).format(value);
+        }
+
+        function updateTotal(costoTransporte) {
+            const total = subtotal + iva + costoTransporte;
+            
+            document.getElementById('transporte-resumen').textContent = formatCurrency(costoTransporte);
+            document.getElementById('total-resumen').textContent = formatCurrency(total);
+        }
+
+        municipioSelect.addEventListener('change', function() {
+            const municipioId = this.value;
+            if (municipioId) {
+                fetch(`/usuarios/get_costo_transporte/${municipioId}/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.costo_transporte !== undefined) {
+                            updateTotal(data.costo_transporte);
+                        } else {
+                            updateTotal(0);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching transport cost:', error);
+                        updateTotal(0);
+                    });
+            } else {
+                updateTotal(0);
+            }
+        });
+
+        // Initial calculation
+        updateTotal(0);
+    });
+</script>
+{% endblock %}
+
 {% endblock %}

@@ -2,17 +2,20 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from decimal import Decimal
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from decimal import Decimal, ROUND_HALF_UP
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.utils import timezone
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
 from recibos.models import ReciboObra
-from .forms import UsuarioForm, ClienteForm, DireccionForm
-from .models import CarritoItem, Cliente, Direccion
+from .forms import UsuarioForm, ClienteForm, DireccionForm, MetodoPagoForm
+from .models import Usuario, Cliente, MetodoPago, Direccion, CarritoItem
+from .models_divipola import Departamento, Municipio
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
@@ -27,9 +30,6 @@ from datetime import datetime, timedelta
 import os
 import uuid
 import io
-
-from .forms import MetodoPagoForm
-from .models import Usuario, Cliente, MetodoPago, Direccion, CarritoItem
 
 def inicio_cliente(request):
     """Vista para la página de inicio de clientes"""
@@ -131,11 +131,8 @@ def ver_carrito(request):
     # Obtener los items del carrito del usuario actual
     items_carrito = CarritoItem.objects.filter(usuario=request.user)
     
-    # Calcular subtotales y total
-    total = Decimal('0.00')
-    for item in items_carrito:
-        item.subtotal = item.producto.precio * item.cantidad * item.meses_renta
-        total += item.subtotal
+    # Calcular el total sumando los subtotales
+    total = sum(item.subtotal for item in items_carrito)
     
     context = {
         'items_carrito': items_carrito,
@@ -161,15 +158,14 @@ def eliminar_del_carrito(request, item_id):
 @login_required
 def limpiar_carrito(request):
     """Vista para limpiar todos los items del carrito"""
-    cliente = get_object_or_404(Cliente, usuario=request.user)
-    items = CarritoItem.objects.filter(cliente=cliente)
+    items = CarritoItem.objects.filter(usuario=request.user)
     
     for item in items:
         if item.reservado:
             item.liberar_reserva()
         item.delete()
     
-    messages.success(request, 'Tu carrito ha sido limpiado.')
+    messages.success(request, "Se ha limpiado el carrito exitosamente.")
     return redirect('usuarios:ver_carrito')
 
 def iniciar_sesion(request):
@@ -240,135 +236,149 @@ def draw_table_row(p, row, x, y, col_widths, height=16):
         p.drawString(x0 + 4, y - height + 4, str(cell))
         x0 += col_widths[i]
 
+@login_required
 def generar_cotizacion_pdf(request):
-    carrito = request.session.get('carrito', {})
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="cotizacion.pdf"'
-    
-    # Inicializar el PDF
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    
-    def draw_page_header():
-        # Encabezado con fondo amarillo
-        p.setFillColor(colors.HexColor("#FFD600"))
-        p.rect(0, height - 60, width, 60, fill=1, stroke=0)
+    try:
+        # Obtener items del carrito del modelo CarritoItem
+        items_carrito = CarritoItem.objects.filter(usuario=request.user)
         
-        # Logo o Título
-        p.setFillColor(colors.black)
-        p.setFont("Helvetica-Bold", 22)
-        p.drawCentredString(width/2, height - 40, "COTIZACIÓN")
+        if not items_carrito.exists():
+            messages.error(request, 'El carrito está vacío')
+            return redirect('usuarios:ver_carrito')
+
+        # Crear el PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="cotizacion.pdf"'
         
-        # Información de la empresa
-        p.setFont("Helvetica", 10)
-        p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
-    
-    # Primera página
-    draw_page_header()
-    y = height - 80
-      # Marco para información
-    p.setLineWidth(0.5)
-    p.rect(40, y - 160, width - 80, 140, stroke=1, fill=0)
-    
-    # Información de la empresa y cliente    
-    emisor = {
-        'nombre': 'MULTIANDAMIOS S.A.S.',
-        'nif': 'NIT 900.252.510-1',        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
-        'telefono': '+57 310 574 2020',
-        'email': 'info@multiandamios.co'
-    }
-    
-    user = request.user
-    receptor = {
-        'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
-        'nif': str(getattr(user, 'numero_identidad', 'N/A')),
-        'direccion': str(getattr(user, 'direccion', 'N/A')),
-        'telefono': str(getattr(user, 'telefono', 'N/A')),
-        'email': str(user.email or 'N/A')
-    }
-    
-    # Dividir el espacio en dos columnas
-    col_width = (width - 100) / 2
-    
-    # Títulos de secciones
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(50, y - 15, "DATOS DEL PROVEEDOR")
-    p.drawString(width/2 + 10, y - 15, "DATOS DEL CLIENTE")
-    
-    # Información del emisor
-    y -= 35
-    p.setFont("Helvetica", 10)
-    for key, value in emisor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(50, y, label)
-        p.setFont("Helvetica", 9)
-        p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
-        y -= 15
-    
-    # Información del receptor
-    y = height - 115
-    for key, value in receptor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(width/2 + 10, y, label)
-        p.setFont("Helvetica", 9)
-        # Asegurar que value es una cadena
-        str_value = str(value) if value is not None else "N/A"
-        p.drawString(width/2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), y, str_value)
-        y -= 15
-    
-    # Información de la cotización
-    y = height - 200
-    p.setFont("Helvetica", 10)
-    fecha = datetime.now()
-    p.drawString(50, y, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
-    p.drawString(width - 200, y, f"Cotización #: {uuid.uuid4().hex[:8].upper()}")
-    
-    # Tabla de productos
-    y -= 40
-    headers = ["Descripción", "Cant.", "Meses", "Precio Unit.", "Subtotal"]
-    col_widths = [250, 60, 60, 80, 80]  # Ajuste de anchos
-    row_height = 20
-    
-    # Fondo del encabezado
-    p.setFillColor(colors.HexColor("#F5F5F5"))
-    p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-    
-    # Textos del encabezado
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 10)
-    x = 40
-    for i, header in enumerate(headers):
-        p.drawString(x + 5, y - 15, header)
-        x += col_widths[i]
-    
-    # Contenido de la tabla
-    y -= row_height
-    p.setFont("Helvetica", 9)
-    total_sin_iva = 0
-    
-    for item in carrito.values():
-        if y < 180:  # Nueva página si no hay espacio
-            p.showPage()
-            draw_page_header()
-            y = height - 100
-            p.setFont("Helvetica", 9)
-            tiempo_renta = item.get('tiempo_renta', item.get('meses', 1))
-            precio_unitario = item['precio_unitario']
-            subtotal = precio_unitario * item['cantidad'] * tiempo_renta
+        # Inicializar el PDF
+        p = canvas.Canvas(response, pagesize=letter)
+        width, height = letter
+
+        def draw_page_header():
+            # Encabezado con fondo amarillo
+            p.setFillColor(colors.HexColor("#FFD600"))
+            p.rect(0, height - 60, width, 60, fill=1, stroke=0)
             
-            # Dibujar fila
+            # Logo o Título
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 22)
+            p.drawCentredString(width/2, height - 40, "COTIZACIÓN")
+            
+            # Información de la empresa
+            p.setFont("Helvetica", 10)
+            p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
+    
+        # Primera página
+        draw_page_header()
+        y = height - 80
+
+        # Marco para información
+        p.setLineWidth(0.5)
+        p.rect(40, y - 160, width - 80, 140, stroke=1, fill=0)
+    
+        # Información de la empresa y cliente    
+        emisor = {
+            'nombre': 'MULTIANDAMIOS S.A.S.',
+            'nif': 'NIT 900.252.510-1',
+            'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+            'telefono': '+57 310 574 2020',
+            'email': 'info@multiandamios.co'
+        }
+    
+        user = request.user
+        receptor = {
+            'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
+            'nif': str(getattr(user, 'numero_identidad', 'N/A')),
+            'direccion': str(getattr(user, 'direccion', 'N/A')),
+            'telefono': str(getattr(user, 'telefono', 'N/A')),
+            'email': str(user.email or 'N/A')
+        }
+    
+        # Títulos de secciones
+        p.setFont("Helvetica-Bold", 11)
+        p.drawString(50, y - 15, "DATOS DEL PROVEEDOR")
+        p.drawString(width/2 + 10, y - 15, "DATOS DEL CLIENTE")
+    
+        # Información del emisor
+        y -= 35
+        p.setFont("Helvetica", 10)
+        for key, value in emisor.items():
+            label = key.upper() + ": "
+            p.setFont("Helvetica-Bold", 9)
+            p.drawString(50, y, label)
+            p.setFont("Helvetica", 9)
+            p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
+            y -= 15
+    
+        # Información del receptor
+        y = height - 115
+        for key, value in receptor.items():
+            label = key.upper() + ": "
+            p.setFont("Helvetica-Bold", 9)
+            p.drawString(width/2 + 10, y, label)
+            p.setFont("Helvetica", 9)
+            str_value = str(value) if value is not None else "N/A"
+            p.drawString(width/2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), y, str_value)
+            y -= 15
+    
+        # Información de la cotización
+        y = height - 200
+        p.setFont("Helvetica", 10)
+        fecha = datetime.now()
+        p.drawString(50, y, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
+        p.drawString(width - 200, y, f"Cotización #: {uuid.uuid4().hex[:8].upper()}")
+    
+        # Tabla de productos
+        y -= 40
+        headers = ["Descripción", "Cant.", "Meses", "Precio Unit.", "Subtotal"]
+        col_widths = [250, 60, 60, 80, 80]
+        row_height = 20
+
+        def draw_table_header(y_pos):
+            # Fondo del encabezado
+            p.setFillColor(colors.HexColor("#F5F5F5"))
+            p.rect(40, y_pos - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+            
+            # Textos del encabezado
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica-Bold", 10)
+            x = 40
+            for i, header in enumerate(headers):
+                p.drawString(x + 5, y_pos - 15, header)
+                x += col_widths[i]
+            return y_pos - row_height
+
+        # Dibujar encabezado inicial
+        y = draw_table_header(y)
+        
+        # Contenido de la tabla
+        p.setFont("Helvetica", 9)
+        total_sin_iva = 0
+
+        for item in items_carrito:
+            if y < 100:  # Nueva página si no hay espacio
+                p.showPage()
+                draw_page_header()
+                y = height - 100
+                y = draw_table_header(y)
+                p.setFont("Helvetica", 9)
+
+            # Calcular subtotal
+            subtotal = item.producto.precio * item.cantidad * item.meses_renta
+            total_sin_iva += subtotal
+            
+            # Dibujar fondo de la fila
             p.setFillColor(colors.white)
             p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
             p.setFillColor(colors.black)
             
+            # Datos de la fila
             x = 40
             row_data = [
-                item['nombre'][:40],
-                str(item['cantidad']),
-                str(tiempo_renta),
-                f"${precio_unitario:,.2f}",
+                item.producto.nombre[:40],
+                str(item.cantidad),
+                str(item.meses_renta),
+                f"${item.producto.precio:,.2f}",
                 f"${subtotal:,.2f}"
             ]
             
@@ -377,24 +387,61 @@ def generar_cotizacion_pdf(request):
                 x += col_widths[i]
             
             y -= row_height
-    
-    # Total
-    y -= 20
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(width - 200, y, f"Total: ${total_sin_iva:,.2f}")
-    
-    # Firmas
-    y -= 60
-    p.line(50, y, 250, y)
-    p.line(width-250, y, width-50, y)
-    p.setFont("Helvetica", 10)
-    p.drawCentredString(150, y-20, "Firma del Cliente")
-    p.drawCentredString(width-150, y-20, "Firma del Proveedor")
-    
-    p.showPage()
-    p.save()
-    return response
 
+        # Totales
+        y -= 20
+        p.setFont("Helvetica-Bold", 10)
+        iva = total_sin_iva * Decimal('0.19')  # 19% IVA
+        total_con_iva = total_sin_iva + iva
+
+        # Dibujar recuadro para totales
+        p.setFillColor(colors.HexColor("#F5F5F5"))
+        totals_x = width - 250
+        p.rect(totals_x, y - 60, 200, 60, fill=1, stroke=1)
+        p.setFillColor(colors.black)
+
+        # Mostrar totales
+        p.drawString(totals_x + 10, y - 20, f"Subtotal: ${total_sin_iva:,.2f}")
+        p.drawString(totals_x + 10, y - 40, f"IVA (19%): ${iva:,.2f}")
+        p.setFillColor(colors.HexColor("#FFD600"))
+        p.rect(totals_x, y - 60, 200, 20, fill=1, stroke=1)
+        p.setFillColor(colors.black)
+        p.drawString(totals_x + 10, y - 55, f"Total: ${total_con_iva:,.2f}")
+
+        # Observaciones
+        y -= 90
+        p.setFont("Helvetica", 9)
+        p.drawString(40, y, "OBSERVACIONES:")
+        y -= 15
+        p.drawString(40, y, "• Esta cotización tiene validez de 15 días.")
+        y -= 15
+        p.drawString(40, y, "• Los precios incluyen IVA del 19%.")
+        y -= 15
+        p.drawString(40, y, "• El costo del transporte no está incluido y depende de la zona de entrega.")
+        y -= 15
+        p.drawString(40, y, "• Forma de pago: Contra entrega o transferencia bancaria.")
+
+        # Firmas
+        y -= 40
+        p.line(50, y, 250, y)
+        p.line(width-250, y, width-50, y)
+        p.setFont("Helvetica", 10)
+        p.drawCentredString(150, y-20, "Firma del Cliente")
+        p.drawCentredString(width-150, y-20, "Firma del Proveedor")
+
+        # Pie de página
+        p.setFont("Helvetica", 8)
+        p.drawString(40, 30, "MULTIANDAMIOS S.A.S. - Servicio al cliente: +57 310 574 2020")
+        p.drawString(40, 20, "Email: info@multiandamios.co | www.multiandamios.co")
+    
+        p.save()
+        return response
+
+    except Exception as e:
+        messages.error(request, f'Error al generar la cotización: {str(e)}')
+        return redirect('usuarios:ver_carrito')
+
+@login_required
 def generar_remision_pdf(request):
     carrito = CarritoItem.objects.filter(usuario=request.user, reservado=True).select_related('producto')
     response = HttpResponse(content_type='application/pdf')
@@ -692,90 +739,112 @@ def eliminar_direccion(request, direccion_id):
 
 @login_required
 def checkout(request):
-    """Vista para procesar el checkout"""
-    # Obtener el cliente del usuario actual
-    cliente = get_object_or_404(Cliente, usuario=request.user)
-    items = CarritoItem.objects.filter(usuario=request.user)
-    
-    # Si no hay items en el carrito, redirigir al carrito
-    if not items.exists():
-        messages.warning(request, 'Tu carrito está vacío.')
+    carrito_items = CarritoItem.objects.filter(usuario=request.user)
+    if not carrito_items.exists():
+        messages.error(request, 'Tu carrito está vacío')
         return redirect('usuarios:ver_carrito')
     
-    # Calcular el total del pedido
-    total = sum(item.subtotal() for item in items)
+    departamentos = Departamento.objects.all().order_by('nombre')
+
+    # Prepare context for GET request and POST error cases
+    subtotal = sum(item.subtotal for item in carrito_items)
+    iva = (subtotal * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    total = subtotal + iva
     
-    # Obtener las direcciones del cliente
-    direcciones = Direccion.objects.filter(cliente=cliente)
-    
-    # Si no hay direcciones registradas, redirigir a agregar dirección
-    if not direcciones.exists():
-        messages.warning(request, 'Necesitas agregar una dirección de entrega antes de continuar.')
-        return redirect('usuarios:agregar_direccion')
-    
+    context = {
+        'items': carrito_items,
+        'departamentos': departamentos,
+        'subtotal': subtotal,
+        'iva': iva,
+        'total': total, # This is total before transport cost
+    }
+
     if request.method == 'POST':
-        # Validar que haya una dirección seleccionada
-        direccion_id = request.POST.get('direccion')
-        if not direccion_id:
-            messages.error(request, 'Por favor selecciona una dirección de envío.')
-            return render(request, 'usuarios/checkout.html', {
-                'items': items,
-                'direcciones': direcciones,
-                'total': total
-            })
-        
+        departamento_id = request.POST.get('departamento')
+        municipio_id = request.POST.get('municipio')
+        codigo_divipola = request.POST.get('codigo_divipola')
+        codigo_postal = request.POST.get('codigo_postal')
+        calle = request.POST.get('calle')
+        numero = request.POST.get('numero')
+        complemento = request.POST.get('complemento', '')
+        notas = request.POST.get('notas', '')
+
+        if not all([departamento_id, municipio_id, codigo_divipola, calle, numero]):
+            messages.error(request, 'Por favor complete todos los campos obligatorios de la dirección.')
+            return render(request, 'usuarios/checkout.html', context)
+
         try:
-            direccion = get_object_or_404(Direccion, id=direccion_id, cliente=cliente)
-            notas = request.POST.get('notas', '')
-            
-            # Crear el pedido
-            pedido = Pedido.objects.create(
-                cliente=cliente,
-                direccion_entrega=f"{direccion.calle}, {direccion.ciudad}, {direccion.departamento}",
-                estado_pedido_general='pendiente_pago',
-                total=total,
-                notas=notas,
-                fecha=timezone.now()
-            )
-            
-            # Crear los detalles del pedido y actualizar el inventario
-            for item in items:
-                DetallePedido.objects.create(
-                    pedido=pedido,
-                    producto=item.producto,
-                    cantidad=item.cantidad,
-                    meses_renta=item.meses_renta,
-                    precio_unitario=item.producto.precio,
+            with transaction.atomic():
+                # Marcar items como en proceso de pago
+                for item in carrito_items:
+                    item.en_proceso_pago = True
+                    item.save()
+
+                # Construir la dirección completa
+                departamento = Departamento.objects.get(id=departamento_id)
+                municipio = Municipio.objects.get(id=municipio_id)
+                direccion_completa = f"{calle} {numero} {complemento}, {municipio.nombre}, {departamento.nombre}"
+
+                # Crear o actualizar la dirección con información DIVIPOLA
+                Direccion.objects.create(
+                    usuario=request.user,
+                    departamento_id=departamento_id,
+                    municipio_id=municipio_id,
+                    codigo_divipola=codigo_divipola,
+                    codigo_postal=codigo_postal,
+                    calle=calle,
+                    numero=numero,
+                    complemento=complemento
                 )
-                
-                # Actualizar el inventario
-                item.producto.cantidad_disponible -= item.cantidad
-                item.producto.cantidad_en_renta += item.cantidad
-                item.producto.save()
-            
-            # Limpiar el carrito
-            items.delete()
-            messages.success(request, 'Tu pedido ha sido creado exitosamente. Por favor, procede con el pago.')
-            return redirect('usuarios:pago_recibo', pedido_id=pedido.id_pedido)
+
+                # Calcular el total del pedido
+                subtotal_pedido = sum(item.subtotal for item in carrito_items)
+                costo_transporte = municipio.costo_transporte if municipio.costo_transporte else Decimal('0')
+
+
+                # Crear el pedido
+                pedido = Pedido.objects.create(
+                    cliente=request.user.cliente,
+                    estado_pedido_general='pendiente_pago',
+                    direccion_entrega=direccion_completa,
+                    subtotal=subtotal_pedido,
+                    costo_transporte=costo_transporte,
+                    notas=notas,
+                    duracion_renta=max(item.meses_renta for item in carrito_items),
+                    fecha_limite_pago=timezone.now() + timedelta(hours=24)
+                )
+
+                # Crear detalles del pedido
+                for item in carrito_items:
+                    DetallePedido.objects.create(
+                        pedido=pedido,
+                        producto=item.producto,
+                        cantidad=item.cantidad,
+                        precio_unitario=item.producto.precio,
+                        subtotal=item.subtotal,
+                        meses_renta=item.meses_renta
+                    )
+                    
+                    # Reservar el producto
+                    item.reservar()
+
+                # Limpiar el carrito
+                carrito_items.delete()
+
+                messages.success(request, 'Pedido creado exitosamente. Tienes 24 horas para realizar el pago.')
+                return redirect('usuarios:pago_recibo', pedido_id=pedido.id_pedido)
             
         except Exception as e:
-            # Si algo falla, hacer rollback manualmente
-            if 'pedido' in locals():
-                # Revertir cambios en el inventario
-                for detalle in pedido.detalles.all():
-                    if detalle.producto.cantidad_en_renta >= detalle.cantidad:
-                        detalle.producto.cantidad_en_renta -= detalle.cantidad
-                        detalle.producto.cantidad_disponible += detalle.cantidad
-                        detalle.producto.save()
-                pedido.delete()
-            messages.error(request, f'Hubo un error al procesar tu pedido: {str(e)}')
-            return redirect('usuarios:checkout')
-    
-    return render(request, 'usuarios/checkout.html', {
-        'items': items,
-        'direcciones': direcciones,
-        'total': total
-    })
+            # En caso de error, desmarcar los items como en proceso
+            for item in carrito_items:
+                item.en_proceso_pago = False
+                item.save()
+            
+            messages.error(request, f'Error al procesar el pedido: {str(e)}')
+            return render(request, 'usuarios/checkout.html', context)
+
+    # GET request - show the checkout form
+    return render(request, 'usuarios/checkout.html', context)
 
 @login_required
 def mis_pedidos(request):
@@ -784,6 +853,21 @@ def mis_pedidos(request):
     
     # Obtenemos todos los pedidos del cliente ordenados por fecha descendente
     pedidos = Pedido.objects.filter(cliente=cliente).order_by('-fecha')
+    
+    # Procesar pedidos pendientes de pago
+    for pedido in pedidos:
+        if pedido.estado_pedido_general == 'pendiente_pago':
+            # Verificar si el pago está vencido
+            if pedido.esta_vencido_pago():
+                pedido.estado_pedido_general = 'pago_vencido'
+                pedido.save()
+            else:
+                # Calcular tiempo restante para pedidos pendientes
+                tiempo_restante = pedido.get_tiempo_restante_pago()
+                if tiempo_restante:
+                    horas = int(tiempo_restante.total_seconds() / 3600)
+                    minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
+                    pedido.tiempo_restante_str = f"{horas}h {minutos}m"
     
     # Contexto para la plantilla
     context = {
@@ -796,7 +880,7 @@ def mis_pedidos(request):
 @login_required
 def detalle_pedido(request, pedido_id):
     """Vista para mostrar el detalle de un pedido específico"""
-    pedido = get_object_or_404(Pedido, id=pedido_id, usuario=request.user)
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
     detalles = DetallePedido.objects.filter(pedido=pedido).select_related('producto')
     
     return render(request, 'usuarios/detalle_pedido.html', {
@@ -899,71 +983,116 @@ def generar_recibo_pdf(request, pedido_id):
 
 @login_required
 def pago_recibo(request, pedido_id):
-    # Obtener el pedido existente
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
+    """Vista para procesar el pago de un pedido"""
+    # Verificar que el usuario sea cliente
+    if not request.user.rol == 'cliente':
+        messages.error(request, 'Solo los clientes pueden realizar pagos.')
+        return redirect('usuarios:inicio_cliente')
     
-    if pedido.estado_pedido_general == 'pagado':
-        messages.info(request, "Este pedido ya ha sido pagado.")
-        return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-    
-    # Obtener los detalles del pedido
-    detalles = pedido.detalles.all().select_related('producto')
-    
-    if request.method == 'POST':
-        form = MetodoPagoForm(request.POST, request.FILES)
-        if form.is_valid():
-            metodo_pago = form.save(commit=False)
-            metodo_pago.usuario = request.user
-            metodo_pago.monto = pedido.total
-            metodo_pago.save()
-            
-            # Actualizar el pedido con el método de pago
-            pedido.metodo_pago = str(metodo_pago.get_tipo_display())
-            if metodo_pago.tipo == 'efectivo':
-                pedido.estado_pedido_general = 'pagado'
-            else:
-                pedido.estado_pedido_general = 'pendiente_verificacion'
-            pedido.save()
-            
-            messages.success(request, "Tu pago ha sido registrado correctamente.")
+    try:
+        # Obtener el pedido verificando que pertenezca al usuario
+        pedido = get_object_or_404(Pedido, 
+                                 id_pedido=pedido_id, 
+                                 cliente__usuario=request.user)
+        
+        # Validaciones iniciales
+        if pedido.estado_pedido_general == 'pagado':
+            messages.info(request, "Este pedido ya ha sido pagado.")
             return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-    else:
-        form = MetodoPagoForm()
-    
-    # Datos bancarios de la empresa
-    datos_bancarios = {
-        'banco': 'Bancolombia',
-        'tipo_cuenta': 'Cuenta de Ahorros',
-        'numero_cuenta': '123456789',
-        'titular': 'MultiAndamios S.A.S',
-        'nit': '900.123.456-7'
-    }
-    
-    context = {
-        'pedido': pedido,
-        'detalles': detalles,
-        'pago_form': form,
-        'datos_bancarios': datos_bancarios,
-        'total': pedido.total
-    }
-    
-    return render(request, 'usuarios/pago.html', context)
+        
+        if pedido.estado_pedido_general == 'procesando_pago':
+            messages.info(request, "Este pedido está en proceso de verificación de pago.")
+            return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
+        
+        if pedido.esta_vencido_pago():
+            pedido.estado_pedido_general = 'pago_vencido'
+            pedido.save()
+            messages.error(request, "El tiempo para realizar el pago ha expirado.")
+            return redirect('usuarios:mis_pedidos')
+        
+        # Procesar el formulario de pago
+        if request.method == 'POST':
+            form = MetodoPagoForm(request.POST, request.FILES)
+            if form.is_valid():
+                try:
+                    with transaction.atomic():
+                        # Crear la instancia de MetodoPago
+                        pago = form.save(commit=False)
+                        pago.usuario = request.user
+                        pago.pedido = pedido
+                        pago.monto = pedido.total
+                        pago.estado = 'pendiente'
+                        pago.save()
+
+                        # Actualizar el estado del pedido a 'procesando_pago'
+                        pedido.estado_pedido_general = 'procesando_pago'
+                        pedido.metodo_pago = pago.tipo
+                        pedido.save()
+                        
+                        messages.info(request, "Tu comprobante de pago ha sido recibido y está pendiente de verificación.")
+                        return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
+
+                except ValidationError as e:
+                    messages.error(request, str(e))
+                except Exception as e:
+                    messages.error(request, f"Error inesperado al procesar el pago: {str(e)}")
+                
+                # Si hay un error, redirigir de vuelta al formulario de pago
+                return redirect('usuarios:pago_recibo', pedido_id=pedido.id_pedido)
+        else:
+            form = MetodoPagoForm()
+
+        # Contexto para la plantilla
+        try:
+            context = {
+                'pedido': pedido,
+                'detalles': pedido.detalles.all().select_related('producto'),
+                'pago_form': form,
+                'tiempo_restante': pedido.get_tiempo_restante_pago(),
+                'datos_bancarios': {
+                    'banco': 'Bancolombia',
+                    'tipo_cuenta': 'Cuenta de Ahorros',
+                    'numero_cuenta': '123456789',
+                    'titular': 'MultiAndamios S.A.S',
+                    'nit': '900.123.456-7'
+                },
+                'subtotal': pedido.subtotal,
+                'iva': pedido.iva,
+                'costo_transporte': pedido.costo_transporte,
+                'total_con_iva': pedido.total
+            }
+        
+            return render(request, 'usuarios/pago.html', context)
+        
+        except Exception as e:
+            messages.error(request, f"Error al cargar los datos del pedido: {str(e)}")
+            return redirect('usuarios:mis_pedidos')
+        
+    except Exception as e:
+        messages.error(request, f"Error al cargar la página de pago: {str(e)}")
+        return redirect('usuarios:mis_pedidos')
 
 @login_required
 def confirmacion_pago(request, pedido_id):
-    # Obtener el pedido y verificar que pertenece al usuario actual
-    pedido = get_object_or_404(Pedido, 
-                              id_pedido=pedido_id, 
-                              cliente__usuario=request.user)
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
     
-    # Obtener los detalles del pedido
-    detalles = DetallePedido.objects.filter(pedido=pedido)
+    # Obtener los detalles del pedido para mostrarlos en la confirmación
+    detalles = pedido.detalles.all().select_related('producto')
     
-    # Preparar el contexto
+    # Si está pagado o en verificación, mostrar mensaje apropiado
+    if pedido.estado_pedido_general == 'pagado':
+        messages.success(request, 'El pago de tu pedido ha sido confirmado.')
+    elif pedido.estado_pedido_general == 'pendiente_verificacion':
+        messages.info(request, 'Tu pago está siendo verificado por nuestro equipo. Te notificaremos cuando se confirme.')
+    else:
+        messages.warning(request, 'Tu pedido está pendiente de pago.')
+    
     context = {
         'pedido': pedido,
         'detalles': detalles,
-        'cliente': pedido.cliente,
+        'subtotal': pedido.subtotal,
+        'iva': pedido.iva,
+        'costo_transporte': pedido.costo_transporte,
         'total': pedido.total,
     }
     
@@ -1116,7 +1245,9 @@ def generar_remision_admin(request, pedido_id):
 def actualizar_carrito(request):
     """Vista para actualizar cantidades en el carrito"""
     if request.method == 'POST':
-        cliente = get_object_or_404(Cliente, usuario=request.user)
+        if not request.user.is_authenticated:
+            messages.error(request, "Debes iniciar sesión para actualizar el carrito.")
+            return redirect('usuarios:login')
         
         for key, value in request.POST.items():
             if key.startswith(('cantidad_', 'meses_')):
@@ -1126,7 +1257,7 @@ def actualizar_carrito(request):
                     if nuevo_valor < 1:
                         continue
                         
-                    item = get_object_or_404(CarritoItem, id=item_id, cliente=cliente)
+                    item = get_object_or_404(CarritoItem, id=item_id, usuario=request.user)
                     
                     if key.startswith('cantidad_'):
                         if nuevo_valor > item.producto.cantidad_disponible:
@@ -1138,15 +1269,80 @@ def actualizar_carrito(request):
                     else:  # meses_
                         if nuevo_valor > 12:
                             messages.error(request, 
-                                         f'El máximo de meses de renta es 12.')
+                                         f'El período máximo de renta es de 12 meses.')
                             continue
                         item.meses_renta = nuevo_valor
                     
                     item.save()
-                
-                except (ValueError, CarritoItem.DoesNotExist):
-                    continue
+                    
+                except ValueError:
+                    messages.error(request, "Valor inválido ingresado.")
+                except CarritoItem.DoesNotExist:
+                    messages.error(request, "Item no encontrado en el carrito.")
         
-        messages.success(request, 'Carrito actualizado correctamente.')
+        return redirect('usuarios:ver_carrito')
     
     return redirect('usuarios:ver_carrito')
+
+@login_required
+def pedidos_pendientes(request):
+    """Vista para mostrar solo los pedidos pendientes de pago"""
+    if not request.user.rol == 'cliente':
+        messages.error(request, 'Solo los clientes pueden acceder a esta sección.')
+        return redirect('usuarios:inicio_cliente')
+    
+    cliente = get_object_or_404(Cliente, usuario=request.user)
+    
+    # Obtener solo pedidos pendientes de pago y que no estén vencidos
+    ahora = timezone.now()
+    pedidos = Pedido.objects.filter(
+        cliente=cliente,
+        estado_pedido_general='pendiente_pago',
+        fecha_limite_pago__gt=ahora
+    ).order_by('fecha_limite_pago')  # Ordenar por los que vencen primero
+    
+    # Procesar cada pedido para actualizar estados y calcular tiempos restantes
+    pedidos_info = []
+    for pedido in pedidos:
+        # Verificar si el pedido está vencido en este momento
+        if pedido.esta_vencido_pago():
+            pedido.estado_pedido_general = 'pago_vencido'
+            pedido.save()
+            continue
+        
+        # Calcular tiempo restante
+        tiempo_restante = pedido.get_tiempo_restante_pago()
+        if tiempo_restante:
+            horas = int(tiempo_restante.total_seconds() / 3600)
+            minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
+            
+            # Solo incluir si aún hay tiempo
+            if horas > 0 or minutos > 0:
+                pedidos_info.append({
+                    'pedido': pedido,
+                    'tiempo_restante_str': f"{horas}h {minutos}m",
+                    'tiempo_restante_segundos': int(tiempo_restante.total_seconds()),
+                    'detalles': pedido.detalles.all().select_related('producto'),
+                    'total_con_iva': pedido.total * Decimal('1.19')
+                })
+    
+    # Para solicitudes AJAX, devolver solo la información necesaria
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'cantidad_pedidos': len(pedidos_info),
+            'pedidos': [{
+                'id': info['pedido'].id_pedido,
+                'tiempo_restante': info['tiempo_restante_str'],
+                'total': float(info['pedido'].total)
+            } for info in pedidos_info]
+        })
+    
+    # Preparar contexto para la vista normal
+    context = {
+        'pedidos_info': pedidos_info,
+        'cliente': cliente,
+        'total_pendiente': sum(info['pedido'].total for info in pedidos_info),
+        'cantidad_pedidos': len(pedidos_info)
+    }
+    
+    return render(request, 'usuarios/pedidos_pendientes.html', context)

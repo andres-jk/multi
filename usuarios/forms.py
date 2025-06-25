@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from .models import Usuario, MetodoPago, Cliente, Direccion
+from .models_divipola import Departamento, Municipio
 
 class RegistroForm(UserCreationForm):
     telefono = forms.CharField(label='Teléfono', max_length=50)
@@ -33,13 +34,15 @@ class ClienteForm(forms.ModelForm):
 class DireccionForm(forms.ModelForm):
     class Meta:
         model = Direccion
-        fields = ['calle', 'ciudad', 'departamento', 'codigo_postal', 'es_principal']
+        fields = ['calle', 'numero', 'complemento', 'departamento', 'municipio', 'codigo_postal', 'principal']
         widgets = {
-            'calle': forms.TextInput(attrs={'class': 'form-control'}),
-            'ciudad': forms.TextInput(attrs={'class': 'form-control'}),
-            'departamento': forms.TextInput(attrs={'class': 'form-control'}),
-            'codigo_postal': forms.TextInput(attrs={'class': 'form-control'}),
-            'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'calle': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la calle'}),
+            'numero': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número'}),
+            'complemento': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apartamento, oficina, etc.'}),
+            'departamento': forms.Select(attrs={'class': 'form-control'}),
+            'municipio': forms.Select(attrs={'class': 'form-control', 'disabled': True}),
+            'codigo_postal': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Código postal'}),
+            'principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 class MetodoPagoForm(forms.ModelForm):
@@ -73,6 +76,7 @@ class MetodoPagoForm(forms.ModelForm):
     
     def clean(self):
         cleaned_data = super().clean()
+        
         tipo = cleaned_data.get('tipo')
         numero_referencia = cleaned_data.get('numero_referencia')
         comprobante = cleaned_data.get('comprobante')

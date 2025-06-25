@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { padding: 20px; }
+        .header { background-color: #f44336; padding: 20px; color: white; }
+        .content { padding: 20px; }
+        .button { 
+            background-color: #4CAF50; 
+            padding: 10px 20px; 
+            text-decoration: none;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Pago Rechazado</h2>
+        </div>
+        <div class="content">
+            <p>Estimado(a) {{ cliente.usuario.get_full_name }},</p>
+            <p>Lamentamos informarle que su pago para el pedido #{{ pedido.id_pedido }} ha sido rechazado.</p>
+            
+            <h3>Detalles del Pedido:</h3>
+            <ul>
+                <li>Monto: ${{ total }}</li>
+                <li>Fecha de revisión: {{ pedido.fecha_verificacion|date:"d/m/Y H:i" }}</li>
+            </ul>
+            
+            <p>Por favor, realice un nuevo intento de pago lo antes posible para evitar la cancelación del pedido.</p>
+            
+            <p>Si tiene alguna duda, no dude en contactarnos.</p>
+            
+            <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'usuarios:procesar_pago' pedido.id_pedido %}" class="button">
+                Intentar Pago Nuevamente
+            </a>
+        </div>
+    </div>
+</body>
+</html>

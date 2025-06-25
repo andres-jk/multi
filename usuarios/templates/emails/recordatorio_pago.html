@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { padding: 20px; }
+        .header { background-color: #FFD600; padding: 20px; }
+        .content { padding: 20px; }
+        .button { 
+            background-color: #FFD600; 
+            padding: 10px 20px; 
+            text-decoration: none;
+            color: black;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Recordatorio de Pago Pendiente</h2>
+        </div>
+        <div class="content">
+            <p>Estimado(a) {{ cliente.usuario.get_full_name }},</p>
+            <p>Le recordamos que tiene un pago pendiente para el pedido #{{ pedido.id_pedido }}.</p>
+            
+            <h3>Detalles del Pedido:</h3>
+            <ul>
+                <li>Total a pagar: ${{ total }}</li>
+                <li>Tiempo restante: {{ tiempo_restante|timeuntil }}</li>
+            </ul>
+            
+            <p>Por favor, realice el pago lo antes posible para evitar la cancelación del pedido.</p>
+            
+            <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'usuarios:procesar_pago' pedido.id_pedido %}" class="button">
+                Realizar Pago
+            </a>
+        </div>
+    </div>
+</body>
+</html>

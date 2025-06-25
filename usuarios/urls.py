@@ -1,9 +1,17 @@
 from django.urls import path
-from . import views
+from . import views, views_divipola
 
 app_name = 'usuarios'  # Agregar namespace
 
 urlpatterns = [
+    # Nueva URL para pedidos pendientes
+    path('pedidos-pendientes/', views.pedidos_pendientes, name='pedidos_pendientes'),
+
+    # DIVIPOLA API URLs
+    path('api/departamentos/', views_divipola.get_departamentos, name='api_departamentos'),
+    path('api/municipios/', views_divipola.get_municipios, name='api_municipios'),
+
+    # Existing URL patterns...
     path('', views.inicio_cliente, name='inicio_cliente'),
     path('inicio/', views.inicio, name='inicio'),
     path('carrito/', views.ver_carrito, name='ver_carrito'),

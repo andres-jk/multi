@@ -1,5 +1,5 @@
 from django import template
-from usuarios.models import CarritoItem, Cliente
+from usuarios.models import CarritoItem
 
 register = template.Library()
 

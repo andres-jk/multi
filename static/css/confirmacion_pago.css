@@ -1,0 +1,90 @@
+.timeline {
+    position: relative;
+    padding: 20px 0;
+}
+
+.timeline:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50px;
+    height: 100%;
+    width: 2px;
+    background: #e0e0e0;
+}
+
+.timeline-item {
+    position: relative;
+    padding: 20px 0 20px 80px;
+    margin-bottom: 20px;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-item i {
+    position: absolute;
+    left: 35px;
+    top: 20px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #f8f9fa;
+    border: 2px solid #e0e0e0;
+    text-align: center;
+    line-height: 26px;
+    color: #6c757d;
+}
+
+.timeline-item.completed i {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.timeline-item.active i {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.timeline-item .time {
+    display: block;
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.timeline-item h4 {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+}
+
+.timeline-item p {
+    margin: 0;
+    color: #6c757d;
+}
+
+.estado-pedido-badge {
+    margin-bottom: 20px;
+}
+
+.estado-pedido-badge .badge {
+    font-size: 1rem;
+    padding: 10px 20px;
+}
+
+@media (max-width: 576px) {
+    .timeline:before {
+        left: 30px;
+    }
+    
+    .timeline-item {
+        padding-left: 60px;
+    }
+    
+    .timeline-item i {
+        left: 15px;
+    }
+}

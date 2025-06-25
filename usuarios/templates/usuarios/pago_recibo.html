@@ -1,185 +1,140 @@
 {% extends 'base.html' %}
-{% block title %}Pago y Recibo{% endblock %}
-{% block nav %}
-<a href="/">Inicio</a>
-<a href="/carrito/">Carrito</a>
-{% endblock %}
+{% load humanize %}
+
 {% block content %}
-<div class="card card-carrito" style="max-width:700px;margin:auto;">
-    <h1 class="highlight">Resumen de Factura / Recibo</h1>
-    <h3 style="color:#FFD600;">Datos del emisor</h3>
-    <ul>
-        <li><strong>Nombre/Razón social:</strong> {{ emisor.nombre }}</li>
-        <li><strong>NIT:</strong> {{ emisor.nif }}</li>
-        <li><strong>Dirección fiscal:</strong> {{ emisor.direccion }}</li>
-        <li><strong>Teléfono:</strong> {{ emisor.telefono }}</li>
-        <li><strong>Email:</strong> {{ emisor.email }}</li>
-        <li><strong>Web:</strong> <a href="{{ emisor.web }}" target="_blank">{{ emisor.web }}</a></li>
-    </ul>
-    <h3 style="color:#FFD600;">Datos del receptor</h3>
-    <ul>
-        <li><strong>Nombre/Razón social:</strong> {{ receptor.nombre }}</li>
-        <li><strong>NIF/CIF:</strong> {{ receptor.nif }}</li>
-        <li><strong>Dirección fiscal:</strong> {{ receptor.direccion }}</li>
-    </ul>
-    <p><strong>Número y serie de factura:</strong> {{ numero_factura }}</p>
-    <p><strong>Fecha de emisión:</strong> {{ fecha_emision }}</p>
-    <h3 style="color:#FFD600;">Detalle de productos/servicios</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Descripción</th>
-                <th>Cantidad</th>
-                <th>Meses</th>
-                <th>Precio unitario</th>
-                <th>Subtotal</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in carrito.values %}
-            <tr>
-                <td>{{ item.nombre }}</td>
-                <td>{{ item.cantidad }}</td>
-                <td>{{ item.tiempo_renta|default:item.meses }}</td>
-                <td>${{ item.precio_unitario|floatformat:2 }}</td>
-                <td>${{ item.subtotal|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div style="text-align:right;">
-        <p><strong>Base imponible:</strong> ${{ total|floatformat:2 }}</p>
-        <p><strong>IVA (21%):</strong> ${{ iva|floatformat:2 }}</p>
-        <p><strong>Importe total:</strong> ${{ total_con_iva|floatformat:2 }}</p>
-        <p><strong>Formas de pago:</strong> {{ formas_pago }}</p>
-    </div>    <form method="post" class="mt-4">
-        {% csrf_token %}
-        <h3 style="color:#FFD600;">Datos de envío</h3>
-        <div class="form-group">
-            <label for="{{ form.direccion_envio.id_for_label }}">{{ form.direccion_envio.label }}</label>
-            {{ form.direccion_envio }}
-        </div>
-        <div class="form-group">
-            <label for="{{ form.notas.id_for_label }}">{{ form.notas.label }}</label>
-            {{ form.notas }}
-        </div>
-        <div class="carrito-actions">            <button type="submit" class="btn btn-primary">Finalizar Pedido</button>
-            <a href="{% url 'usuarios:generar_recibo_pdf' %}" class="btn" target="_blank">Descargar Recibo PDF</a>
-            <a href="{% url 'usuarios:ver_carrito' %}" class="btn">Volver al carrito</a>
-        </div>
-    </form>
-</div>
 <div class="container my-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
+    <div class="row">
+        <!-- Formulario de Pago -->
+        <div class="col-md-5">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="mb-0">Pago del Pedido #{{ pedido.id }}</h2>
+                    <h4 class="mb-0">Pago del Pedido #{{ pedido.id_pedido }}</h4>
                 </div>
                 <div class="card-body">
                     {% if messages %}
-                    <div class="messages mb-4">
-                        {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            {{ message }}
+                        <div class="messages mb-4">
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
-                    </div>
                     {% endif %}
 
-                    <!-- Resumen del pedido -->
+                    <!-- Información de Pago -->
                     <div class="mb-4">
-                        <h4>Resumen del Pedido</h4>
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <tbody>
-                                    <tr>
-                                        <th>Subtotal:</th>
-                                        <td class="text-end">${{ pedido.subtotal|floatformat:2 }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>IVA (13%):</th>
-                                        <td class="text-end">${{ pedido.iva|floatformat:2 }}</td>
-                                    </tr>
-                                    <tr class="table-primary">
-                                        <th>Total a Pagar:</th>
-                                        <td class="text-end"><strong>${{ pedido.total|floatformat:2 }}</strong></td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                        <h5 class="mb-3">Datos de la Cuenta Bancaria</h5>
+                        <div class="alert alert-info">
+                            <p class="mb-1"><strong>Banco:</strong> {{ datos_bancarios.banco }}</p>
+                            <p class="mb-1"><strong>Tipo de Cuenta:</strong> {{ datos_bancarios.tipo_cuenta }}</p>
+                            <p class="mb-1"><strong>Número de Cuenta:</strong> {{ datos_bancarios.numero_cuenta }}</p>
+                            <p class="mb-1"><strong>Titular:</strong> {{ datos_bancarios.titular }}</p>
+                            <p class="mb-0"><strong>NIT:</strong> {{ datos_bancarios.nit }}</p>
                         </div>
                     </div>
 
-                    <!-- Formulario de pago -->
-                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                    <!-- Formulario de Método de Pago -->
+                    <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
-                        <input type="hidden" name="pedido_id" value="{{ pedido.id }}">
-                        
                         <div class="mb-3">
-                            <label for="forma_pago" class="form-label">Forma de Pago</label>
-                            <select name="forma_pago" id="forma_pago" class="form-select" required>
-                                <option value="">Seleccione una forma de pago</option>
-                                {% for value, label in formas_pago %}
-                                <option value="{{ value }}">{{ label }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="invalid-feedback">
-                                Por favor seleccione una forma de pago.
-                            </div>
+                            <label for="{{ pago_form.tipo.id_for_label }}" class="form-label">Método de Pago</label>
+                            {{ pago_form.tipo }}
                         </div>
-
-                        <div class="mb-3" id="comprobante-group" style="display: none;">
-                            <label for="comprobante" class="form-label">Comprobante de Pago</label>
-                            <input type="file" name="comprobante" id="comprobante" class="form-control" accept="image/*,.pdf">
-                            <div class="form-text">
-                                Adjunte una imagen o PDF del comprobante de pago (transferencia o depósito).
-                            </div>
-                        </div>
-
                         <div class="mb-3">
-                            <label for="notas" class="form-label">Notas adicionales</label>
-                            <textarea name="notas" id="notas" class="form-control" rows="3" placeholder="Número de transferencia, comentarios, etc."></textarea>
+                            <label for="{{ pago_form.numero_referencia.id_for_label }}" class="form-label">Número de Referencia</label>
+                            {{ pago_form.numero_referencia }}
+                            <div class="form-text">Para transferencias y pagos electrónicos</div>
                         </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Registrar Pago</button>
-                            <a href="{% url 'usuarios:checkout' %}" class="btn btn-outline-secondary">Volver al Checkout</a>
+                        <div class="mb-3">
+                            <label for="{{ pago_form.comprobante.id_for_label }}" class="form-label">Comprobante de Pago</label>
+                            {{ pago_form.comprobante }}
+                            <div class="form-text">Adjunte el comprobante de su pago (PDF, JPG, PNG)</div>
                         </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-money-bill-wave me-2"></i>Registrar Pago
+                        </button>
+                        <a href="{% url 'usuarios:mis_pedidos' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver a Mis Pedidos
+                        </a>
                     </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalle del Pedido -->
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Detalle del Pedido</h4>
+                </div>
+                <div class="card-body">
+                    <!-- Información de Empresa -->
+                    <div class="mb-4">
+                        <h5>{{ emisor.nombre }}</h5>
+                        <p class="mb-1">NIT: {{ emisor.nit }}</p>
+                        <p class="mb-1">{{ emisor.direccion }}</p>
+                        <p class="mb-1">Tel: {{ emisor.telefono }}</p>
+                        <p class="mb-1">Email: {{ emisor.email }}</p>
+                        <p class="mb-0">Web: <a href="http://{{ emisor.web }}" target="_blank">{{ emisor.web }}</a></p>
+                    </div>
+
+                    <!-- Información del Cliente -->
+                    <div class="mb-4">
+                        <h5>Cliente</h5>
+                        <p class="mb-1">{{ receptor.nombre }}</p>
+                        <p class="mb-1">Doc: {{ receptor.nif }}</p>
+                        <p class="mb-0">{{ receptor.direccion }}</p>
+                    </div>
+
+                    <!-- Detalles de los Productos -->
+                    <div class="table-responsive mb-4">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th class="text-center">Cantidad</th>
+                                    <th class="text-center">Meses</th>
+                                    <th class="text-end">Precio</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for detalle in detalles %}
+                                <tr>
+                                    <td>{{ detalle.producto.nombre }}</td>
+                                    <td class="text-center">{{ detalle.cantidad }}</td>
+                                    <td class="text-center">{{ detalle.meses_renta }}</td>
+                                    <td class="text-end">${{ detalle.precio_unitario|floatformat:2|intcomma }}</td>
+                                    <td class="text-end">${{ detalle.subtotal|floatformat:2|intcomma }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totales -->
+                    <div class="border-top pt-3 mt-4">
+                        <div class="row justify-content-end">
+                            <div class="col-md-6 text-end">
+                                <p class="mb-2 fs-5">
+                                    Subtotal: <span class="float-end">${{ pedido.subtotal|floatformat:2|intcomma }}</span>
+                                </p>
+                                <p class="mb-2 fs-5">
+                                    IVA (19%): <span class="float-end">${{ pedido.iva|floatformat:2|intcomma }}</span>
+                                </p>
+                                <p class="mb-2 fs-5">
+                                    Costo Transporte: <span class="float-end">${{ pedido.costo_transporte|floatformat:2|intcomma }}</span>
+                                </p>
+                                <hr>
+                                <h4 class="mb-0">
+                                    Total a Pagar: <span class="float-end">${{ pedido.total|floatformat:2|intcomma }}</span>
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const formaPago = document.getElementById('forma_pago');
-    const comprobanteGroup = document.getElementById('comprobante-group');
-    const comprobante = document.getElementById('comprobante');
-
-    formaPago.addEventListener('change', function() {
-        // Mostrar/ocultar campo de comprobante según forma de pago
-        if (this.value === 'transferencia' || this.value === 'deposito') {
-            comprobanteGroup.style.display = 'block';
-            comprobante.required = true;
-        } else {
-            comprobanteGroup.style.display = 'none';
-            comprobante.required = false;
-        }
-    });
-
-    // Bootstrap form validation
-    const form = document.querySelector('form');
-    form.addEventListener('submit', function(event) {
-        if (!form.checkValidity()) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        form.classList.add('was-validated');
-    });
-});
-</script>
-{% endblock %}
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block content %}
 <div class="container my-4">
@@ -29,24 +30,54 @@
                 <tbody>
                     {% for pedido in pedidos %}
                     <tr>
-                        <td>#{{ pedido.id }}</td>
-                        <td>{{ pedido.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                        <td>#{{ pedido.id_pedido }}</td>
+                        <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
                         <td>
-                            <span class="badge {% if pedido.estado == 'pendiente' %}bg-warning{% elif pedido.estado == 'pagado' %}bg-success{% elif pedido.estado == 'entregado' %}bg-info{% elif pedido.estado == 'cancelado' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                {{ pedido.get_estado_display }}
+                            <span class="badge {% if pedido.estado_pedido_general == 'pendiente_pago' %}bg-warning
+                                             {% elif pedido.estado_pedido_general == 'pagado' %}bg-success
+                                             {% elif pedido.estado_pedido_general == 'pago_vencido' %}bg-danger
+                                             {% elif pedido.estado_pedido_general == 'en_ruta' %}bg-info
+                                             {% elif pedido.estado_pedido_general == 'entregado' %}bg-primary
+                                             {% elif pedido.estado_pedido_general == 'cancelado' %}bg-danger
+                                             {% else %}bg-secondary{% endif %}">
+                                {{ pedido.get_estado_pedido_general_display }}
                             </span>
+                            {% if pedido.estado_pedido_general == 'pendiente_pago' and pedido.tiempo_restante_str %}
+                                <br>
+                                <small class="text-danger">
+                                    <i class="fas fa-clock"></i> {{ pedido.tiempo_restante_str }} restantes
+                                </small>
+                            {% endif %}
                         </td>
-                        <td>${{ pedido.total|floatformat:2 }}</td>
+                        <td>${{ pedido.total|floatformat:2|intcomma }}</td>
                         <td>
-                            <div class="btn-group">
-                                <a href="{% url 'usuarios:detalle_pedido' pedido.id %}" class="btn btn-sm btn-outline-primary">Ver Detalles</a>
-                                {% if pedido.estado == 'pagado' %}
-                                <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id %}" class="btn btn-sm btn-outline-secondary" target="_blank">Recibo</a>
-                                {% endif %}
-                                {% if pedido.estado == 'entregado' %}
-                                <a href="{% url 'usuarios:ver_remision' pedido.id %}" class="btn btn-sm btn-outline-info">Ver Remisión</a>
-                                {% endif %}
-                            </div>
+                            {% if pedido.estado_pedido_general == 'pendiente_pago' %}
+                                <div class="btn-group mb-2">
+                                    <a href="{% url 'usuarios:pago_recibo' pedido.id_pedido %}" 
+                                       class="btn btn-warning">
+                                        <i class="fas fa-money-bill-wave"></i> Pagar Ahora
+                                    </a>
+                                    <a href="{% url 'usuarios:detalle_pedido' pedido.id_pedido %}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-eye"></i> Ver Detalles
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="btn-group">
+                                    <a href="{% url 'usuarios:detalle_pedido' pedido.id_pedido %}" 
+                                       class="btn btn-outline-primary">
+                                        <i class="fas fa-eye"></i> Ver Detalles
+                                    </a>
+                                    
+                                    {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'entregado' %}
+                                        <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id_pedido %}" 
+                                           class="btn btn-outline-secondary" 
+                                           target="_blank">
+                                            <i class="fas fa-file-pdf"></i> Recibo
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -55,8 +86,10 @@
         </div>
     {% else %}
         <div class="alert alert-info">
-            <p class="mb-0">No tienes pedidos registrados aún.</p>
-            <a href="{% url 'productos:lista' %}" class="btn btn-primary mt-3">Explorar Productos</a>
+            <p>No tienes pedidos registrados aún.</p>
+            <a href="{% url 'productos:catalogo_productos' %}" class="btn btn-primary mt-3">
+                <i class="fas fa-shopping-cart"></i> Explorar Productos
+            </a>
         </div>
     {% endif %}
 </div>

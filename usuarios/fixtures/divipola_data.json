@@ -1,0 +1,87 @@
+[
+    {
+        "model": "usuarios.departamento",
+        "pk": 1,
+        "fields": {
+            "codigo": "05",
+            "nombre": "Antioquia"
+        }
+    },
+    {
+        "model": "usuarios.departamento",
+        "pk": 2,
+        "fields": {
+            "codigo": "08",
+            "nombre": "Atlántico"
+        }
+    },
+    {
+        "model": "usuarios.departamento",
+        "pk": 3,
+        "fields": {
+            "codigo": "11",
+            "nombre": "Bogotá D.C."
+        }
+    },
+    {
+        "model": "usuarios.departamento",
+        "pk": 4,
+        "fields": {
+            "codigo": "13",
+            "nombre": "Bolívar"
+        }
+    },
+    {
+        "model": "usuarios.departamento",
+        "pk": 5,
+        "fields": {
+            "codigo": "15",
+            "nombre": "Boyacá"
+        }
+    },
+    {
+        "model": "usuarios.municipio",
+        "pk": 1,
+        "fields": {
+            "departamento": 1,
+            "codigo": "05001",
+            "nombre": "Medellín"
+        }
+    },
+    {
+        "model": "usuarios.municipio",
+        "pk": 2,
+        "fields": {
+            "departamento": 2,
+            "codigo": "08001",
+            "nombre": "Barranquilla"
+        }
+    },
+    {
+        "model": "usuarios.municipio",
+        "pk": 3,
+        "fields": {
+            "departamento": 3,
+            "codigo": "11001",
+            "nombre": "Bogotá D.C."
+        }
+    },
+    {
+        "model": "usuarios.municipio",
+        "pk": 4,
+        "fields": {
+            "departamento": 4,
+            "codigo": "13001",
+            "nombre": "Cartagena"
+        }
+    },
+    {
+        "model": "usuarios.municipio",
+        "pk": 5,
+        "fields": {
+            "departamento": 5,
+            "codigo": "15001",
+            "nombre": "Tunja"
+        }
+    }
+]

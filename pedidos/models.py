@@ -1,123 +1,165 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import timedelta
-from decimal import Decimal
-from usuarios.models import Cliente
-from productos.models import Producto
+from django.conf import settings
 
 class Pedido(models.Model):
-    ESTADO_CHOICES = [
+    ESTADO_CHOICES = (
         ('pendiente_pago', 'Pendiente de Pago'),
+        ('procesando_pago', 'Procesando Pago'),
         ('pagado', 'Pagado'),
-        ('verificando_pago', 'Verificando Pago'),
-        ('pago_aceptado', 'Pago Aceptado'),
-        ('en_empaque', 'En Proceso de Empaque'),
-        ('en_ruta', 'En Ruta de Entrega'),
+        ('pago_vencido', 'Pago Vencido'),
+        ('pago_rechazado', 'Pago Rechazado'),
+        ('en_preparacion', 'En Preparación'),
+        ('listo_entrega', 'Listo para Entrega'),
         ('entregado', 'Entregado'),
-        ('en_uso', 'En Uso'),
         ('programado_devolucion', 'Programado para Devolución'),
-        ('vencido', 'Vencido'),
-        ('recogido', 'Recogido'),
         ('cancelado', 'Cancelado')
-    ]
-    
-    ESTADO_SEGUIMIENTO_CHOICES = [
-        ('pendiente', 'Pendiente de Procesar'),
-        ('empacando', 'Empacando Productos'),
-        ('en_ruta_entrega', 'En Ruta de Entrega'),
-        ('entregado', 'Entregado al Cliente'),
-        ('en_uso', 'En Uso por el Cliente'),
-        ('programado_recoleccion', 'Programado para Recolección'),
-        ('en_ruta_recoleccion', 'En Ruta de Recolección'),
-        ('recolectado', 'Recolectado'),
-        ('completado', 'Completado')
-    ]
+    )
     
     id_pedido = models.AutoField(primary_key=True)
-    fecha = models.DateTimeField(default=timezone.now)
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE)
-    estado_pedido_general = models.CharField(max_length=30, choices=ESTADO_CHOICES, default='pendiente_pago')
-    estado_seguimiento = models.CharField(max_length=30, choices=ESTADO_SEGUIMIENTO_CHOICES, default='pendiente')
-    direccion_entrega = models.CharField(max_length=255, default='')
-    notas = models.TextField(blank=True, null=True)
+    cliente = models.ForeignKey('usuarios.Cliente', on_delete=models.CASCADE, null=True, blank=True)  # Keep nullable for now
+    fecha = models.DateTimeField(auto_now_add=True)
+    fecha_limite_pago = models.DateTimeField(null=True, blank=True)  # Keep nullable for now
+    estado_pedido_general = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='pendiente_pago')
+    direccion_entrega = models.TextField()
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    iva = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    costo_transporte = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    metodo_pago = models.CharField(max_length=50, blank=True, null=True)
-    ref_pago = models.CharField(max_length=100, blank=True, null=True, help_text='Referencia de pago o número de transacción')
-    
-    # Campos de seguimiento y fechas de proceso
+    notas = models.TextField(blank=True, null=True)
+    duracion_renta = models.IntegerField(default=1)
     fecha_pago = models.DateTimeField(null=True, blank=True)
-    fecha_aceptacion = models.DateTimeField(null=True, blank=True)
-    fecha_empaque_inicio = models.DateTimeField(null=True, blank=True)
-    fecha_empaque_fin = models.DateTimeField(null=True, blank=True)
-    fecha_salida_entrega = models.DateTimeField(null=True, blank=True)
-    fecha_entrega_estimada = models.DateTimeField(null=True, blank=True)
-    fecha_entrega_real = models.DateTimeField(null=True, blank=True)
-    
-    # Campos para gestión de devolución
-    duracion_renta = models.IntegerField(default=1, help_text='Duración de la renta en meses')
-    fecha_inicio_renta = models.DateTimeField(null=True, blank=True)
-    fecha_vencimiento = models.DateTimeField(null=True, blank=True)
+    metodo_pago = models.CharField(max_length=50, null=True, blank=True)
     fecha_devolucion_programada = models.DateTimeField(null=True, blank=True)
-    fecha_devolucion_real = models.DateTimeField(null=True, blank=True)
-    dias_retraso = models.IntegerField(default=0)
-    cargo_extra_retraso = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    
-    # Campos para recordatorios y seguimiento
-    ultimo_recordatorio = models.DateTimeField(null=True, blank=True)
-    dias_para_recordatorio = models.IntegerField(default=5, help_text='Días antes del vencimiento para enviar recordatorio')
-    recordatorios_enviados = models.IntegerField(default=0)
-    
-    def save(self, *args, **kwargs):
-        # Si el pedido es aceptado y no tiene fecha de vencimiento calculada
-        if self.estado_pedido_general == 'pago_aceptado' and not self.fecha_vencimiento:
-            self.fecha_inicio_renta = timezone.now()
-            self.fecha_vencimiento = self.fecha_inicio_renta + timedelta(days=30 * self.duracion_renta)
-        
-        # Calcular días de retraso y cargos extras si aplica
-        if self.fecha_vencimiento and timezone.now() > self.fecha_vencimiento:
-            dias_retraso = (timezone.now() - self.fecha_vencimiento).days
-            self.dias_retraso = dias_retraso
-            # Cargo extra por día (10% del total del pedido)
-            cargo_por_dia = self.total * Decimal('0.10')
-            self.cargo_extra_retraso = cargo_por_dia * Decimal(str(dias_retraso))
-        
-        super().save(*args, **kwargs)
-    
-    def calcular_tiempo_restante(self):
-        if not self.fecha_vencimiento:
-            return None
-        tiempo_restante = self.fecha_vencimiento - timezone.now()
-        return tiempo_restante if tiempo_restante.total_seconds() > 0 else timedelta(0)
-    
-    def necesita_recordatorio(self):
-        if not self.fecha_vencimiento:
-            return False
-        dias_faltantes = (self.fecha_vencimiento - timezone.now()).days
-        return (dias_faltantes <= self.dias_para_recordatorio and 
-                (not self.ultimo_recordatorio or 
-                 (timezone.now() - self.ultimo_recordatorio).days >= 1))
-    
-    def __str__(self):
-        return f"Pedido #{self.id_pedido} - {self.cliente}"
 
+    def clean(self):
+        if self.estado_pedido_general == 'pagado' and not self.fecha_pago:
+            raise ValidationError('Un pedido pagado debe tener fecha de pago.')
+    
+    def update_total(self):
+        iva_rate = Decimal('0.19')
+        self.iva = (self.subtotal * iva_rate).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.total = (self.subtotal + self.iva + self.costo_transporte).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    def save(self, *args, **kwargs):
+        if not self.id_pedido:
+            self.fecha_limite_pago = timezone.now() + timedelta(hours=24)
+        self.update_total()
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def esta_vencido_pago(self):
+        return (self.estado_pedido_general == 'pendiente_pago' and 
+                timezone.now() > self.fecha_limite_pago)
+    
+    def get_tiempo_restante_pago(self):
+        if self.estado_pedido_general != 'pendiente_pago':
+            return None
+        tiempo_restante = self.fecha_limite_pago - timezone.now()
+        return tiempo_restante if tiempo_restante.total_seconds() > 0 else None
+
+    @property
+    def fecha_vencimiento(self):
+        if self.fecha_pago and self.duracion_renta:
+            # This is a simple calculation, you might need to adjust it
+            # based on how you want to handle months (e.g., using dateutil.relativedelta)
+            return self.fecha_pago + timedelta(days=30 * self.duracion_renta)
+        return None
+
+    def procesar_pago(self, metodo_pago):
+        """
+        Procesa el pago del pedido y actualiza su estado
+        """
+        if metodo_pago.monto != self.total:
+            raise ValidationError('El monto del pago no coincide con el total del pedido')
+            
+        if self.estado_pedido_general not in ['pendiente_pago', 'pago_vencido', 'pago_rechazado']:
+            raise ValidationError('El pedido no está en un estado válido para procesar el pago')
+            
+        with transaction.atomic():
+            if metodo_pago.estado == 'aprobado':
+                self.estado_pedido_general = 'pagado'
+                self.fecha_pago = timezone.now()
+                self.metodo_pago = metodo_pago.tipo
+                
+                # Confirmar la reserva de productos
+                detalles = self.detalles.all()
+                for detalle in detalles:
+                    if not detalle.producto.confirmar_renta(detalle.cantidad):
+                        raise ValidationError(f'No hay suficiente stock de {detalle.producto.nombre}')
+                
+                self.save()
+                return True
+            elif metodo_pago.estado == 'rechazado':
+                self.estado_pedido_general = 'pago_rechazado'
+                
+                # Liberar productos reservados
+                detalles = self.detalles.all()
+                for detalle in detalles:
+                    detalle.producto.liberar_reserva(detalle.cantidad)
+                
+                self.save()
+                return False
+        return False
+
+    def check_vencimiento(self):
+        """
+        Verifica si el pedido está vencido y actualiza su estado
+        """
+        if self.estado_pedido_general == 'pendiente_pago' and self.esta_vencido_pago():
+            with transaction.atomic():
+                self.estado_pedido_general = 'pago_vencido'
+                
+                # Liberar productos reservados
+                detalles = self.detalles.all()
+                for detalle in detalles:
+                    detalle.producto.liberar_reserva(detalle.cantidad)
+                
+                self.save()
+                return True
+        return False
+
+    def __str__(self):
+        return f"Pedido #{self.id_pedido} - {self.cliente.usuario.get_full_name()}"
+    
+    class Meta:
+        ordering = ['-fecha']
+        verbose_name = 'Pedido'
+        verbose_name_plural = 'Pedidos'
 
 class DetallePedido(models.Model):
     pedido = models.ForeignKey(Pedido, related_name='detalles', on_delete=models.CASCADE)
-    producto = models.ForeignKey(Producto, on_delete=models.PROTECT)
-    cantidad = models.IntegerField(default=1)
-    meses_renta = models.IntegerField(default=1)
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    subtotal = models.DecimalField(max_digits=10, decimal_places=2, default=0, editable=False)
-    
+    producto = models.ForeignKey('productos.Producto', on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField()
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    meses_renta = models.PositiveIntegerField(default=1)
+    fecha_entrega = models.DateTimeField(null=True, blank=True)
+    fecha_devolucion = models.DateTimeField(null=True, blank=True)
+    estado = models.CharField(max_length=50, default='pendiente')
+    notas = models.TextField(blank=True, null=True)
+
+    def clean(self):
+        if self.cantidad < 1:
+            raise ValidationError('La cantidad debe ser mayor a 0.')
+        if self.meses_renta < 1:
+            raise ValidationError('El período de renta debe ser al menos 1 mes.')
+        if self.producto.cantidad_disponible < self.cantidad:
+            raise ValidationError(f'No hay suficiente stock. Disponible: {self.producto.cantidad_disponible}')
+            
     def save(self, *args, **kwargs):
-        if not self.precio_unitario and self.producto:
-            self.precio_unitario = self.producto.precio
+        # Calcular subtotal antes de guardar
         self.subtotal = self.precio_unitario * self.cantidad * self.meses_renta
+        # Validar los datos
+        self.full_clean()
         super().save(*args, **kwargs)
-    
+
     def __str__(self):
-        return f"{self.producto} x{self.cantidad} ({self.meses_renta} meses) - Pedido #{self.pedido.id_pedido}"
+        return f"{self.producto.nombre} x{self.cantidad} - {self.meses_renta} meses"
 
     class Meta:
-        verbose_name = "Detalle de Pedido"
-        verbose_name_plural = "Detalles de Pedido"
+        verbose_name = 'Detalle de Pedido'
+        verbose_name_plural = 'Detalles de Pedidos'

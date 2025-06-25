@@ -1,51 +1,24 @@
 from django.contrib import admin
 from .models import Pedido, DetallePedido
 
-class DetallePedidoInline(admin.TabularInline):
-    model = DetallePedido
-    extra = 1
-
+@admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
-    list_display = ('id_pedido', 'cliente', 'fecha', 'estado_pedido_general', 'estado_seguimiento', 'duracion_renta', 'fecha_vencimiento')
-    list_filter = ('estado_pedido_general', 'estado_seguimiento', 'fecha')
-    search_fields = ('cliente__nombre', 'direccion_entrega')
-    fieldsets = (
-        ('Información básica', {
-            'fields': ('cliente', 'direccion_entrega', 'notas', 'total', 'metodo_pago')
-        }),
-        ('Estado y seguimiento', {
-            'fields': (
-                'estado_pedido_general', 
-                'estado_seguimiento', 
-                'fecha_pago',
-                'fecha_aceptacion',
-                'fecha_empaque_inicio',
-                'fecha_empaque_fin',
-                'fecha_salida_entrega',
-                'fecha_entrega_estimada',
-                'fecha_entrega_real'
-            )
-        }),
-        ('Renta y devolución', {
-            'fields': (
-                'duracion_renta',
-                'fecha_inicio_renta',
-                'fecha_vencimiento',
-                'fecha_devolucion_programada',
-                'fecha_devolucion_real',
-                'dias_retraso',
-                'cargo_extra_retraso'
-            )
-        }),
-        ('Recordatorios', {
-            'fields': (
-                'dias_para_recordatorio',
-                'ultimo_recordatorio',
-                'recordatorios_enviados'
-            )
-        })
-    )
-    readonly_fields = ('dias_retraso', 'cargo_extra_retraso', 'recordatorios_enviados')
-    inlines = [DetallePedidoInline]
+    list_display = ('id_pedido', 'cliente', 'fecha', 'estado_pedido_general', 'total')
+    list_filter = ('estado_pedido_general', 'fecha')
+    search_fields = ('id_pedido', 'cliente__usuario__username', 'cliente__usuario__first_name')
+    readonly_fields = ('fecha_pago',)
+    raw_id_fields = ['cliente']
 
-admin.site.register(Pedido, PedidoAdmin)
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('cliente__usuario')
+
+@admin.register(DetallePedido)
+class DetallePedidoAdmin(admin.ModelAdmin):
+    list_display = ('pedido', 'producto', 'cantidad', 'meses_renta', 'precio_unitario', 'subtotal')
+    list_filter = ('estado', 'meses_renta')
+    search_fields = ('pedido__id_pedido', 'producto__nombre')
+    raw_id_fields = ['pedido', 'producto']
+    readonly_fields = ('subtotal',)
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('pedido', 'producto')

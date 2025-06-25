@@ -1,0 +1,136 @@
+{% load static %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="mb-0">Dirección de Entrega</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="departamento" class="form-label">Departamento:</label>
+                    <select name="departamento" id="departamento" class="form-select" required>
+                        <option value="">Seleccione un departamento</option>
+                        {% for departamento in departamentos %}
+                            <option value="{{ departamento.id }}" data-codigo="{{ departamento.codigo }}">
+                                {{ departamento.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="municipio" class="form-label">Municipio:</label>
+                    <select name="municipio" id="municipio" class="form-select" required disabled>
+                        <option value="">Primero seleccione un departamento</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="codigo_divipola" class="form-label">Código DIVIPOLA:</label>
+                    <input type="text" id="codigo_divipola" name="codigo_divipola" class="form-control" readonly>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="codigo_postal" class="form-label">Código Postal:</label>
+                    <input type="text" id="codigo_postal" name="codigo_postal" class="form-control" placeholder="Ingrese el código postal">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="calle" class="form-label">Calle/Carrera:</label>
+                    <input type="text" id="calle" name="calle" class="form-control" required placeholder="Ej: Calle 123 o Carrera 45">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group mb-3">
+                    <label for="numero" class="form-label">Número:</label>
+                    <input type="text" id="numero" name="numero" class="form-control" required placeholder="Ej: #45-67">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group mb-3">
+            <label for="complemento" class="form-label">Complemento:</label>
+            <input type="text" id="complemento" name="complemento" class="form-control" placeholder="Ej: Apto 302, Torre B, etc.">
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const departamentoSelect = document.getElementById('departamento');
+    const municipioSelect = document.getElementById('municipio');
+    const codigoDivipolaInput = document.getElementById('codigo_divipola');
+
+    function updateCodigoDivipola() {
+        if (departamentoSelect.value && municipioSelect.value) {
+            const departamentoCodigo = departamentoSelect.options[departamentoSelect.selectedIndex].dataset.codigo;
+            const municipioCodigo = municipioSelect.options[municipioSelect.selectedIndex].dataset.codigo;
+            codigoDivipolaInput.value = departamentoCodigo + municipioCodigo;
+        } else {
+            codigoDivipolaInput.value = '';
+        }
+    }
+
+    departamentoSelect.addEventListener('change', function() {
+        const departamentoId = this.value;
+        
+        municipioSelect.disabled = !departamentoId;
+        municipioSelect.innerHTML = '<option value="">Seleccione un municipio</option>';
+        codigoDivipolaInput.value = '';
+        
+        if (departamentoId) {
+            fetch(`/api/municipios/?departamento_id=${departamentoId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.municipios.forEach(municipio => {
+                        const option = new Option(municipio.nombre, municipio.id);
+                        option.dataset.codigo = municipio.codigo;
+                        municipioSelect.add(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    municipioSelect.disabled = true;
+                    municipioSelect.innerHTML = '<option value="">Error al cargar municipios</option>';
+                });
+        }
+    });
+
+    municipioSelect.addEventListener('change', function() {
+        updateCodigoDivipola();
+    });
+
+    // Form validation
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        const required = ['departamento', 'municipio', 'calle', 'numero'];
+        let isValid = true;
+
+        required.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (!field.value.trim()) {
+                isValid = false;
+                field.classList.add('is-invalid');
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            event.preventDefault();
+            alert('Por favor complete todos los campos obligatorios.');
+        }
+    });
+});
+</script>

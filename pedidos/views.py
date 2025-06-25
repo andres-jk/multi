@@ -15,6 +15,7 @@ from .models import Pedido, DetallePedido
 from usuarios.models import Cliente
 from productos.models import Producto
 from django.db.models import Q
+from django.db import transaction
 
 def es_staff(user):
     """Verifica si un usuario es staff, admin o empleado"""
@@ -35,7 +36,8 @@ def lista_clientes(request):
 @login_required
 @user_passes_test(es_staff)
 def lista_pedidos(request):
-    pedidos = Pedido.objects.all().order_by('-fecha')
+    """Vista para listar todos los pedidos"""
+    pedidos = Pedido.objects.all().select_related('cliente__usuario').order_by('-fecha')
     return render(request, 'pedidos/lista_pedidos.html', {'pedidos': pedidos})
 
 @login_required
@@ -99,98 +101,100 @@ def eliminar_producto(request, producto_id):
 @login_required
 def crear_pedido(request):
     if request.method == 'POST':
-        try:
-            carrito = request.session.get('carrito', {})
-            if not carrito:
-                messages.error(request, 'El carrito está vacío')
-                return redirect('carrito')
-            
-            # Asegurar que el usuario tenga un cliente asociado
-            cliente, created = Cliente.objects.get_or_create(
-                usuario=request.user,
-                defaults={
-                    'telefono': request.user.telefono if hasattr(request.user, 'telefono') else '',
-                    'direccion': request.POST.get('direccion_entrega', request.user.direccion if hasattr(request.user, 'direccion') else '')
-                }
-            )
-            
-            # Crear el pedido
-            pedido = Pedido.objects.create(
-                cliente=cliente, # Usar el cliente obtenido o creado
-                direccion_entrega=request.POST.get('direccion_entrega'),
-                notas=request.POST.get('notas', '')
-            )
-              # Crear los detalles del pedido
-            for key, item in carrito.items():
-                producto = Producto.objects.get(id_producto=int(key)) # Convertir key a int
-                detalle_pedido = DetallePedido.objects.create(
-                    pedido=pedido,
-                    producto=producto,
-                    cantidad=item['cantidad'],
-                    meses_renta=item['meses'],
-                    precio_unitario=item['precio_unitario']
-                    # subtotal se calcula en el modelo DetallePedido
+        with transaction.atomic():
+            try:
+                carrito = request.session.get('carrito', {})
+                if not carrito:
+                    messages.error(request, 'El carrito está vacío')
+                    return redirect('carrito')
+                
+                # Asegurar que el usuario tenga un cliente asociado
+                cliente, created = Cliente.objects.get_or_create(
+                    usuario=request.user,
+                    defaults={
+                        'telefono': request.user.telefono if hasattr(request.user, 'telefono') else '',
+                        'direccion': request.POST.get('direccion_entrega', request.user.direccion if hasattr(request.user, 'direccion') else '')
+                    }
                 )
                 
-                # Mover productos de reservados a en renta
-                if not producto.confirmar_renta(item['cantidad']):
-                    messages.warning(request, f'Advertencia: No se pudo confirmar la renta para {item["cantidad"]} unidades de {producto.nombre}')
-                  # Crear recibo de obra automáticamente para cada producto
-                try:
-                    from recibos.models import ReciboObra
-                    
-                    # Verificar los valores antes de crear
-                    print(f"Creando recibo con: pedido={pedido}, cliente={cliente}, producto={producto}, detalle={detalle_pedido}")
-                    print(f"Cantidad={item['cantidad']}, Estado={producto.en_renta}")
-                    
-                    # Primero intentemos ver si este producto ya tiene un recibo para este pedido
-                    recibos_existentes = ReciboObra.objects.filter(
+                # Crear el pedido
+                pedido = Pedido.objects.create(
+                    cliente=cliente, # Usar el cliente obtenido o creado
+                    direccion_entrega=request.POST.get('direccion_entrega'),
+                    notas=request.POST.get('notas', '')
+                )
+                  # Crear los detalles del pedido
+                for key, item in carrito.items():
+                    producto = Producto.objects.get(id_producto=int(key)) # Convertir key a int
+                    detalle_pedido = DetallePedido.objects.create(
                         pedido=pedido,
                         producto=producto,
-                        detalle_pedido=detalle_pedido
+                        cantidad=item['cantidad'],
+                        meses_renta=item['meses'],
+                        precio_unitario=item['precio_unitario']
+                        # subtotal se calcula en el modelo DetallePedido
                     )
                     
-                    if recibos_existentes.exists():
-                        recibo = recibos_existentes.first()
-                        print(f"Ya existe un recibo (#{recibo.id}) para este producto en este pedido")
-                        messages.info(request, f"Ya existe un recibo para {producto.nombre} en este pedido")
-                    else:
-                        # Crear nuevo recibo
-                        recibo = ReciboObra.objects.create(
+                    # Mover productos de reservados a en renta
+                    if not producto.confirmar_renta(item['cantidad']):
+                        raise Exception(f'No hay suficiente stock para {producto.nombre}')
+
+                      # Crear recibo de obra automáticamente para cada producto
+                    try:
+                        from recibos.models import ReciboObra
+                        
+                        # Verificar los valores antes de crear
+                        print(f"Creando recibo con: pedido={pedido}, cliente={cliente}, producto={producto}, detalle={detalle_pedido}")
+                        print(f"Cantidad={item['cantidad']}, Estado={producto.en_renta}")
+                        
+                        # Primero intentemos ver si este producto ya tiene un recibo para este pedido
+                        recibos_existentes = ReciboObra.objects.filter(
                             pedido=pedido,
-                            cliente=cliente,
                             producto=producto,
-                            detalle_pedido=detalle_pedido,
-                            cantidad_solicitada=item['cantidad'],
-                            notas_entrega=f"Recibo generado automáticamente para el pedido #{pedido.id_pedido}",
-                            condicion_entrega="Equipo en buen estado al momento de la entrega",
-                            # Si el usuario tiene rol adecuado asignarlo como empleado, de lo contrario None
-                            empleado=request.user if hasattr(request.user, 'rol') and request.user.rol in ['admin', 'empleado', 'recibos_obra'] else None,
-                            estado='EN_USO'  # Actualizar estado a EN_USO directamente
+                            detalle_pedido=detalle_pedido
                         )
-                        print(f"Recibo de obra #{recibo.id} creado automáticamente para producto {producto.nombre}")
-                        messages.success(request, f"Recibo de obra #{recibo.id} creado automáticamente para {producto.nombre}")
-                except ImportError as ie:
-                    print(f"Error de importación: {str(ie)}")
-                    messages.warning(request, f"No se pudo importar el modelo ReciboObra")
-                except Exception as e:
-                    print(f"Error al crear recibo de obra automático: {str(e)}")
-                    import traceback
-                    print(traceback.format_exc())
-                    messages.warning(request, f"No se pudo crear el recibo de obra para {producto.nombre}: {str(e)}")            # Limpiar el carrito
-            del request.session['carrito']
-            request.session.modified = True # Asegurar que la sesión se guarde
-            messages.success(request, f'Pedido #{pedido.id_pedido} creado exitosamente')
-            
-            # Redirigir a la página de confirmación de pago que incluye información sobre los recibos generados
-            return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-            
-        except Producto.DoesNotExist:
-            messages.error(request, 'Error: Uno de los productos en el carrito no fue encontrado.')
-            return redirect('carrito')
-        except Exception as e:
-            messages.error(request, f'Error al crear el pedido: {str(e)}')
-            return redirect('carrito')
+                        
+                        if recibos_existentes.exists():
+                            recibo = recibos_existentes.first()
+                            print(f"Ya existe un recibo (#{recibo.id}) para este producto en este pedido")
+                            messages.info(request, f"Ya existe un recibo para {producto.nombre} en este pedido")
+                        else:
+                            # Crear nuevo recibo
+                            recibo = ReciboObra.objects.create(
+                                pedido=pedido,
+                                cliente=cliente,
+                                producto=producto,
+                                detalle_pedido=detalle_pedido,
+                                cantidad_solicitada=item['cantidad'],
+                                notas_entrega=f"Recibo generado automáticamente para el pedido #{pedido.id_pedido}",
+                                condicion_entrega="Equipo en buen estado al momento de la entrega",
+                                # Si el usuario tiene rol adecuado asignarlo como empleado, de lo contrario None
+                                empleado=request.user if hasattr(request.user, 'rol') and request.user.rol in ['admin', 'empleado', 'recibos_obra'] else None,
+                                estado='EN_USO'  # Actualizar estado a EN_USO directamente
+                            )
+                            print(f"Recibo de obra #{recibo.id} creado automáticamente para producto {producto.nombre}")
+                            messages.success(request, f"Recibo de obra #{recibo.id} creado automáticamente para {producto.nombre}")
+                    except ImportError as ie:
+                        print(f"Error de importación: {str(ie)}")
+                        messages.warning(request, f"No se pudo importar el modelo ReciboObra")
+                    except Exception as e:
+                        print(f"Error al crear recibo de obra automático: {str(e)}")
+                        import traceback
+                        print(traceback.format_exc())
+                        messages.warning(request, f"No se pudo crear el recibo de obra para {producto.nombre}: {str(e)}")            # Limpiar el carrito
+                del request.session['carrito']
+                request.session.modified = True # Asegurar que la sesión se guarde
+                messages.success(request, f'Pedido #{pedido.id_pedido} creado exitosamente')
+                
+                # Redirigir a la página de confirmación de pago que incluye información sobre los recibos generados
+                return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
+                
+            except Producto.DoesNotExist:
+                messages.error(request, 'Error: Uno de los productos en el carrito no fue encontrado.')
+                return redirect('carrito')
+            except Exception as e:
+                messages.error(request, f'Error al crear el pedido: {str(e)}')
+                return redirect('carrito')
 @login_required
 @user_passes_test(es_staff)
 def detalle_pedido(request, pedido_id):
@@ -639,7 +643,7 @@ def generar_factura_pdf(request, pedido_id):
 @login_required
 @user_passes_test(es_cliente, login_url='/panel/')
 def mis_pedidos(request):
-    """Vista para que los clientes vean sus propios pedidos"""
+    """Vista para que los clientes vean sus pedidos"""
     # Esta vista es solo para clientes, los admins/empleados son redirigidos por el decorador
     # Obtener el cliente asociado al usuario
     try:
@@ -651,6 +655,21 @@ def mis_pedidos(request):
     # Obtener los pedidos del cliente
     pedidos = Pedido.objects.filter(cliente=cliente).order_by('-fecha')
     
+    # Procesar pedidos pendientes de pago
+    for pedido in pedidos:
+        if pedido.estado_pedido_general == 'pendiente_pago':
+            # Verificar si el pago está vencido
+            if pedido.esta_vencido_pago():
+                pedido.estado_pedido_general = 'pago_vencido'
+                pedido.save()
+            elif pedido.fecha_limite_pago:
+                # Calcular tiempo restante para pedidos pendientes
+                tiempo_restante = pedido.get_tiempo_restante_pago()
+                if tiempo_restante:
+                    horas = int(tiempo_restante.total_seconds() / 3600)
+                    minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
+                    pedido.tiempo_restante_str = f"{horas}h {minutos}m"
+    
     return render(request, 'pedidos/mis_pedidos.html', {'pedidos': pedidos})
 
 @login_required
@@ -658,29 +677,28 @@ def mis_pedidos(request):
 def detalle_mi_pedido(request, pedido_id):
     """Vista para que un cliente vea el detalle de uno de sus pedidos"""
     # Esta vista es solo para clientes, los admins/empleados son redirigidos por el decorador
-    # Obtener el pedido y verificar que pertenezca al cliente
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
-    
+    # Obtener el cliente asociado al usuario
     try:
         cliente = Cliente.objects.get(usuario=request.user)
     except Cliente.DoesNotExist:
         messages.error(request, "No tienes perfil de cliente.")
         return redirect('usuarios:inicio_cliente')
     
-    # Verificar que el pedido pertenezca al cliente actual
-    if pedido.cliente != cliente:
-        messages.error(request, "No tienes permiso para ver este pedido.")
-        return redirect('pedidos:mis_pedidos')
+    # Obtener el pedido asegurando que pertenezca al cliente actual
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente=cliente)
     
-    # Obtener los recibos de obra asociados a este pedido
-    from recibos.models import ReciboObra
-    recibos = ReciboObra.objects.filter(pedido=pedido)
+    # Verificar si hay tiempo límite de pago y calcular tiempo restante
+    if pedido.estado_pedido_general == 'pendiente_pago' and pedido.fecha_limite_pago:
+        tiempo_restante = pedido.get_tiempo_restante_pago()
+        if tiempo_restante:
+            horas = int(tiempo_restante.total_seconds() / 3600)
+            minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
+            pedido.tiempo_restante_str = f"{horas}h {minutos}m"
     
     context = {
         'pedido': pedido,
-        'detalles': pedido.detalles.all(),
-        'recibos': recibos,
-        'es_vista_cliente': True  # Flag para indicar que es la vista de cliente
+        'detalles': pedido.detalles.all().select_related('producto'),
+        'cliente': cliente,
     }
     
     return render(request, 'pedidos/detalle_mi_pedido.html', context)
@@ -707,7 +725,7 @@ def programar_devolucion(request, pedido_id):
             pedido.save()
             
             messages.success(request, 'La devolución ha sido programada exitosamente.')
-            return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+            return redirect('pedidos:detalle_mi_pedido', pedido_id=pedido_id)
             
         except ValueError:
             messages.error(request, 'Formato de fecha inválido. Por favor, use el selector de fecha.')

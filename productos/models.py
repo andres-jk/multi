@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 
 class Producto(models.Model):
     id_producto = models.AutoField(primary_key=True)
@@ -20,36 +20,44 @@ class Producto(models.Model):
     
     def reservar(self, cantidad):
         """Reserva una cantidad del producto, moviéndola de disponible a reservada"""
-        if cantidad <= self.cantidad_disponible:
-            self.cantidad_disponible -= cantidad
-            self.cantidad_reservada += cantidad
-            self.save()
-            return True
+        with transaction.atomic():
+            producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
+            if cantidad <= producto_a_actualizar.cantidad_disponible:
+                producto_a_actualizar.cantidad_disponible -= cantidad
+                producto_a_actualizar.cantidad_reservada += cantidad
+                producto_a_actualizar.save()
+                return True
         return False
     
     def confirmar_renta(self, cantidad):
         """Confirma la renta de una cantidad que estaba reservada"""
-        if cantidad <= self.cantidad_reservada:
-            self.cantidad_reservada -= cantidad
-            self.cantidad_en_renta += cantidad
-            self.save()
-            return True
+        with transaction.atomic():
+            producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
+            if cantidad <= producto_a_actualizar.cantidad_reservada:
+                producto_a_actualizar.cantidad_reservada -= cantidad
+                producto_a_actualizar.cantidad_en_renta += cantidad
+                producto_a_actualizar.save()
+                return True
         return False
     
     def cancelar_reserva(self, cantidad):
         """Cancela la reserva de una cantidad, devolviéndola al estado disponible"""
-        if cantidad <= self.cantidad_reservada:
-            self.cantidad_reservada -= cantidad
-            self.cantidad_disponible += cantidad
-            self.save()
-            return True
+        with transaction.atomic():
+            producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
+            if cantidad <= producto_a_actualizar.cantidad_reservada:
+                producto_a_actualizar.cantidad_reservada -= cantidad
+                producto_a_actualizar.cantidad_disponible += cantidad
+                producto_a_actualizar.save()
+                return True
         return False
     
     def devolver_de_renta(self, cantidad):
         """Devuelve productos que estaban en renta al estado disponible"""
-        if cantidad <= self.cantidad_en_renta:
-            self.cantidad_en_renta -= cantidad
-            self.cantidad_disponible += cantidad
-            self.save()
-            return True
+        with transaction.atomic():
+            producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
+            if cantidad <= producto_a_actualizar.cantidad_en_renta:
+                producto_a_actualizar.cantidad_en_renta -= cantidad
+                producto_a_actualizar.cantidad_disponible += cantidad
+                producto_a_actualizar.save()
+                return True
         return False

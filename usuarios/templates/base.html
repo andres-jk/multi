@@ -735,6 +735,51 @@
                 margin-top: 0.5rem;
             }
         }
+
+        .pending-orders-link {
+            position: relative;
+            background: linear-gradient(135deg, #FF9800 0%, #FFC107 100%);
+            color: #111;
+            font-weight: bold;
+            border: none;
+            box-shadow: 0 2px 6px rgba(255, 152, 0, 0.2);
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pending-orders-link:hover {
+            background: linear-gradient(135deg, #FFA726 0%, #FFD54F 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(255, 152, 0, 0.3);
+        }
+
+        .pending-orders-link i {
+            font-size: 0.9em;
+        }
+
+        .pending-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #f44336;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            display: none;
+            border: 2px solid #fff;
+            min-width: 20px;
+            height: 20px;
+            text-align: center;
+        }
+
+        .pending-badge.has-pending {
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
     </style>
 </head>
 <body>
@@ -754,6 +799,10 @@
                     
                     {% if user.rol == 'cliente' %}
                     <a href="{% url 'pedidos:mis_pedidos' %}" {% if '/panel/mis-pedidos/' in request.path %}class="active"{% endif %}><i class="fas fa-clipboard-check"></i> Mis Pedidos</a>
+                    <a href="{% url 'usuarios:pedidos_pendientes' %}" {% if '/pedidos-pendientes/' in request.path %}class="active"{% endif %} class="nav-btn-link pending-orders-link">
+                        <i class="fas fa-clock"></i> Pedidos Pendientes
+                        <span class="pending-badge"></span>
+                    </a>
                     {% endif %}
                     
                     <a href="{% url 'usuarios:ver_carrito' %}" {% if '/carrito/' in request.path %}class="active"{% endif %} class="carrito-link">
@@ -963,5 +1012,43 @@
     
     <!-- Script del chatbot -->
     <script src="{% static 'chatbot.js' %}"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if user.is_authenticated and user.rol == 'cliente' %}
+            // Function to update the pending orders badge
+            function updatePendingOrdersBadge() {
+                fetch('{% url "usuarios:pedidos_pendientes" %}')
+                    .then(response => response.text())
+                    .then(html => {
+                        // Create a temporary element to parse the HTML
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        
+                        // Count the number of pending orders
+                        const pendingOrders = tempDiv.querySelectorAll('.card').length;
+                        
+                        // Update the badge
+                        const badge = document.querySelector('.pending-badge');
+                        if (badge) {
+                            if (pendingOrders > 0) {
+                                badge.textContent = pendingOrders;
+                                badge.classList.add('has-pending');
+                            } else {
+                                badge.classList.remove('has-pending');
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error updating pending orders badge:', error));
+            }
+
+            // Update badge on page load
+            updatePendingOrdersBadge();
+
+            // Update badge every 5 minutes
+            setInterval(updatePendingOrdersBadge, 5 * 60 * 1000);
+            {% endif %}
+        });
+    </script>
 </body>
 </html>

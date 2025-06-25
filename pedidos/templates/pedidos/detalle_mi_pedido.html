@@ -92,6 +92,9 @@
     <div class="pedido-actions">
         <a href="{% url 'pedidos:mis_pedidos' %}" class="btn">Volver a mis pedidos</a>
         <a href="{% url 'usuarios:inicio_cliente' %}" class="btn">Ir al inicio</a>
+        {% if pedido.estado_pedido_general == 'EN_PROCESO' %}
+            <a href="{% url 'pedidos:programar_devolucion' pedido.id_pedido %}" class="btn btn-primary">Programar Devolución</a>
+        {% endif %}
     </div>
 </div>
 
