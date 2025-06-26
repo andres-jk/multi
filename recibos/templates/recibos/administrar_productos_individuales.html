@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block title %}Administrar Productos Individuales - Recibo #{{ recibo.id }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Administrar Estado de Productos - Recibo #{{ recibo.id }}</h1>
+    
+    <div class="info-box">
+        <h3>Información del Recibo</h3>
+        <p><strong>Cliente:</strong> {{ recibo.cliente.usuario.get_full_name }}</p>
+        <p><strong>Pedido:</strong> #{{ recibo.pedido.id_pedido }}</p>
+        <p><strong>Fecha de Entrega:</strong> {{ recibo.fecha_entrega|date:"d/m/Y H:i" }}</p>
+        {% if recibo.fecha_devolucion %}
+            <p><strong>Fecha de Devolución:</strong> {{ recibo.fecha_devolucion|date:"d/m/Y H:i" }}</p>
+        {% endif %}
+    </div>
+
+    <form method="post" class="productos-form">
+        {% csrf_token %}
+        
+        {% for producto_data in productos_data %}
+            <div class="producto-section">
+                <h3 class="producto-title">
+                    🔧 {{ producto_data.detalle.producto.nombre }}
+                    <span class="cantidad-badge">{{ producto_data.detalle.cantidad_solicitada }} unidades</span>
+                </h3>
+                
+                <div class="productos-grid">
+                    {% for producto_individual in producto_data.productos_individuales %}
+                        <div class="producto-item">
+                            <div class="producto-header">
+                                <h4>Unidad {{ producto_individual.index|add:1 }}</h4>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="numero_serie_{{ producto_data.detalle.id }}_{{ producto_individual.index }}">
+                                    Número de Serie/ID:
+                                </label>
+                                <input type="text" 
+                                       id="numero_serie_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                       name="numero_serie_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                       value="{% if producto_individual.estado_individual %}{{ producto_individual.estado_individual.numero_serie }}{% else %}{{ producto_individual.numero_serie }}{% endif %}"
+                                       placeholder="Ej: SN001, ID-123">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="estado_{{ producto_data.detalle.id }}_{{ producto_individual.index }}">
+                                    Estado del Producto:
+                                </label>
+                                <select id="estado_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                        name="estado_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                        class="estado-select">
+                                    {% for estado_value, estado_label in estados_choices %}
+                                        <option value="{{ estado_value }}" 
+                                                {% if producto_individual.estado_individual and producto_individual.estado_individual.estado == estado_value %}selected{% endif %}
+                                                {% if not producto_individual.estado_individual and estado_value == 'BUEN_ESTADO' %}selected{% endif %}>
+                                            {{ estado_label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="observaciones_{{ producto_data.detalle.id }}_{{ producto_individual.index }}">
+                                    Observaciones:
+                                </label>
+                                <textarea id="observaciones_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                          name="observaciones_{{ producto_data.detalle.id }}_{{ producto_individual.index }}"
+                                          rows="3"
+                                          placeholder="Detalles sobre el estado del producto...">{% if producto_individual.estado_individual %}{{ producto_individual.estado_individual.observaciones }}{% endif %}</textarea>
+                            </div>
+                            
+                            {% if producto_individual.estado_individual %}
+                                <div class="revision-info">
+                                    <small>
+                                        <strong>Última revisión:</strong> {{ producto_individual.estado_individual.fecha_revision|date:"d/m/Y H:i" }}
+                                        {% if producto_individual.estado_individual.revisado_por %}
+                                            por {{ producto_individual.estado_individual.revisado_por.get_full_name }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% empty %}
+            <div class="no-productos">
+                <p>No hay productos en este recibo de obra.</p>
+            </div>
+        {% endfor %}
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">💾 Guardar Estados de Productos</button>
+            <a href="{% url 'recibos:lista_recibos' %}" class="btn btn-secondary">🔙 Volver a Lista</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.info-box {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.info-box h3 {
+    color: #495057;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 10px;
+}
+
+.producto-section {
+    margin-bottom: 40px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.producto-title {
+    background-color: #007bff;
+    color: white;
+    margin: 0;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cantidad-badge {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+.productos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.producto-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #fafafa;
+    transition: box-shadow 0.3s ease;
+}
+
+.producto-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.producto-header h4 {
+    margin: 0 0 15px 0;
+    color: #343a40;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 8px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+}
+
+.estado-select {
+    background-color: white;
+}
+
+.estado-select option[value="BUEN_ESTADO"] {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.estado-select option[value="PARA_REPARACION"] {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.estado-select option[value="INUTILIZABLE"] {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.revision-info {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #dee2e6;
+    color: #6c757d;
+}
+
+.form-actions {
+    text-align: center;
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 24px;
+    margin: 0 10px;
+    border: none;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #545b62;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.no-productos {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+@media (max-width: 768px) {
+    .productos-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .producto-title {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .form-actions .btn {
+        display: block;
+        margin: 10px auto;
+        width: 100%;
+        max-width: 300px;
+    }
+}
+</style>
+{% endblock %}

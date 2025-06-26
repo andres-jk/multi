@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load productos_extras %}
 {% block title %}Administrar Productos{% endblock %}
 {% block nav %}
 <a href="/panel/admin/clientes/">Clientes</a>
@@ -13,8 +14,14 @@
         {% csrf_token %}
         <input type="text" name="nombre" placeholder="Nombre del producto" required>
         <textarea name="descripcion" placeholder="Descripción" style="min-width:200px;" required></textarea>
-        <input type="number" name="precio" placeholder="Precio" min="0" step="0.01" required>
-        <input type="text" name="tipo_renta" placeholder="Tipo de renta" required>
+        <input type="number" name="precio" placeholder="Precio mensual" min="0" step="0.01" required>
+        <input type="number" name="precio_semanal" placeholder="Precio semanal (opcional)" min="0" step="0.01">
+        <input type="number" name="peso" placeholder="Peso individual (kg)" min="0" step="0.01" required>
+        <select name="tipo_renta" required style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+            <option value="">Seleccionar tipo de renta</option>
+            <option value="mensual">Mensual</option>
+            <option value="semanal">Semanal</option>
+        </select>
         <input type="number" name="cantidad" placeholder="Cantidad" min="1" required>
         <input type="file" name="imagen" accept="image/*">
         <button class="btn" type="submit">Agregar</button>
@@ -25,10 +32,13 @@
                 <tr>
                     <th>Nombre</th>
                     <th>Descripción</th>
-                    <th>Precio</th>
+                    <th>Precio Mensual</th>
+                    <th>Precio Semanal</th>
+                    <th>Peso (kg)</th>
                     <th>Tipo de Renta</th>
                     <th>Cantidad</th>
                     <th>Imagen</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -37,8 +47,20 @@
                 <tr>
                     <td>{{ producto.nombre }}</td>
                     <td>{{ producto.descripcion }}</td>
-                    <td>${{ producto.precio }}</td>
-                    <td>{{ producto.tipo_renta }}</td>
+                    <td>${{ producto.precio|floatformat:2 }}</td>
+                    <td>
+                        {% if producto.precio_semanal %}
+                            ${{ producto.precio_semanal|floatformat:2 }}
+                        {% else %}
+                            <span class="precio-calculado">${{ producto.precio|precio_calculado|floatformat:2 }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ producto.peso|floatformat:2 }} kg</td>
+                    <td>
+                        <span class="tipo-renta-badge tipo-renta-{{ producto.tipo_renta }}">
+                            {{ producto.get_tipo_renta_display }}
+                        </span>
+                    </td>
                     <td>{{ producto.cantidad_disponible }}</td>
                     <td>
                         {% if producto.imagen %}
@@ -47,20 +69,303 @@
                             <span style="color:#FFD600;">Sin imagen</span>
                         {% endif %}
                     </td>
-                    <td>                        <a href="{% url 'pedidos:editar_producto' producto.id_producto %}" class="btn">Editar</a>
-                        <form method="post" action="{% url 'pedidos:eliminar_producto' producto.id_producto %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button class="btn" type="submit" onclick="return confirm('¿Eliminar este producto?')">Eliminar</button>
-                        </form>
+                    <td>
+                        {% if producto.activo %}
+                            <span style="color: green; font-weight: bold;">✓ Activo</span>
+                        {% else %}
+                            <span style="color: red; font-weight: bold;">✗ Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons" style="display: flex; gap: 5px; flex-wrap: wrap; align-items: center;">
+                            <!-- Botón Editar -->
+                            <a href="{% url 'pedidos:editar_producto' producto.id_producto %}" 
+                               class="btn btn-edit" 
+                               style="background-color: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px;">
+                                ✏️ Editar
+                            </a>
+                            
+                            <!-- Botón Activar/Desactivar -->
+                            <form action="{% url 'pedidos:cambiar_estado_producto' producto.id_producto %}" method="post" style="display: inline; margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" 
+                                        class="btn btn-toggle {% if producto.activo %}btn-deactivate{% else %}btn-activate{% endif %}"
+                                        style="padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; 
+                                               {% if producto.activo %}background-color: #ffc107; color: #000;{% else %}background-color: #28a745; color: white;{% endif %}">
+                                    {% if producto.activo %}
+                                        🔒 Desactivar
+                                    {% else %}
+                                        🔓 Activar
+                                    {% endif %}
+                                </button>
+                            </form>
+                            
+                            <!-- Botón Eliminar -->
+                            <form method="post" action="{% url 'pedidos:eliminar_producto' producto.id_producto %}" style="display: inline; margin: 0;">
+                                {% csrf_token %}
+                                <button class="btn btn-delete" 
+                                        type="submit" 
+                                        onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?')"
+                                        style="background-color: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                    🗑️ Eliminar
+                                </button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">No hay productos registrados.</td>
+                    <td colspan="8">No hay productos registrados.</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<style>
+.action-buttons {
+    min-width: 200px;
+}
+
+.btn-edit:hover {
+    background-color: #0056b3 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-activate:hover {
+    background-color: #218838 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-deactivate:hover {
+    background-color: #e0a800 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-delete:hover {
+    background-color: #c82333 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.action-buttons button, .action-buttons a {
+    transition: all 0.2s ease;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 12px 8px;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .action-buttons button, .action-buttons a {
+        width: 100%;
+        margin-bottom: 3px;
+        text-align: center;
+    }
+    
+    .table-responsive {
+        font-size: 14px;
+    }
+}
+
+/* Estados visuales mejorados */
+.table td span[style*="color: green"] {
+    background-color: rgba(40, 167, 69, 0.1);
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1px solid #28a745;
+}
+
+.table td span[style*="color: red"] {
+    background-color: rgba(220, 53, 69, 0.1);
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1px solid #dc3545;
+}
+
+/* Estilos para el selector de tipo de renta */
+.admin-productos-form select[name="tipo_renta"] {
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 14px;
+    min-width: 160px;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+.admin-productos-form select[name="tipo_renta"]:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.admin-productos-form select[name="tipo_renta"] option {
+    padding: 8px;
+}
+
+/* Badges para tipo de renta en la tabla */
+.tipo-renta-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.tipo-renta-mensual {
+    background-color: #e8f5e8;
+    color: #2d5930;
+    border: 1px solid #5cb85c;
+}
+
+.tipo-renta-semanal {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+/* Mejoras para los campos de precio */
+.admin-productos-form input[name="precio"],
+.admin-productos-form input[name="precio_semanal"] {
+    position: relative;
+}
+
+.admin-productos-form input[name="precio"]::before {
+    content: "$";
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+}
+
+/* Estilo para precio calculado automáticamente */
+.precio-calculado {
+    font-style: italic;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.precio-calculado::before {
+    content: "≈ ";
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const precioInput = document.querySelector('input[name="precio"]');
+    const precioSemanalInput = document.querySelector('input[name="precio_semanal"]');
+    const tipoRentaSelect = document.querySelector('select[name="tipo_renta"]');
+    
+    // Función para calcular precio semanal automáticamente
+    function calcularPrecioSemanal() {
+        if (precioInput.value && !precioSemanalInput.value) {
+            const precioMensual = parseFloat(precioInput.value);
+            const precioSemanalCalculado = (precioMensual / 4).toFixed(2);
+            precioSemanalInput.placeholder = `Sugerido: $${precioSemanalCalculado}`;
+        }
+    }
+    
+    // Event listeners
+    if (precioInput) {
+        precioInput.addEventListener('input', calcularPrecioSemanal);
+        precioInput.addEventListener('blur', calcularPrecioSemanal);
+    }
+    
+    // Mostrar información del tipo de renta seleccionado
+    if (tipoRentaSelect) {
+        tipoRentaSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            let mensaje = '';
+            
+            if (selectedValue === 'mensual') {
+                mensaje = 'Los cobros se harán por mes';
+            } else if (selectedValue === 'semanal') {
+                mensaje = 'Los cobros se harán por semana';
+            }
+            
+            // Mostrar mensaje temporal
+            if (mensaje) {
+                showNotification(mensaje, 'info');
+            }
+        });
+    }
+    
+    // Función para mostrar notificaciones
+    function showNotification(message, type = 'info') {
+        // Crear elemento de notificación
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            background-color: ${type === 'info' ? '#d1ecf1' : '#d4edda'};
+            border: 1px solid ${type === 'info' ? '#bee5eb' : '#c3e6cb'};
+            color: ${type === 'info' ? '#0c5460' : '#155724'};
+            border-radius: 4px;
+            z-index: 1000;
+            max-width: 300px;
+            font-size: 14px;
+            animation: slideIn 0.3s ease;
+        `;
+        notification.textContent = message;
+        
+        // Agregar al DOM
+        document.body.appendChild(notification);
+        
+        // Remover después de 3 segundos
+        setTimeout(() => {
+            notification.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+    
+    // Agregar estilos para las animaciones
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
 {% endblock %}

@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Empleado - {{ empleado.username }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 30px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        font-weight: bold;
+        margin-bottom: 5px;
+        display: block;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    .form-check {
+        margin-bottom: 10px;
+    }
+    
+    .form-check-input {
+        margin-right: 8px;
+    }
+    
+    .form-check-label {
+        font-weight: normal;
+    }
+    
+    .permissions-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+    }
+    
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+    }
+    
+    .btn-primary {
+        background: #007bff;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-warning {
+        background: #ffc107;
+        color: #212529;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .required {
+        color: #dc3545;
+    }
+    
+    .errorlist {
+        color: #dc3545;
+        list-style: none;
+        padding: 0;
+        margin: 5px 0;
+    }
+    
+    .errorlist li {
+        font-size: 14px;
+    }
+    
+    .info-section {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>✏️ Editar Empleado</h1>
+                <div>
+                    <a href="{% url 'usuarios:cambiar_password_empleado' empleado.id %}" class="btn btn-warning">
+                        🔑 Cambiar Contraseña
+                    </a>
+                    <a href="{% url 'usuarios:lista_empleados' %}" class="btn btn-secondary">
+                        ← Volver a Lista
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Información del empleado -->
+            <div class="info-section">
+                <h5>👤 Información Actual</h5>
+                <p><strong>Usuario:</strong> {{ empleado.username }}</p>
+                <p><strong>Último login:</strong> 
+                    {% if empleado.last_login %}
+                        {{ empleado.last_login|date:"d/m/Y H:i" }}
+                    {% else %}
+                        Nunca
+                    {% endif %}
+                </p>
+                <p><strong>Fecha de creación:</strong> {{ empleado.date_joined|date:"d/m/Y H:i" }}</p>
+            </div>
+            
+            <div class="form-card">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Información Básica -->
+                    <h3>📝 Información Básica</h3>
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.username.id_for_label }}">
+                                    Nombre de Usuario <span class="required">*</span>
+                                </label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.username.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.numero_identidad.id_for_label }}">
+                                    Número de Identidad <span class="required">*</span>
+                                </label>
+                                {{ form.numero_identidad }}
+                                {% if form.numero_identidad.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.numero_identidad.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.first_name.id_for_label }}">
+                                    Nombre <span class="required">*</span>
+                                </label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.first_name.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.last_name.id_for_label }}">
+                                    Apellido <span class="required">*</span>
+                                </label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.last_name.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.email.id_for_label }}">
+                                    Email <span class="required">*</span>
+                                </label>
+                                {{ form.email }}
+                                {% if form.email.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.email.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.rol.id_for_label }}">
+                                    Rol <span class="required">*</span>
+                                </label>
+                                {{ form.rol }}
+                                {% if form.rol.errors %}
+                                    <ul class="errorlist">
+                                        {% for error in form.rol.errors %}
+                                            <li>{{ error }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Permisos -->
+                    <div class="permissions-section">
+                        <h3>🔑 Permisos del Empleado</h3>
+                        <p>Selecciona a qué módulos y funciones puede acceder este empleado:</p>
+                        
+                        <div class="permissions-grid">
+                            <div class="form-check">
+                                {{ form.puede_gestionar_productos }}
+                                <label class="form-check-label" for="{{ form.puede_gestionar_productos.id_for_label }}">
+                                    📦 Gestionar Productos
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_gestionar_pedidos }}
+                                <label class="form-check-label" for="{{ form.puede_gestionar_pedidos.id_for_label }}">
+                                    📋 Gestionar Pedidos
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_gestionar_recibos }}
+                                <label class="form-check-label" for="{{ form.puede_gestionar_recibos.id_for_label }}">
+                                    📄 Gestionar Recibos de Obra
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_gestionar_clientes }}
+                                <label class="form-check-label" for="{{ form.puede_gestionar_clientes.id_for_label }}">
+                                    👥 Gestionar Clientes
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_ver_reportes }}
+                                <label class="form-check-label" for="{{ form.puede_ver_reportes.id_for_label }}">
+                                    📊 Ver Reportes
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_gestionar_inventario }}
+                                <label class="form-check-label" for="{{ form.puede_gestionar_inventario.id_for_label }}">
+                                    📈 Gestionar Inventario
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                {{ form.puede_procesar_pagos }}
+                                <label class="form-check-label" for="{{ form.puede_procesar_pagos.id_for_label }}">
+                                    💳 Procesar Pagos
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado -->
+                    <h3>⚙️ Estado</h3>
+                    <hr>
+                    
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            Usuario Activo
+                        </label>
+                        <div class="help-text">Si está marcado, el empleado podrá iniciar sesión en el sistema.</div>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'usuarios:lista_empleados' %}" class="btn btn-secondary">
+                            Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            ✅ Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

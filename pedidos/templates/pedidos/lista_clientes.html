@@ -9,10 +9,52 @@
 {% block content %}
 <div class="card card-clientes">
     <h1 class="highlight">Lista de Clientes</h1>
-    <form method="get" class="form-busqueda" style="margin-bottom: 20px;">
-        <input type="text" name="busqueda_identidad" placeholder="Buscar por N° Identidad" value="{{ request.GET.busqueda_identidad }}" />
-        <button type="submit">Buscar</button>
-    </form>
+    
+    <!-- Filtros y búsqueda -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <form method="get" class="form-filtros" style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+            <!-- Búsqueda -->
+            <div style="display: flex; gap: 5px;">
+                <input type="text" name="busqueda_identidad" placeholder="Buscar por N° Identidad o Nombre" value="{{ busqueda }}" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+                <button type="submit" style="padding: 8px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Buscar</button>
+            </div>
+            
+            <!-- Filtros desplegables -->
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <label for="estado" style="font-weight: bold;">Estado:</label>
+                <select name="estado" id="estado" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
+                    {% for value, label in estados %}
+                        <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                
+                <label for="rol" style="font-weight: bold;">Rol:</label>
+                <select name="rol" id="rol" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
+                    {% for value, label in roles %}
+                        <option value="{{ value }}" {% if rol_filtro == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                
+                <!-- Botón para limpiar filtros -->
+                <a href="{% url 'pedidos:lista_clientes' %}" style="padding: 8px 12px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">Limpiar</a>
+            </div>
+            
+            <!-- Mantener búsqueda al cambiar filtros -->
+            {% if busqueda %}
+                <input type="hidden" name="busqueda_identidad" value="{{ busqueda }}" />
+            {% endif %}
+        </form>
+        
+        <a href="{% url 'pedidos:agregar_cliente' %}" class="btn" style="background-color: #FFC107; color: #000; padding: 10px 15px; font-weight: bold; text-decoration: none; border-radius: 4px;">Agregar Cliente</a>
+    </div>
+    
+    <!-- Información de resultados -->
+    <div style="margin-bottom: 15px; color: #666; font-size: 14px;">
+        Mostrando {{ clientes|length }} cliente{{ clientes|length|pluralize:"s" }}
+        {% if estado_filtro or rol_filtro or busqueda %}
+            (filtrado{{ estado_filtro|yesno:", por estado" }}{{ rol_filtro|yesno:", por rol" }}{{ busqueda|yesno:", por búsqueda" }})
+        {% endif %}
+    </div>
     <div class="table-responsive">
         <table class="table">
             <thead>
@@ -23,7 +65,9 @@
                     <th>Apellido</th>
                     <th>Email</th>
                     <th>Teléfono</th>
-                    <th>Dirección</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -35,15 +79,96 @@
                     <td>{{ cliente.usuario.last_name }}</td>
                     <td>{{ cliente.usuario.email }}</td>
                     <td>{{ cliente.telefono }}</td>
-                    <td>{{ cliente.direccion }}</td>
+                    <td>
+                        <span class="badge badge-info">{{ cliente.usuario.get_rol_display }}</span>
+                    </td>
+                    <td>
+                        {% if cliente.usuario.is_active %}
+                            <span style="color: green; font-weight: bold;">✓ Activo</span>
+                        {% else %}
+                            <span style="color: red; font-weight: bold;">✗ Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form action="{% url 'pedidos:cambiar_estado_cliente' cliente.usuario.id %}" method="post" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm {% if cliente.usuario.is_active %}btn-danger{% else %}btn-success{% endif %}" style="padding: 5px 10px; font-size: 12px;">
+                                {% if cliente.usuario.is_active %}
+                                    🔒 Desactivar
+                                {% else %}
+                                    🔓 Activar
+                                {% endif %}
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">No hay clientes registrados.</td>
+                    <td colspan="9" style="text-align: center; padding: 20px; color: #666;">
+                        {% if estado_filtro or rol_filtro or busqueda %}
+                            No se encontraron clientes que coincidan con los filtros aplicados.
+                        {% else %}
+                            No hay clientes registrados.
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+<style>
+.badge {
+    display: inline-block;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.375rem;
+}
+
+.badge-info {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.form-filtros select:hover {
+    border-color: #007bff;
+}
+
+.form-filtros select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,.25);
+}
+
+.form-filtros button:hover {
+    background-color: #0056b3;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+    .form-filtros {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-filtros > div {
+        width: 100%;
+    }
+}
+</style>
 {% endblock %}

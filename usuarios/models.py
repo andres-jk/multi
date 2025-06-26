@@ -13,13 +13,39 @@ class Usuario(AbstractUser):
         ('recibos_obra', 'Empleado de Recibos de Obra'),
         ('cliente', 'Cliente'),
     )
-    numero_identidad = models.CharField(max_length=20, unique=True, verbose_name='Número de Identidad', null=True, blank=True)  # Permite nulos temporalmente
+    numero_identidad = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name='Número de Identidad')  # Permite nulos temporalmente
     rol = models.CharField(max_length=20, choices=ROLES, default='cliente')
     direccion_texto = models.CharField(max_length=255, blank=True, null=True, verbose_name='Dirección (texto)')
     
+    # Permisos específicos para empleados
+    puede_gestionar_productos = models.BooleanField(default=False, verbose_name='Puede gestionar productos')
+    puede_gestionar_pedidos = models.BooleanField(default=False, verbose_name='Puede gestionar pedidos')
+    puede_gestionar_recibos = models.BooleanField(default=False, verbose_name='Puede gestionar recibos de obra')
+    puede_gestionar_clientes = models.BooleanField(default=False, verbose_name='Puede gestionar clientes')
+    puede_ver_reportes = models.BooleanField(default=False, verbose_name='Puede ver reportes')
+    puede_gestionar_inventario = models.BooleanField(default=False, verbose_name='Puede gestionar inventario')
+    puede_procesar_pagos = models.BooleanField(default=False, verbose_name='Puede procesar pagos')
+    activo = models.BooleanField(default=True, verbose_name='Usuario activo')
+    
     def puede_ver_recibos(self):
         """Determina si el usuario puede acceder a la sección de recibos de obra"""
-        return self.rol in ['admin', 'recibos_obra'] or self.is_staff
+        return self.rol in ['admin', 'recibos_obra'] or self.is_staff or self.puede_gestionar_recibos
+
+    def tiene_permisos_admin(self):
+        """Verifica si el usuario tiene permisos de administrador"""
+        return self.rol == 'admin' or self.is_superuser
+    
+    def permisos_empleado(self):
+        """Retorna un diccionario con los permisos del empleado"""
+        return {
+            'productos': self.puede_gestionar_productos,
+            'pedidos': self.puede_gestionar_pedidos,
+            'recibos': self.puede_gestionar_recibos,
+            'clientes': self.puede_gestionar_clientes,
+            'reportes': self.puede_ver_reportes,
+            'inventario': self.puede_gestionar_inventario,
+            'pagos': self.puede_procesar_pagos,
+        }
 
     def __str__(self):
         return self.username
@@ -132,6 +158,12 @@ class MetodoPago(models.Model):
 
 class CarritoItem(models.Model):
     """Modelo para los items en el carrito de compras"""
+    
+    TIPO_RENTA_CHOICES = [
+        ('mensual', 'Mensual'),
+        ('semanal', 'Semanal'),
+    ]
+    
     usuario = models.ForeignKey(
         Usuario,
         on_delete=models.CASCADE,
@@ -147,9 +179,19 @@ class CarritoItem(models.Model):
         default=1,
         verbose_name='Cantidad'
     )
+    tipo_renta = models.CharField(
+        max_length=10,
+        choices=TIPO_RENTA_CHOICES,
+        default='mensual',
+        verbose_name='Tipo de renta'
+    )
+    periodo_renta = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Período de renta'
+    )
     meses_renta = models.PositiveIntegerField(
         default=1,
-        verbose_name='Meses de renta'
+        verbose_name='Meses de renta (legacy)'
     )
     fecha_agregado = models.DateTimeField(
         auto_now_add=True,
@@ -172,6 +214,30 @@ class CarritoItem(models.Model):
 
     def __str__(self):
         return f"{self.producto.nombre} ({self.cantidad}) - {self.usuario.username}"
+    
+    @property
+    def subtotal(self):
+        """Calcula el subtotal según el tipo de renta"""
+        precio_periodo = self.producto.get_precio_por_tipo(self.tipo_renta)
+        total = precio_periodo * self.periodo_renta * self.cantidad
+        return round(total, 2)
+    
+    @property
+    def precio_unitario(self):
+        """Retorna el precio unitario según el tipo de renta"""
+        return self.producto.get_precio_por_tipo(self.tipo_renta)
+    
+    @property
+    def peso_total(self):
+        """Devuelve el peso total de este item del carrito (peso individual x cantidad)"""
+        return round(float(self.producto.peso) * self.cantidad, 2)
+
+    def get_descripcion_periodo(self):
+        """Retorna una descripción legible del período"""
+        if self.tipo_renta == 'semanal':
+            return f"{self.periodo_renta} semana{'s' if self.periodo_renta > 1 else ''}"
+        else:
+            return f"{self.periodo_renta} mes{'es' if self.periodo_renta > 1 else ''}"
 
     def reservar(self):
         """Intenta reservar la cantidad del producto"""
@@ -196,14 +262,10 @@ class CarritoItem(models.Model):
     def clean(self):
         if self.cantidad < 1:
             raise ValidationError('La cantidad debe ser mayor a 0')
-        if self.meses_renta < 1:
-            raise ValidationError('El período de renta debe ser al menos 1 mes')
+        if self.periodo_renta < 1:
+            raise ValidationError('El período de renta debe ser al menos 1')
         if not self.reservado and self.producto.cantidad_disponible < self.cantidad:
             raise ValidationError(f'No hay suficiente stock. Disponible: {self.producto.cantidad_disponible}')
-
-    @property
-    def subtotal(self):
-        return self.producto.precio * self.cantidad * self.meses_renta
 
     def save(self, *args, **kwargs):
         self.full_clean()

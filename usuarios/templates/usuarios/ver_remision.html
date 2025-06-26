@@ -71,6 +71,7 @@
                             <th class="text-center">Período (Meses)</th>
                             <th class="text-end">Precio/Mes</th>
                             <th class="text-end">Subtotal</th>
+                            <th class="text-end">Peso (kg)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,6 +82,7 @@
                             <td class="text-center">{{ detalle.meses_renta }}</td>
                             <td class="text-end">L. {{ detalle.precio_unitario|floatformat:2 }}</td>
                             <td class="text-end">L. {{ detalle.precio_unitario|multiply:detalle.cantidad|multiply:detalle.meses_renta|floatformat:2 }}</td>
+                            <td class="text-end">{{ detalle.producto.peso|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -99,6 +101,9 @@
                         </tr>
                     </tfoot>
                 </table>
+            </div>
+            <div class="d-flex justify-content-end">
+                <strong>Peso total: {{ peso_total|floatformat:2 }} kg</strong>
             </div>
 
             {% if pedido.notas %}

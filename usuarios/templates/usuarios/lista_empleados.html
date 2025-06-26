@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% load permisos_tags %}
+
+{% block title %}Gestión de Empleados{% endblock %}
+
+{% block extra_css %}
+<style>
+    .employee-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid #007bff;
+        color: #212529;
+    }
+    
+    .stat-card h3 {
+        color: #495057;
+        font-weight: bold;
+        margin-bottom: 5px;
+        font-size: 2rem;
+    }
+    
+    .stat-card p {
+        color: #6c757d;
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+    
+    .stat-card.success {
+        border-left-color: #28a745;
+        background: #d4edda;
+    }
+    
+    .stat-card.success h3 {
+        color: #155724;
+    }
+    
+    .stat-card.success p {
+        color: #155724;
+    }
+    
+    .stat-card.warning {
+        border-left-color: #ffc107;
+        background: #fff3cd;
+    }
+    
+    .stat-card.warning h3 {
+        color: #856404;
+    }
+    
+    .stat-card.warning p {
+        color: #856404;
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-sm {
+        padding: 4px 8px;
+        font-size: 0.85rem;
+        text-decoration: none;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-warning { background: #ffc107; color: #212529; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .permissions-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 10px;
+    }
+    
+    .permission-badge {
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+    }
+    
+    /* Mejoras de visibilidad para títulos y texto */
+    h1 {
+        color: #212529;
+        font-weight: bold;
+    }
+    
+    h3 {
+        color: #495057;
+        font-weight: 600;
+    }
+    
+    .container-fluid {
+        background: #ffffff;
+        min-height: 100vh;
+    }
+    
+    .table {
+        background: #ffffff;
+    }
+    
+    .table th {
+        background: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .table td {
+        color: #0f77df;
+        vertical-align: middle;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>👥 Gestión de Empleados</h1>
+                <a href="{% url 'usuarios:crear_empleado' %}" class="btn btn-primary">
+                    ➕ Crear Empleado
+                </a>
+            </div>
+            
+            <!-- Estadísticas -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>{{ total_empleados }}</h3>
+                    <p>Total de Empleados</p>
+                </div>
+                <div class="stat-card success">
+                    <h3>{{ empleados_activos }}</h3>
+                    <p>Empleados Activos</p>
+                </div>
+                <div class="stat-card warning">
+                    <h3>{{ empleados_inactivos }}</h3>
+                    <p>Empleados Inactivos</p>
+                </div>
+            </div>
+            
+            <!-- Lista de Empleados -->
+            <div class="employee-card">
+                <h3>📋 Lista de Empleados</h3>
+                
+                {% if empleados %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre Completo</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Permisos</th>
+                                <th>Último Login</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for empleado in empleados %}
+                            <tr>
+                                <td><strong>{{ empleado.username }}</strong></td>
+                                <td>{{ empleado.get_full_name|default:"Sin nombre" }}</td>
+                                <td>{{ empleado.email|default:"Sin email" }}</td>
+                                <td>
+                                    <span class="badge badge-secondary">
+                                        {{ empleado.get_rol_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if empleado.is_active %}
+                                        <span class="status-badge status-active">Activo</span>
+                                    {% else %}
+                                        <span class="status-badge status-inactive">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% mostrar_permisos empleado %}
+                                </td>
+                                <td>
+                                    {% if empleado.last_login %}
+                                        {{ empleado.last_login|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        <span class="text-muted">Nunca</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'usuarios:detalle_empleado' empleado.id %}" 
+                                           class="btn btn-sm btn-info" title="Ver detalles">
+                                            👁️
+                                        </a>
+                                        <a href="{% url 'usuarios:editar_empleado' empleado.id %}" 
+                                           class="btn btn-sm btn-primary" title="Editar">
+                                            ✏️
+                                        </a>
+                                        <a href="{% url 'usuarios:cambiar_password_empleado' empleado.id %}" 
+                                           class="btn btn-sm btn-warning" title="Cambiar contraseña">
+                                            🔑
+                                        </a>
+                                        <form method="post" action="{% url 'usuarios:activar_desactivar_empleado' empleado.id %}" 
+                                              style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-secondary" 
+                                                    title="{% if empleado.is_active %}Desactivar{% else %}Activar{% endif %}"
+                                                    onclick="return confirm('¿Está seguro de {% if empleado.is_active %}desactivar{% else %}activar{% endif %} a {{ empleado.username }}?')">
+                                                {% if empleado.is_active %}⏸️{% else %}▶️{% endif %}
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{% url 'usuarios:eliminar_empleado' empleado.id %}" 
+                                              style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-danger" 
+                                                    title="Eliminar"
+                                                    onclick="return confirm('¿Está seguro de eliminar al empleado {{ empleado.username }}? Esta acción no se puede deshacer.')">
+                                                🗑️
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <p>No hay empleados registrados.</p>
+                    <a href="{% url 'usuarios:crear_empleado' %}" class="btn btn-primary">
+                        ➕ Crear Primer Empleado
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

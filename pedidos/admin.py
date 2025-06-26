@@ -14,7 +14,7 @@ class PedidoAdmin(admin.ModelAdmin):
 
 @admin.register(DetallePedido)
 class DetallePedidoAdmin(admin.ModelAdmin):
-    list_display = ('pedido', 'producto', 'cantidad', 'meses_renta', 'precio_unitario', 'subtotal')
+    list_display = ('pe)ido', 'producto', 'cantidad', 'meses_renta', 'precio_unitario', 'subtotal')
     list_filter = ('estado', 'meses_renta')
     search_fields = ('pedido__id_pedido', 'producto__nombre')
     raw_id_fields = ['pedido', 'producto']

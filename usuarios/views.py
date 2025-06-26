@@ -5,31 +5,38 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from decimal import Decimal, ROUND_HALF_UP
-from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.utils import timezone
+
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
 from recibos.models import ReciboObra
-from .forms import UsuarioForm, ClienteForm, DireccionForm, MetodoPagoForm
+from .forms import (UsuarioForm, ClienteForm, DireccionForm, EmpleadoCreationForm,
+                    EmpleadoUpdateForm, CambiarPasswordEmpleadoForm, RegistroForm) # Asegúrate de que RegistroForm venga de aquí o defínelo aquí.
 from .models import Usuario, Cliente, MetodoPago, Direccion, CarritoItem
 from .models_divipola import Departamento, Municipio
 
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
-import os
-from reportlab.lib import colors
-from reportlab.lib.units import mm, inch, cm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Paragraph, Table, TableStyle, Image, Spacer
+from reportlab.lib import colors
+from reportlab.lib.units import mm, inch, cm
 
 from datetime import datetime, timedelta
 import os
 import uuid
 import io
+
+# --- Funciones de Ayuda ---
+def es_administrador(user):
+    """Función para verificar si un usuario es administrador"""
+    return user.is_authenticated and (user.tiene_permisos_admin() if hasattr(user, 'tiene_permisos_admin') else False)
+
+# --- Vistas Generales y de Autenticación ---
 
 def inicio_cliente(request):
     """Vista para la página de inicio de clientes"""
@@ -38,42 +45,51 @@ def inicio_cliente(request):
         'productos_destacados': productos_destacados
     })
 
-class RegistroForm(UserCreationForm):
-    numero_identidad = forms.CharField(label='Número de Identidad', max_length=20)
-    first_name = forms.CharField(label='Nombre', max_length=30)
-    last_name = forms.CharField(label='Apellido', max_length=30)
-    email = forms.EmailField(label='Correo')
-    direccion = forms.CharField(label='Dirección', max_length=255)
-    telefono = forms.CharField(label='Teléfono', max_length=20, required=False)
-
-    class Meta:
-        model = Usuario
-        fields = ('numero_identidad', 'username', 'first_name', 'last_name', 'email', 'direccion', 'telefono', 'password1', 'password2')
-        
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.numero_identidad = self.cleaned_data['numero_identidad']
-        if commit:
-            user.save()
-        return user
-
 def registro(request):
     if request.method == 'POST':
         form = RegistroForm(request.POST)
         if form.is_valid():
             usuario = form.save()
             # Si el usuario es cliente, crea el objeto Cliente relacionado
-            if usuario.rol == 'cliente':
+            # Asumiendo que el campo 'rol' está en tu modelo Usuario y se establece en el formulario
+            if usuario.rol == 'cliente': # Asegúrate de que `usuario.rol` se asigne en tu RegistroForm o en el modelo Usuario por defecto.
                 Cliente.objects.create(
                     usuario=usuario,
                     telefono=form.cleaned_data.get('telefono', ''),
-                    direccion=form.cleaned_data.get('direccion', '')
+                    direccion=form.cleaned_data.get('direccion', '') # Asumiendo que 'direccion' es parte de tu modelo Usuario
                 )
             login(request, usuario)
+            messages.success(request, '¡Registro exitoso! Bienvenido a MultiAndamios.')
             return redirect('usuarios:inicio_cliente')
+        else:
+            messages.error(request, 'Hubo errores en el formulario de registro. Por favor, corrígelos.')
     else:
         form = RegistroForm()
     return render(request, 'usuarios/registro.html', {'form': form})
+
+def iniciar_sesion(request):
+    mensaje = ''
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            messages.success(request, f'¡Bienvenido de nuevo, {user.username}!')
+            return redirect('usuarios:inicio_cliente')
+        else:
+            mensaje = 'Usuario o contraseña incorrectos.'
+            messages.error(request, mensaje)
+    return render(request, 'usuarios/login.html', {'mensaje': mensaje})
+
+def cerrar_sesion(request):
+    """
+    Cierra la sesión del usuario y redirecciona a la página de inicio de clientes.
+    Se consolida la funcionalidad de `logout_view`.
+    """
+    logout(request)
+    messages.success(request, 'Has cerrado sesión exitosamente.')
+    return redirect('usuarios:inicio_cliente')
 
 def inicio(request):
     return render(request, 'usuarios/inicio.html')
@@ -82,74 +98,84 @@ def productos(request):
     productos = Producto.objects.all()
     return render(request, 'usuarios/productos.html', {'productos': productos})
 
+# --- Vistas del Carrito de Compras ---
+
 @login_required
 def agregar_al_carrito(request, producto_id):
     if request.method != 'POST':
-        messages.error(request, 'Método no permitido')
+        messages.error(request, 'Método no permitido.')
         return redirect('productos:detalle_producto', producto_id=producto_id)
     
     try:
         producto = Producto.objects.get(id_producto=producto_id)
         cantidad = int(request.POST.get('cantidad', 1))
-        meses_renta = int(request.POST.get('meses_renta', 1))
+        tipo_renta = request.POST.get('tipo_renta', 'mensual')
+        periodo_renta = int(request.POST.get('periodo_renta', 1))
         
-        # Validar la cantidad disponible
+        if tipo_renta not in ['mensual', 'semanal']:
+            messages.error(request, 'Tipo de renta inválido. Se estableció a mensual por defecto.')
+            tipo_renta = 'mensual'
+        
+        if cantidad <= 0 or periodo_renta <= 0:
+            messages.error(request, 'La cantidad y el período de renta deben ser valores positivos.')
+            return redirect('productos:detalle_producto', producto_id=producto_id)
+
         if producto.cantidad_disponible < cantidad:
-            messages.error(request, f'Solo hay {producto.cantidad_disponible} unidades disponibles.')
+            messages.error(request, f'Solo hay {producto.cantidad_disponible} unidades disponibles de {producto.nombre}.')
             return redirect('productos:detalle_producto', producto_id=producto_id)
         
-        # Obtener o crear el item en el carrito
         carrito_item, created = CarritoItem.objects.get_or_create(
             usuario=request.user,
             producto=producto,
             defaults={
                 'cantidad': cantidad,
-                'meses_renta': meses_renta
+                'tipo_renta': tipo_renta,
+                'periodo_renta': periodo_renta,
+                'meses_renta': periodo_renta # Mantener compatibilidad legacy si es necesario
             }
         )
         
         if not created:
-            # Si el item ya existía, actualizar la cantidad
+            # Si el item ya existía, actualizar los valores
+            # Es importante decidir si se SUMA la cantidad o se REEMPLAZA. Aquí se REEMPLAZA.
             carrito_item.cantidad = cantidad
-            carrito_item.meses_renta = meses_renta
+            carrito_item.tipo_renta = tipo_renta
+            carrito_item.periodo_renta = periodo_renta
+            carrito_item.meses_renta = periodo_renta # Mantener compatibilidad legacy
             carrito_item.save()
         
         messages.success(request, 'Producto agregado al carrito exitosamente.')
         
     except Producto.DoesNotExist:
-        messages.error(request, 'El producto no existe.')
+        messages.error(request, 'El producto seleccionado no existe.')
     except ValueError:
-        messages.error(request, 'Cantidad o meses de renta inválidos.')
+        messages.error(f'Cantidad o período de renta inválidos. Asegúrate de ingresar números enteros.')
     except Exception as e:
-        messages.error(request, f'Error al agregar al carrito: {str(e)}')
+        messages.error(f'Ocurrió un error inesperado al agregar al carrito: {str(e)}')
     
     return redirect('usuarios:ver_carrito')
 
 @login_required
 def ver_carrito(request):
     """Vista para ver el contenido del carrito"""
-    # Obtener los items del carrito del usuario actual
-    items_carrito = CarritoItem.objects.filter(usuario=request.user)
-    
-    # Calcular el total sumando los subtotales
+    items_carrito = CarritoItem.objects.filter(usuario=request.user).select_related('producto')
     total = sum(item.subtotal for item in items_carrito)
+    peso_total = sum(item.peso_total for item in items_carrito)
     
     context = {
         'items_carrito': items_carrito,
         'total': total,
+        'peso_total': peso_total,
     }
-    
     return render(request, 'usuarios/carrito.html', context)
 
 @login_required
 def eliminar_del_carrito(request, item_id):
     item = get_object_or_404(CarritoItem, id=item_id, usuario=request.user)
     
+    # Si el item estaba reservado, liberar la reserva
     if item.reservado:
-        # Devolver productos al inventario si están reservados
-        producto = item.producto
-        producto.cantidad_disponible += item.cantidad
-        producto.save()
+        item.liberar_reserva() # Asumiendo que este método existe y maneja la devolución al inventario
     
     item.delete()
     messages.success(request, 'Producto eliminado del carrito.')
@@ -160,455 +186,271 @@ def limpiar_carrito(request):
     """Vista para limpiar todos los items del carrito"""
     items = CarritoItem.objects.filter(usuario=request.user)
     
-    for item in items:
-        if item.reservado:
-            item.liberar_reserva()
-        item.delete()
+    with transaction.atomic(): # Asegura que si algo falla, no se limpien parcialmente los items
+        for item in items:
+            if item.reservado:
+                item.liberar_reserva() # Asegúrate de que esta función exista en tu modelo CarritoItem
+            item.delete()
     
     messages.success(request, "Se ha limpiado el carrito exitosamente.")
     return redirect('usuarios:ver_carrito')
 
-def iniciar_sesion(request):
-    mensaje = ''
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            return redirect('usuarios:inicio_cliente')
-        else:
-            mensaje = 'Usuario o contraseña incorrectos.'
-    return render(request, 'usuarios/login.html', {'mensaje': mensaje})
+# --- Generación de PDFs (Refactorizado) ---
 
-def cerrar_sesion(request):
-    """
-    Cierra la sesión del usuario y redirecciona a la página de inicio.
-    """
-    logout(request)
-    messages.success(request, 'Has cerrado sesión exitosamente.')
-    return redirect('usuarios:inicio_cliente')
+# Información común para el emisor
+EMISOR_INFO = {
+    'nombre': 'MULTIANDAMIOS S.A.S.',
+    'nif': 'NIT 900.252.510-1',
+    'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
+    'telefono': '+57 310 574 2020',
+    'email': 'info@multiandamios.co'
+}
 
-@login_required
-def logout_view(request):
-    logout(request)
-    return redirect('usuarios:login')
-
-def draw_emisor_receptor_box(p, emisor, receptor, x, y, width):
-    box_height = 70
-    col_sep = x + width // 2
-    p.setStrokeColor(colors.black)
-    p.setLineWidth(1)
-    p.roundRect(x, y - box_height, width, box_height, 8, stroke=1, fill=0)
-    # Emisor
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(x + 10, y - 15, "Emisor:")
-    p.setFont("Helvetica", 9)
-    p.drawString(x + 10, y - 30, f"{emisor['nombre']}")
-    p.drawString(x + 10, y - 42, f"NIT: {emisor['nif']}")
-    p.drawString(x + 10, y - 54, f"Dirección: {emisor['direccion']}")
-    p.drawString(x + 10, y - 66, f"Tel: {emisor['telefono']}")
-    # Receptor
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(col_sep + 10, y - 15, "Receptor:")
-    p.setFont("Helvetica", 9)
-    p.drawString(col_sep + 10, y - 30, f"{receptor['nombre']}")
-    p.drawString(col_sep + 10, y - 42, f"NIF/CIF: {receptor['nif']}")
-    p.drawString(col_sep + 10, y - 54, f"Dirección: {receptor['direccion']}")
-
-def draw_table_header(p, headers, x, y, col_widths, height=18):
+def _draw_pdf_header(p, width, height, title):
+    """Dibuja el encabezado de la página para cotizaciones y remisiones."""
     p.setFillColor(colors.HexColor("#FFD600"))
-    p.rect(x, y - height, sum(col_widths), height, fill=1, stroke=1)
+    p.rect(0, height - 60, width, 60, fill=1, stroke=0)
+    
     p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 9)
-    x0 = x
-    for i, h in enumerate(headers):
-        p.drawString(x0 + 4, y - height + 5, h)
-        x0 += col_widths[i]
+    p.setFont("Helvetica-Bold", 22)
+    p.drawCentredString(width / 2, height - 40, title)
+    
+    p.setFont("Helvetica", 10)
+    p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
 
-def draw_table_row(p, row, x, y, col_widths, height=16):
-    p.setFillColor(colors.white)
-    p.rect(x, y - height, sum(col_widths), height, fill=1, stroke=1)
+def _draw_info_section(p, y_start, width, emisor, receptor):
+    """Dibuja la sección de datos del proveedor y cliente."""
+    p.setLineWidth(0.5)
+    p.rect(40, y_start - 160, width - 80, 140, stroke=1, fill=0) # Marco para información
+    
+    # Títulos de secciones
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(50, y_start - 15, "DATOS DEL PROVEEDOR")
+    p.drawString(width / 2 + 10, y_start - 15, "DATOS DEL CLIENTE")
+    
+    # Información del emisor
+    current_y_emisor = y_start - 35
+    p.setFont("Helvetica", 10)
+    for key, value in emisor.items():
+        label = key.upper() + ": "
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(50, current_y_emisor, label)
+        p.setFont("Helvetica", 9)
+        p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), current_y_emisor, value)
+        current_y_emisor -= 15
+    
+    # Información del receptor
+    current_y_receptor = y_start - 115
+    for key, value in receptor.items():
+        label = key.upper() + ": "
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(width / 2 + 10, current_y_receptor, label)
+        p.setFont("Helvetica", 9)
+        str_value = str(value) if value is not None else "N/A"
+        p.drawString(width / 2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), current_y_receptor, str_value)
+        current_y_receptor -= 15
+    return current_y_emisor # Retorna la Y actual después de dibujar la sección
+
+def _draw_table_header(p, headers, x, y, col_widths, row_height=20):
+    """Dibuja el encabezado de la tabla."""
+    p.setFillColor(colors.HexColor("#F5F5F5"))
+    p.rect(x, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+    
     p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 10)
+    current_x = x
+    for i, header in enumerate(headers):
+        p.drawString(current_x + 5, y - 15, header)
+        current_x += col_widths[i]
+    return y - row_height
+
+def _generate_common_pdf(request, document_type, items_to_include):
+    """
+    Función genérica para generar PDFs de cotización o remisión.
+    :param document_type: 'cotizacion' o 'remision'
+    :param items_to_include: QuerySet de CarritoItem (para cotización) o items reservados (para remisión)
+    """
+    if not items_to_include.exists():
+        messages.error(request, f'El carrito está vacío o no hay items reservados para la {document_type}.')
+        return redirect('usuarios:ver_carrito') # O a donde sea más apropiado
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{document_type}.pdf"'
+    
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+
+    # Información del receptor (cliente)
+    user = request.user
+    receptor_info = {
+        'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
+        'nif': str(getattr(user, 'numero_identidad', 'N/A')),
+        'direccion': str(getattr(user, 'direccion', 'N/A')), # Asumiendo que 'direccion' está en el modelo Usuario
+        'telefono': str(getattr(user, 'telefono', 'N/A')), # Asumiendo que 'telefono' está en el modelo Usuario
+        'email': str(user.email or 'N/A')
+    }
+
+    # Primera página
+    _draw_pdf_header(p, width, height, document_type.upper())
+    y = height - 80 # Posición inicial para la sección de información
+    
+    _draw_info_section(p, y, width, EMISOR_INFO, receptor_info)
+
+    # Información del documento (cotización/remisión)
+    y_after_info_box = height - 200 # Ajustar la Y después de la caja de información
+    p.setFont("Helvetica", 10)
+    fecha = datetime.now()
+    p.drawString(50, y_after_info_box, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
+    p.drawString(width - 200, y_after_info_box, f"{document_type.capitalize()} #: {uuid.uuid4().hex[:8].upper()}") # Número aleatorio
+
+    # Tabla de productos
+    y_table_start = y_after_info_box - 40
+    headers = ["Descripción", "Cant.", "Período", "Precio Unit.", "Subtotal"]
+    col_widths = [250, 60, 60, 80, 80]
+    row_height = 20
+
+    current_y = _draw_table_header(p, headers, 40, y_table_start, col_widths)
+    
     p.setFont("Helvetica", 9)
-    x0 = x
-    for i, cell in enumerate(row):
-        p.drawString(x0 + 4, y - height + 4, str(cell))
-        x0 += col_widths[i]
+    total_sin_iva = Decimal('0.00')
+    peso_total = Decimal('0.00')
+
+    for item in items_to_include:
+        if current_y < 100: # Nueva página si no hay espacio suficiente para una fila y el pie
+            p.showPage()
+            _draw_pdf_header(p, width, height, document_type.upper())
+            current_y = height - 100 # Reinicia Y para el encabezado de la tabla en la nueva página
+            current_y = _draw_table_header(p, headers, 40, current_y, col_widths)
+            p.setFont("Helvetica", 9)
+
+        subtotal = item.subtotal
+        total_sin_iva += subtotal
+        peso_total += item.peso_total # Acumular peso total
+        
+        # Dibujar fondo de la fila
+        p.setFillColor(colors.white)
+        p.rect(40, current_y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+        p.setFillColor(colors.black)
+        
+        # Datos de la fila
+        x = 40
+        precio_unitario = item.producto.get_precio_por_tipo(item.tipo_renta)
+        duracion_texto = item.get_descripcion_periodo()
+        
+        row_data = [
+            item.producto.nombre[:40],
+            str(item.cantidad),
+            duracion_texto,
+            f"${precio_unitario:,.2f}",
+            f"${subtotal:,.2f}"
+        ]
+        
+        for i, text in enumerate(row_data):
+            p.drawString(x + 5, current_y - 15, text)
+            x += col_widths[i]
+        
+        current_y -= row_height
+
+    # Totales y Peso Total
+    current_y -= 20
+    p.setFont("Helvetica-Bold", 10)
+    
+    if document_type == 'remision':
+        p.drawString(50, current_y, f"Peso total: {peso_total:.2f} kg")
+        current_y -= 20 # Espacio para el peso total en remisión
+
+    iva = (total_sin_iva * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    total_con_iva = total_sin_iva + iva
+
+    # Dibujar recuadro para totales
+    p.setFillColor(colors.HexColor("#F5F5F5"))
+    totals_x = width - 250
+    p.rect(totals_x, current_y - 60, 200, 60, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+
+    # Mostrar totales
+    p.drawString(totals_x + 10, current_y - 20, f"Subtotal: ${total_sin_iva:,.2f}")
+    p.drawString(totals_x + 10, current_y - 40, f"IVA (19%): ${iva:,.2f}")
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(totals_x, current_y - 60, 200, 20, fill=1, stroke=1)
+    p.setFillColor(colors.black)
+    p.drawString(totals_x + 10, current_y - 55, f"Total: ${total_con_iva:,.2f}")
+
+    # Observaciones (Solo para cotización)
+    if document_type == 'cotizacion':
+        current_y -= 90
+        p.setFont("Helvetica", 9)
+        p.drawString(40, current_y, "OBSERVACIONES:")
+        current_y -= 15
+        p.drawString(40, current_y, "• Esta cotización tiene validez de 15 días.")
+        current_y -= 15
+        p.drawString(40, current_y, "• Los precios incluyen IVA del 19%.")
+        current_y -= 15
+        p.drawString(40, current_y, "• El costo del transporte no está incluido y depende de la zona de entrega.")
+        current_y -= 15
+        p.drawString(40, current_y, "• Forma de pago: Contra entrega o transferencia bancaria.")
+    else: # Espacio para remisión si no hay observaciones
+        current_y -= 60
+
+
+    # Firmas
+    current_y -= 40
+    p.line(50, current_y, 250, current_y)
+    p.line(width-250, current_y, width-50, current_y)
+    p.setFont("Helvetica", 10)
+    p.drawCentredString(150, current_y - 20, "Firma del Cliente")
+    p.drawCentredString(width - 150, current_y - 20, "Firma del Proveedor")
+
+    # Pie de página
+    p.setFont("Helvetica", 8)
+    p.drawString(40, 30, "MULTIANDAMIOS S.A.S. - Servicio al cliente: +57 310 574 2020")
+    p.drawString(40, 20, "Email: info@multiandamios.co | www.multiandamios.co")
+    
+    p.save()
+    return response
 
 @login_required
 def generar_cotizacion_pdf(request):
     try:
-        # Obtener items del carrito del modelo CarritoItem
         items_carrito = CarritoItem.objects.filter(usuario=request.user)
-        
-        if not items_carrito.exists():
-            messages.error(request, 'El carrito está vacío')
-            return redirect('usuarios:ver_carrito')
-
-        # Crear el PDF
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="cotizacion.pdf"'
-        
-        # Inicializar el PDF
-        p = canvas.Canvas(response, pagesize=letter)
-        width, height = letter
-
-        def draw_page_header():
-            # Encabezado con fondo amarillo
-            p.setFillColor(colors.HexColor("#FFD600"))
-            p.rect(0, height - 60, width, 60, fill=1, stroke=0)
-            
-            # Logo o Título
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica-Bold", 22)
-            p.drawCentredString(width/2, height - 40, "COTIZACIÓN")
-            
-            # Información de la empresa
-            p.setFont("Helvetica", 10)
-            p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
-    
-        # Primera página
-        draw_page_header()
-        y = height - 80
-
-        # Marco para información
-        p.setLineWidth(0.5)
-        p.rect(40, y - 160, width - 80, 140, stroke=1, fill=0)
-    
-        # Información de la empresa y cliente    
-        emisor = {
-            'nombre': 'MULTIANDAMIOS S.A.S.',
-            'nif': 'NIT 900.252.510-1',
-            'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
-            'telefono': '+57 310 574 2020',
-            'email': 'info@multiandamios.co'
-        }
-    
-        user = request.user
-        receptor = {
-            'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
-            'nif': str(getattr(user, 'numero_identidad', 'N/A')),
-            'direccion': str(getattr(user, 'direccion', 'N/A')),
-            'telefono': str(getattr(user, 'telefono', 'N/A')),
-            'email': str(user.email or 'N/A')
-        }
-    
-        # Títulos de secciones
-        p.setFont("Helvetica-Bold", 11)
-        p.drawString(50, y - 15, "DATOS DEL PROVEEDOR")
-        p.drawString(width/2 + 10, y - 15, "DATOS DEL CLIENTE")
-    
-        # Información del emisor
-        y -= 35
-        p.setFont("Helvetica", 10)
-        for key, value in emisor.items():
-            label = key.upper() + ": "
-            p.setFont("Helvetica-Bold", 9)
-            p.drawString(50, y, label)
-            p.setFont("Helvetica", 9)
-            p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
-            y -= 15
-    
-        # Información del receptor
-        y = height - 115
-        for key, value in receptor.items():
-            label = key.upper() + ": "
-            p.setFont("Helvetica-Bold", 9)
-            p.drawString(width/2 + 10, y, label)
-            p.setFont("Helvetica", 9)
-            str_value = str(value) if value is not None else "N/A"
-            p.drawString(width/2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), y, str_value)
-            y -= 15
-    
-        # Información de la cotización
-        y = height - 200
-        p.setFont("Helvetica", 10)
-        fecha = datetime.now()
-        p.drawString(50, y, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
-        p.drawString(width - 200, y, f"Cotización #: {uuid.uuid4().hex[:8].upper()}")
-    
-        # Tabla de productos
-        y -= 40
-        headers = ["Descripción", "Cant.", "Meses", "Precio Unit.", "Subtotal"]
-        col_widths = [250, 60, 60, 80, 80]
-        row_height = 20
-
-        def draw_table_header(y_pos):
-            # Fondo del encabezado
-            p.setFillColor(colors.HexColor("#F5F5F5"))
-            p.rect(40, y_pos - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-            
-            # Textos del encabezado
-            p.setFillColor(colors.black)
-            p.setFont("Helvetica-Bold", 10)
-            x = 40
-            for i, header in enumerate(headers):
-                p.drawString(x + 5, y_pos - 15, header)
-                x += col_widths[i]
-            return y_pos - row_height
-
-        # Dibujar encabezado inicial
-        y = draw_table_header(y)
-        
-        # Contenido de la tabla
-        p.setFont("Helvetica", 9)
-        total_sin_iva = 0
-
-        for item in items_carrito:
-            if y < 100:  # Nueva página si no hay espacio
-                p.showPage()
-                draw_page_header()
-                y = height - 100
-                y = draw_table_header(y)
-                p.setFont("Helvetica", 9)
-
-            # Calcular subtotal
-            subtotal = item.producto.precio * item.cantidad * item.meses_renta
-            total_sin_iva += subtotal
-            
-            # Dibujar fondo de la fila
-            p.setFillColor(colors.white)
-            p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-            p.setFillColor(colors.black)
-            
-            # Datos de la fila
-            x = 40
-            row_data = [
-                item.producto.nombre[:40],
-                str(item.cantidad),
-                str(item.meses_renta),
-                f"${item.producto.precio:,.2f}",
-                f"${subtotal:,.2f}"
-            ]
-            
-            for i, text in enumerate(row_data):
-                p.drawString(x + 5, y - 15, text)
-                x += col_widths[i]
-            
-            y -= row_height
-
-        # Totales
-        y -= 20
-        p.setFont("Helvetica-Bold", 10)
-        iva = total_sin_iva * Decimal('0.19')  # 19% IVA
-        total_con_iva = total_sin_iva + iva
-
-        # Dibujar recuadro para totales
-        p.setFillColor(colors.HexColor("#F5F5F5"))
-        totals_x = width - 250
-        p.rect(totals_x, y - 60, 200, 60, fill=1, stroke=1)
-        p.setFillColor(colors.black)
-
-        # Mostrar totales
-        p.drawString(totals_x + 10, y - 20, f"Subtotal: ${total_sin_iva:,.2f}")
-        p.drawString(totals_x + 10, y - 40, f"IVA (19%): ${iva:,.2f}")
-        p.setFillColor(colors.HexColor("#FFD600"))
-        p.rect(totals_x, y - 60, 200, 20, fill=1, stroke=1)
-        p.setFillColor(colors.black)
-        p.drawString(totals_x + 10, y - 55, f"Total: ${total_con_iva:,.2f}")
-
-        # Observaciones
-        y -= 90
-        p.setFont("Helvetica", 9)
-        p.drawString(40, y, "OBSERVACIONES:")
-        y -= 15
-        p.drawString(40, y, "• Esta cotización tiene validez de 15 días.")
-        y -= 15
-        p.drawString(40, y, "• Los precios incluyen IVA del 19%.")
-        y -= 15
-        p.drawString(40, y, "• El costo del transporte no está incluido y depende de la zona de entrega.")
-        y -= 15
-        p.drawString(40, y, "• Forma de pago: Contra entrega o transferencia bancaria.")
-
-        # Firmas
-        y -= 40
-        p.line(50, y, 250, y)
-        p.line(width-250, y, width-50, y)
-        p.setFont("Helvetica", 10)
-        p.drawCentredString(150, y-20, "Firma del Cliente")
-        p.drawCentredString(width-150, y-20, "Firma del Proveedor")
-
-        # Pie de página
-        p.setFont("Helvetica", 8)
-        p.drawString(40, 30, "MULTIANDAMIOS S.A.S. - Servicio al cliente: +57 310 574 2020")
-        p.drawString(40, 20, "Email: info@multiandamios.co | www.multiandamios.co")
-    
-        p.save()
-        return response
-
+        return _generate_common_pdf(request, 'cotizacion', items_carrito)
     except Exception as e:
         messages.error(request, f'Error al generar la cotización: {str(e)}')
         return redirect('usuarios:ver_carrito')
 
 @login_required
 def generar_remision_pdf(request):
-    carrito = CarritoItem.objects.filter(usuario=request.user, reservado=True).select_related('producto')
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = 'attachment; filename="remision.pdf"'
-    
-    # Inicializar el PDF
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    
-    # Encabezado con fondo amarillo
-    p.setFillColor(colors.HexColor("#FFD600"))
-    p.rect(0, height - 60, width, 60, fill=1, stroke=0)
-    
-    # Logo o Título
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 22)
-    p.drawCentredString(width/2, height - 40, "REMISIÓN")
-    
-    # Información de la empresa
-    p.setFont("Helvetica", 10)
-    p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
-    
-    y = height - 80
-    
-    # Marco para información
-    p.setLineWidth(0.5)
-    p.rect(40, y - 160, width - 80, 140, stroke=1, fill=0)
-    
-    # Información de la empresa y cliente    
-    emisor = {
-        'nombre': 'MULTIANDAMIOS S.A.S.',
-        'nif': 'NIT 900.252.510-1',
-        'direccion': 'Cra. 128 #22A-45, Bogotá, Colombia',
-        'telefono': '+57 310 574 2020',
-        'email': 'info@multiandamios.co'
-    }
-    
-    user = request.user
-    receptor = {
-        'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
-        'nif': str(getattr(user, 'numero_identidad', 'N/A')),
-        'direccion': str(getattr(user, 'direccion', 'N/A')),
-        'telefono': str(getattr(user, 'telefono', 'N/A')),
-        'email': str(user.email or 'N/A')
-    }
-    
-    # Dividir el espacio en dos columnas
-    col_width = (width - 100) / 2
-    
-    # Títulos de secciones
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(50, y - 15, "DATOS DEL PROVEEDOR")
-    p.drawString(width/2 + 10, y - 15, "DATOS DEL CLIENTE")
-    
-    # Información del emisor
-    y -= 35
-    p.setFont("Helvetica", 10)
-    for key, value in emisor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(50, y, label)
-        p.setFont("Helvetica", 9)
-        p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), y, value)
-        y -= 15
-    
-    # Información del receptor
-    y = height - 115
-    for key, value in receptor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(width/2 + 10, y, label)
-        p.setFont("Helvetica", 9)
-        str_value = str(value) if value is not None else "N/A"
-        p.drawString(width/2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), y, str_value)
-        y -= 15
-    
-    # Información de la remisión
-    y = height - 200
-    p.setFont("Helvetica", 10)
-    fecha = datetime.now()
-    p.drawString(50, y, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
-    p.drawString(width - 200, y, f"Remisión #: {uuid.uuid4().hex[:8].upper()}")
-    
-    # Tabla de productos
-    y -= 40
-    headers = ["Descripción", "Cant.", "Meses", "Precio Unit.", "Subtotal"]
-    col_widths = [250, 60, 60, 80, 80]
-    row_height = 20
-    
-    # Fondo del encabezado
-    p.setFillColor(colors.HexColor("#F5F5F5"))
-    p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-    
-    # Textos del encabezado
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 10)
-    x = 40
-    for i, header in enumerate(headers):
-        p.drawString(x + 5, y - 15, header)
-        x += col_widths[i]
-    
-    # Contenido de la tabla
-    y -= row_height
-    p.setFont("Helvetica", 9)
-    total = 0
-    
-    for item in carrito:
-        if y < 180:  # Nueva página si no hay espacio
-            p.showPage()
-            y = height - 100
-            p.setFont("Helvetica", 9)
-        
-        subtotal = item.producto.precio * item.cantidad * item.meses_renta
-        total += subtotal
-        
-        # Dibujar fila
-        p.setFillColor(colors.white)
-        p.rect(40, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-        p.setFillColor(colors.black)
-        
-        x = 40
-        row_data = [
-            item.producto.nombre[:40],
-            str(item.cantidad),
-            str(item.meses_renta),
-            f"${item.producto.precio:,.2f}",
-            f"${subtotal:,.2f}"
-        ]
-        
-        for i, text in enumerate(row_data):
-            p.drawString(x + 5, y - 15, text)
-            x += col_widths[i]
-        
-        y -= row_height
-    
-    # Total
-    y -= 20
-    p.setFont("Helvetica-Bold", 10)
-    p.drawString(width - 200, y, f"Total: ${total:,.2f}")
-    
-    # Firmas
-    y -= 60
-    p.line(50, y, 250, y)
-    p.line(width-250, y, width-50, y)
-    p.setFont("Helvetica", 10)
-    p.drawCentredString(150, y-20, "Firma del Cliente")
-    p.drawCentredString(width-150, y-20, "Firma del Proveedor")
-    
-    p.showPage()
-    p.save()
-    return response
+    try:
+        # Aquí asumo que la remisión se genera solo para items que ya han sido 'reservados'
+        # Esto podría estar ligado a un pedido ya confirmado o a una etapa previa.
+        # Asegúrate de que esta lógica de `reservado=True` sea coherente con tu flujo de negocio.
+        items_remision = CarritoItem.objects.filter(usuario=request.user, reservado=True).select_related('producto')
+        if not items_remision.exists():
+            messages.warning(request, 'No hay productos reservados para generar la remisión. Asegúrate de haber completado un pedido.')
+            return redirect('usuarios:ver_carrito') # O a la vista de pedidos
+
+        return _generate_common_pdf(request, 'remision', items_remision)
+    except Exception as e:
+        messages.error(request, f'Error al generar la remisión: {str(e)}')
+        return redirect('usuarios:ver_carrito')
+
+
+# --- Vistas del Perfil de Usuario ---
 
 @login_required
 def perfil(request):
     """Vista para mostrar el perfil del usuario"""
     # Obtener o crear el cliente asociado al usuario
+    # Es crucial que un Cliente SIEMPRE exista si un Usuario es de rol 'cliente'
     cliente, created = Cliente.objects.get_or_create(
         usuario=request.user,
         defaults={
-            'telefono': '',
-            'direccion': request.user.direccion or ''
+            'telefono': request.user.telefono if hasattr(request.user, 'telefono') else '',
+            'direccion': request.user.direccion if hasattr(request.user, 'direccion') else ''
         }
     )
     
-    # Obtener las direcciones del cliente
     direcciones = Direccion.objects.filter(cliente=cliente)
-      # Obtener los pedidos del cliente
     pedidos = Pedido.objects.filter(cliente=cliente).order_by('-fecha')
     
     context = {
@@ -621,26 +463,36 @@ def perfil(request):
 @login_required
 def actualizar_perfil(request):
     """Vista para actualizar la información del perfil"""
+    cliente = get_object_or_404(Cliente, usuario=request.user)
+    
     if request.method == 'POST':
-        # Actualizar información del usuario
-        request.user.first_name = request.POST.get('first_name')
-        request.user.last_name = request.POST.get('last_name')
-        request.user.email = request.POST.get('email')
-        request.user.direccion = request.POST.get('direccion')
-        request.user.save()
+        # Instanciar formularios con los datos del POST y las instancias existentes
+        usuario_form = UsuarioForm(request.POST, instance=request.user)
+        cliente_form = ClienteForm(request.POST, instance=cliente)
         
-        # Actualizar o crear información del cliente
-        cliente, created = Cliente.objects.get_or_create(usuario=request.user)
-        cliente.telefono = request.POST.get('telefono')
-        cliente.direccion = request.POST.get('direccion')
-        cliente.save()
-        
-        messages.success(request, 'Perfil actualizado exitosamente.')
-        return redirect('usuarios:perfil')
-        
-    # Si es GET, mostrar el formulario con la información actual
-    cliente = Cliente.objects.filter(usuario=request.user).first()
+        if usuario_form.is_valid() and cliente_form.is_valid():
+            usuario_form.save()
+            cliente_form.save()
+            messages.success(request, 'Perfil actualizado exitosamente.')
+            return redirect('usuarios:perfil')
+        else:
+            messages.error(request, 'Hubo errores al actualizar el perfil. Por favor, corrige los campos.')
+            # Si hay errores, los formularios contendrán los mensajes de error
+            context = {
+                'usuario_form': usuario_form,
+                'cliente_form': cliente_form,
+                'usuario': request.user, # Mantener para referencia en template si se requiere
+                'cliente': cliente
+            }
+            return render(request, 'usuarios/actualizar_perfil.html', context)
+    else:
+        # Para GET, instanciar formularios con los datos existentes
+        usuario_form = UsuarioForm(instance=request.user)
+        cliente_form = ClienteForm(instance=cliente)
+    
     context = {
+        'usuario_form': usuario_form,
+        'cliente_form': cliente_form,
         'usuario': request.user,
         'cliente': cliente
     }
@@ -653,11 +505,11 @@ def cambiar_contrasena(request):
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
-            update_session_auth_hash(request, user)
+            update_session_auth_hash(request, user) # Importante para mantener la sesión activa
             messages.success(request, 'Tu contraseña ha sido actualizada exitosamente.')
             return redirect('usuarios:perfil')
         else:
-            messages.error(request, 'Por favor corrige los errores indicados.')
+            messages.error(request, 'Por favor corrige los errores indicados al cambiar la contraseña.')
     else:
         form = PasswordChangeForm(request.user)
     
@@ -668,53 +520,65 @@ def cambiar_contrasena(request):
 @login_required
 def agregar_direccion(request):
     """Vista para agregar una nueva dirección"""
+    cliente = get_object_or_404(Cliente, usuario=request.user)
+    departamentos = Departamento.objects.all().order_by('nombre')
+
     if request.method == 'POST':
-        # Obtener el cliente asociado al usuario
-        cliente = get_object_or_404(Cliente, usuario=request.user)
-        
-        # Crear la nueva dirección
-        direccion = Direccion.objects.create(
-            cliente=cliente,
-            calle=request.POST.get('calle'),
-            ciudad=request.POST.get('ciudad'),
-            departamento=request.POST.get('departamento'),
-            codigo_postal=request.POST.get('codigo_postal'),
-            es_principal=request.POST.get('es_principal', False) == 'on'
-        )
-        
-        # Si esta dirección es marcada como principal, actualizar las demás
-        if direccion.es_principal:
-            Direccion.objects.filter(cliente=cliente).exclude(id=direccion.id).update(es_principal=False)
-        
-        messages.success(request, 'Dirección agregada exitosamente.')
-        return redirect('usuarios:perfil')
+        form = DireccionForm(request.POST)
+        if form.is_valid():
+            direccion = form.save(commit=False)
+            direccion.cliente = cliente
+            direccion.usuario = request.user # Asigna el usuario directamente al modelo Direccion si tiene ese campo
+            direccion.save()
+            
+            # Si esta dirección es marcada como principal, actualizar las demás
+            if direccion.es_principal:
+                Direccion.objects.filter(cliente=cliente).exclude(id=direccion.id).update(es_principal=False)
+            
+            messages.success(request, 'Dirección agregada exitosamente.')
+            return redirect('usuarios:perfil')
+        else:
+            messages.error(request, 'Hubo errores al agregar la dirección. Por favor, verifica los campos.')
+    else:
+        form = DireccionForm()
     
-    return render(request, 'usuarios/agregar_direccion.html')
+    return render(request, 'usuarios/agregar_direccion.html', {
+        'form': form,
+        'departamentos': departamentos
+    })
 
 @login_required
 def editar_direccion(request, direccion_id):
     """Vista para editar una dirección existente"""
-    # Obtener la dirección asegurando que pertenezca al cliente actual
     direccion = get_object_or_404(Direccion, id=direccion_id, cliente__usuario=request.user)
-    
+    departamentos = Departamento.objects.all().order_by('nombre')
+    municipios = Municipio.objects.filter(departamento=direccion.departamento).order_by('nombre')
+
     if request.method == 'POST':
-        # Actualizar los campos de la dirección
-        direccion.calle = request.POST.get('calle')
-        direccion.ciudad = request.POST.get('ciudad')
-        direccion.departamento = request.POST.get('departamento')
-        direccion.codigo_postal = request.POST.get('codigo_postal')
-        es_principal = request.POST.get('es_principal', False) == 'on'
-        
-        # Si se marca como principal, actualizar las demás direcciones
-        if es_principal and not direccion.es_principal:
-            Direccion.objects.filter(cliente=direccion.cliente).update(es_principal=False)
-            direccion.es_principal = True
-        
-        direccion.save()
-        messages.success(request, 'Dirección actualizada exitosamente.')
-        return redirect('usuarios:perfil')
+        form = DireccionForm(request.POST, instance=direccion)
+        if form.is_valid():
+            direccion = form.save(commit=False)
+            es_principal_nueva = form.cleaned_data.get('es_principal')
+            
+            # Si se marca como principal y no lo era, o si se desmarca
+            if es_principal_nueva and not direccion.es_principal:
+                Direccion.objects.filter(cliente=direccion.cliente).update(es_principal=False)
+            direccion.es_principal = es_principal_nueva
+            
+            direccion.save()
+            messages.success(request, 'Dirección actualizada exitosamente.')
+            return redirect('usuarios:perfil')
+        else:
+            messages.error(request, 'Hubo errores al editar la dirección. Por favor, corrige los campos.')
+    else:
+        form = DireccionForm(instance=direccion)
     
-    return render(request, 'usuarios/editar_direccion.html', {'direccion': direccion})
+    return render(request, 'usuarios/editar_direccion.html', {
+        'direccion': direccion,
+        'form': form,
+        'departamentos': departamentos,
+        'municipios': municipios # Para precargar los municipios del departamento seleccionado
+    })
 
 @login_required
 def eliminar_direccion(request, direccion_id):
@@ -722,44 +586,48 @@ def eliminar_direccion(request, direccion_id):
     direccion = get_object_or_404(Direccion, id=direccion_id, cliente__usuario=request.user)
     
     # No permitir eliminar la única dirección principal
-    if direccion.es_principal and not Direccion.objects.filter(cliente=direccion.cliente).exclude(id=direccion_id).exists():
-        messages.error(request, 'No puedes eliminar tu única dirección principal.')
+    if direccion.es_principal and Direccion.objects.filter(cliente=direccion.cliente).count() == 1:
+        messages.error(request, 'No puedes eliminar tu única dirección principal. Debes tener al menos una dirección principal.')
         return redirect('usuarios:perfil')
     
-    # Si se elimina la dirección principal, establecer otra como principal
-    if direccion.es_principal:
-        nueva_principal = Direccion.objects.filter(cliente=direccion.cliente).exclude(id=direccion_id).first()
-        if nueva_principal:
-            nueva_principal.es_principal = True
-            nueva_principal.save()
-    
-    direccion.delete()
-    messages.success(request, 'Dirección eliminada exitosamente.')
+    with transaction.atomic():
+        # Si se elimina la dirección principal, establecer otra como principal
+        if direccion.es_principal:
+            # Encuentra la primera dirección NO eliminada que no sea la actual
+            nueva_principal = Direccion.objects.filter(cliente=direccion.cliente).exclude(id=direccion.id).first()
+            if nueva_principal:
+                nueva_principal.es_principal = True
+                nueva_principal.save()
+        
+        direccion.delete()
+        messages.success(request, 'Dirección eliminada exitosamente.')
     return redirect('usuarios:perfil')
+
+# --- Vistas de Checkout y Pedidos ---
 
 @login_required
 def checkout(request):
-    carrito_items = CarritoItem.objects.filter(usuario=request.user)
+    carrito_items = CarritoItem.objects.filter(usuario=request.user).select_related('producto')
     if not carrito_items.exists():
-        messages.error(request, 'Tu carrito está vacío')
+        messages.error(request, 'Tu carrito está vacío. Agrega productos antes de proceder al pago.')
         return redirect('usuarios:ver_carrito')
     
     departamentos = Departamento.objects.all().order_by('nombre')
 
-    # Prepare context for GET request and POST error cases
     subtotal = sum(item.subtotal for item in carrito_items)
     iva = (subtotal * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    total = subtotal + iva
-    
+    total_pedido = subtotal + iva # Este es el total del pedido sin el costo de transporte inicial
+
     context = {
         'items': carrito_items,
         'departamentos': departamentos,
         'subtotal': subtotal,
         'iva': iva,
-        'total': total, # This is total before transport cost
+        'total': total_pedido,
     }
 
     if request.method == 'POST':
+        # Se asume que el formulario HTML envía los datos de la dirección y pago
         departamento_id = request.POST.get('departamento')
         municipio_id = request.POST.get('municipio')
         codigo_divipola = request.POST.get('codigo_divipola')
@@ -769,580 +637,126 @@ def checkout(request):
         complemento = request.POST.get('complemento', '')
         notas = request.POST.get('notas', '')
 
+        # Validación de campos básicos de la dirección
         if not all([departamento_id, municipio_id, codigo_divipola, calle, numero]):
-            messages.error(request, 'Por favor complete todos los campos obligatorios de la dirección.')
+            messages.error(request, 'Por favor, complete todos los campos obligatorios de la dirección de envío.')
             return render(request, 'usuarios/checkout.html', context)
-
+        
         try:
             with transaction.atomic():
-                # Marcar items como en proceso de pago
-                for item in carrito_items:
-                    item.en_proceso_pago = True
-                    item.save()
-
-                # Construir la dirección completa
-                departamento = Departamento.objects.get(id=departamento_id)
-                municipio = Municipio.objects.get(id=municipio_id)
-                direccion_completa = f"{calle} {numero} {complemento}, {municipio.nombre}, {departamento.nombre}"
-
-                # Crear o actualizar la dirección con información DIVIPOLA
-                Direccion.objects.create(
-                    usuario=request.user,
-                    departamento_id=departamento_id,
-                    municipio_id=municipio_id,
-                    codigo_divipola=codigo_divipola,
-                    codigo_postal=codigo_postal,
+                # 1. Obtener la información completa de la dirección DIVIPOLA
+                departamento = get_object_or_404(Departamento, id=departamento_id)
+                municipio = get_object_or_404(Municipio, id=municipio_id)
+                
+                # 2. Determinar la dirección de envío (se puede crear o usar una existente)
+                # Aquí se está creando una nueva dirección, lo cual es válido si se quiere registrar la dirección exacta de cada pedido.
+                # Si prefieres usar una dirección existente del cliente, la lógica debería ser diferente (ej. obtener por id o crear si no existe)
+                direccion_envio, created_direccion = Direccion.objects.get_or_create(
+                    cliente=get_object_or_404(Cliente, usuario=request.user), # Asegurarse de que el cliente exista
                     calle=calle,
                     numero=numero,
-                    complemento=complemento
+                    complemento=complemento,
+                    departamento=departamento,
+                    municipio=municipio,
+                    codigo_divipola=codigo_divipola,
+                    codigo_postal=codigo_postal,
+                    defaults={'es_principal': False} # Por defecto no es principal si se crea aquí
                 )
-
-                # Calcular el total del pedido
-                subtotal_pedido = sum(item.subtotal for item in carrito_items)
-                costo_transporte = municipio.costo_transporte if municipio.costo_transporte else Decimal('0')
-
-
-                # Crear el pedido
+                
+                # 3. Crear el Pedido
                 pedido = Pedido.objects.create(
-                    cliente=request.user.cliente,
-                    estado_pedido_general='pendiente_pago',
-                    direccion_entrega=direccion_completa,
-                    subtotal=subtotal_pedido,
-                    costo_transporte=costo_transporte,
+                    cliente=get_object_or_404(Cliente, usuario=request.user),
+                    fecha=timezone.now(),
+                    total=total_pedido, # Total sin costo de transporte aún
+                    estado='pendiente', # O 'procesando', 'confirmado'
                     notas=notas,
-                    duracion_renta=max(item.meses_renta for item in carrito_items),
-                    fecha_limite_pago=timezone.now() + timedelta(hours=24)
+                    direccion_envio=direccion_envio # Asignar la dirección al pedido
                 )
 
-                # Crear detalles del pedido
+                # 4. Procesar los items del carrito para crear DetallePedido y actualizar inventario
                 for item in carrito_items:
+                    # Descontar del inventario
+                    producto = item.producto
+                    if producto.cantidad_disponible < item.cantidad:
+                        raise ValidationError(f'No hay suficientes unidades de {producto.nombre} disponibles.')
+                    
+                    producto.cantidad_disponible -= item.cantidad
+                    producto.save()
+
+                    # Crear DetallePedido
                     DetallePedido.objects.create(
                         pedido=pedido,
                         producto=item.producto,
                         cantidad=item.cantidad,
-                        precio_unitario=item.producto.precio,
-                        subtotal=item.subtotal,
-                        meses_renta=item.meses_renta
+                        precio_unitario=item.producto.get_precio_por_tipo(item.tipo_renta),
+                        tipo_renta=item.tipo_renta,
+                        periodo_renta=item.periodo_renta,
+                        subtotal=item.subtotal
                     )
-                    
-                    # Reservar el producto
-                    item.reservar()
+                    # Marcar el item del carrito como 'reservado' o 'procesado' si no se elimina inmediatamente
+                    # Si los items se eliminan del carrito, no es necesario marcarlos como reservados aquí.
+                    # Asumo que 'reservado' es para la remisión, pero en un checkout exitoso se borrarían.
+                    item.delete() # Eliminar el item del carrito después de procesarlo
+                
+                messages.success(request, f'Tu pedido #{pedido.id_pedido} ha sido realizado exitosamente.')
+                return redirect('usuarios:perfil') # O a una página de confirmación de pedido
 
-                # Limpiar el carrito
-                carrito_items.delete()
-
-                messages.success(request, 'Pedido creado exitosamente. Tienes 24 horas para realizar el pago.')
-                return redirect('usuarios:pago_recibo', pedido_id=pedido.id_pedido)
-            
-        except Exception as e:
-            # En caso de error, desmarcar los items como en proceso
+        except ValidationError as e:
+            messages.error(request, f'Error en el pedido: {e.message}')
+            # Si hay un error, revertir cualquier cambio en el carrito (bandera en_proceso_pago)
             for item in carrito_items:
                 item.en_proceso_pago = False
                 item.save()
-            
-            messages.error(request, f'Error al procesar el pedido: {str(e)}')
             return render(request, 'usuarios/checkout.html', context)
-
-    # GET request - show the checkout form
+        except Producto.DoesNotExist:
+            messages.error(request, 'Uno de los productos en tu carrito no existe. Por favor, revisa tu carrito.')
+            for item in carrito_items:
+                item.en_proceso_pago = False
+                item.save()
+            return render(request, 'usuarios/checkout.html', context)
+        except Departamento.DoesNotExist:
+            messages.error(request, 'El departamento seleccionado no es válido.')
+            for item in carrito_items:
+                item.en_proceso_pago = False
+                item.save()
+            return render(request, 'usuarios/checkout.html', context)
+        except Municipio.DoesNotExist:
+            messages.error(request, 'El municipio seleccionado no es válido.')
+            for item in carrito_items:
+                item.en_proceso_pago = False
+                item.save()
+            return render(request, 'usuarios/checkout.html', context)
+        except Exception as e:
+            messages.error(request, f'Ocurrió un error inesperado al procesar tu pedido: {str(e)}')
+            # Es importante que si algo falla, los items del carrito no queden en un estado intermedio
+            for item in carrito_items:
+                item.en_proceso_pago = False
+                item.save()
+            return render(request, 'usuarios/checkout.html', context)
+    
+    # Para la primera carga del formulario o si hay errores de validación
     return render(request, 'usuarios/checkout.html', context)
 
-@login_required
-def mis_pedidos(request):
-    # Obtenemos el cliente asociado al usuario actual
-    cliente = get_object_or_404(Cliente, usuario=request.user)
-    
-    # Obtenemos todos los pedidos del cliente ordenados por fecha descendente
-    pedidos = Pedido.objects.filter(cliente=cliente).order_by('-fecha')
-    
-    # Procesar pedidos pendientes de pago
-    for pedido in pedidos:
-        if pedido.estado_pedido_general == 'pendiente_pago':
-            # Verificar si el pago está vencido
-            if pedido.esta_vencido_pago():
-                pedido.estado_pedido_general = 'pago_vencido'
-                pedido.save()
-            else:
-                # Calcular tiempo restante para pedidos pendientes
-                tiempo_restante = pedido.get_tiempo_restante_pago()
-                if tiempo_restante:
-                    horas = int(tiempo_restante.total_seconds() / 3600)
-                    minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
-                    pedido.tiempo_restante_str = f"{horas}h {minutos}m"
-    
-    # Contexto para la plantilla
-    context = {
-        'pedidos': pedidos,
-        'cliente': cliente,
-    }
-    
-    return render(request, 'usuarios/mis_pedidos.html', context)
-
-@login_required
-def detalle_pedido(request, pedido_id):
-    """Vista para mostrar el detalle de un pedido específico"""
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
-    detalles = DetallePedido.objects.filter(pedido=pedido).select_related('producto')
-    
-    return render(request, 'usuarios/detalle_pedido.html', {
-        'pedido': pedido,
-        'detalles': detalles,
-        'total': pedido.total
-    })
-
-@login_required
-def generar_recibo_pdf(request, pedido_id):
-    # Obtener el pedido y verificar que pertenece al usuario actual
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
-    
-    # Crear el buffer para el PDF
-    buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-    
-    # Configuración inicial
-    styles = getSampleStyleSheet()
-    p.setFont("Helvetica-Bold", 16)
-    
-    # Encabezado
-    p.drawString(50, height - 50, "MultiAndamios")
-    p.setFont("Helvetica", 12)
-    p.drawString(50, height - 70, f"Recibo de Pedido #{pedido.id_pedido}")
-    p.drawString(50, height - 90, f"Fecha: {pedido.fecha.strftime('%d/%m/%Y %H:%M')}")
-    
-    # Información del cliente
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, height - 120, "Información del Cliente:")
-    p.setFont("Helvetica", 12)
-    p.drawString(50, height - 140, f"Cliente: {pedido.cliente.usuario.get_full_name()}")
-    p.drawString(50, height - 160, f"Dirección de entrega: {pedido.direccion_entrega}")
-    
-    # Detalles del pedido
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(50, height - 190, "Detalles del Pedido:")
-    
-    # Tabla de productos
-    data = [['Producto', 'Cantidad', 'Precio Unitario', 'Total']]
-    detalles = DetallePedido.objects.filter(pedido=pedido)
-    
-    y_position = height - 220
-    
-    for detalle in detalles:
-        data.append([
-            detalle.producto.nombre,
-            str(detalle.cantidad),
-            f"${detalle.precio_unitario:,.2f}",
-            f"${detalle.subtotal:,.2f}"
-        ])
-    
-    table = Table(data, colWidths=[200, 100, 100, 100])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-    ]))
-    table.wrapOn(p, width, height)
-    table.drawOn(p, 50, y_position - len(data) * 20)
-    
-    # Total
-    total_y = y_position - (len(data) * 20) - 30
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(350, total_y, f"Total: ${pedido.total:,.2f}")
-    
-    # Estado del pedido
-    p.setFont("Helvetica", 12)
-    p.drawString(50, total_y - 30, f"Estado del pedido: {pedido.get_estado_pedido_general_display()}")
-    
-    # Notas
-    if pedido.notas:
-        p.drawString(50, total_y - 50, f"Notas: {pedido.notas}")
-    
-    # Pie de página
-    p.setFont("Helvetica", 8)
-    p.drawString(50, 50, "Este documento es un recibo digital generado automáticamente.")
-    p.drawString(50, 35, f"Generado el {timezone.now().strftime('%d/%m/%Y %H:%M')}")
-    
-    # Guardar PDF
-    p.showPage()
-    p.save()
-    
-    # Preparar la respuesta
-    buffer.seek(0)
-    response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="recibo_pedido_{pedido.id_pedido}.pdf"'
-    
-    return response
-
-@login_required
-def pago_recibo(request, pedido_id):
-    """Vista para procesar el pago de un pedido"""
-    # Verificar que el usuario sea cliente
-    if not request.user.rol == 'cliente':
-        messages.error(request, 'Solo los clientes pueden realizar pagos.')
-        return redirect('usuarios:inicio_cliente')
-    
-    try:
-        # Obtener el pedido verificando que pertenezca al usuario
-        pedido = get_object_or_404(Pedido, 
-                                 id_pedido=pedido_id, 
-                                 cliente__usuario=request.user)
-        
-        # Validaciones iniciales
-        if pedido.estado_pedido_general == 'pagado':
-            messages.info(request, "Este pedido ya ha sido pagado.")
-            return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-        
-        if pedido.estado_pedido_general == 'procesando_pago':
-            messages.info(request, "Este pedido está en proceso de verificación de pago.")
-            return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-        
-        if pedido.esta_vencido_pago():
-            pedido.estado_pedido_general = 'pago_vencido'
-            pedido.save()
-            messages.error(request, "El tiempo para realizar el pago ha expirado.")
-            return redirect('usuarios:mis_pedidos')
-        
-        # Procesar el formulario de pago
-        if request.method == 'POST':
-            form = MetodoPagoForm(request.POST, request.FILES)
-            if form.is_valid():
-                try:
-                    with transaction.atomic():
-                        # Crear la instancia de MetodoPago
-                        pago = form.save(commit=False)
-                        pago.usuario = request.user
-                        pago.pedido = pedido
-                        pago.monto = pedido.total
-                        pago.estado = 'pendiente'
-                        pago.save()
-
-                        # Actualizar el estado del pedido a 'procesando_pago'
-                        pedido.estado_pedido_general = 'procesando_pago'
-                        pedido.metodo_pago = pago.tipo
-                        pedido.save()
-                        
-                        messages.info(request, "Tu comprobante de pago ha sido recibido y está pendiente de verificación.")
-                        return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
-
-                except ValidationError as e:
-                    messages.error(request, str(e))
-                except Exception as e:
-                    messages.error(request, f"Error inesperado al procesar el pago: {str(e)}")
-                
-                # Si hay un error, redirigir de vuelta al formulario de pago
-                return redirect('usuarios:pago_recibo', pedido_id=pedido.id_pedido)
-        else:
-            form = MetodoPagoForm()
-
-        # Contexto para la plantilla
+# Vista para cargar municipios basada en el departamento seleccionado (AJAX)
+def cargar_municipios(request):
+    departamento_id = request.GET.get('departamento_id')
+    municipios = []
+    if departamento_id:
         try:
-            context = {
-                'pedido': pedido,
-                'detalles': pedido.detalles.all().select_related('producto'),
-                'pago_form': form,
-                'tiempo_restante': pedido.get_tiempo_restante_pago(),
-                'datos_bancarios': {
-                    'banco': 'Bancolombia',
-                    'tipo_cuenta': 'Cuenta de Ahorros',
-                    'numero_cuenta': '123456789',
-                    'titular': 'MultiAndamios S.A.S',
-                    'nit': '900.123.456-7'
-                },
-                'subtotal': pedido.subtotal,
-                'iva': pedido.iva,
-                'costo_transporte': pedido.costo_transporte,
-                'total_con_iva': pedido.total
-            }
-        
-            return render(request, 'usuarios/pago.html', context)
-        
+            municipios = Municipio.objects.filter(departamento_id=departamento_id).order_by('nombre').values('id', 'nombre', 'codigo_divipola')
         except Exception as e:
-            messages.error(request, f"Error al cargar los datos del pedido: {str(e)}")
-            return redirect('usuarios:mis_pedidos')
-        
-    except Exception as e:
-        messages.error(request, f"Error al cargar la página de pago: {str(e)}")
-        return redirect('usuarios:mis_pedidos')
+            # Manejo de error si el ID del departamento no es válido
+            return JsonResponse({'error': str(e)}, status=400)
+    return JsonResponse(list(municipios), safe=False)
 
-@login_required
-def confirmacion_pago(request, pedido_id):
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
-    
-    # Obtener los detalles del pedido para mostrarlos en la confirmación
-    detalles = pedido.detalles.all().select_related('producto')
-    
-    # Si está pagado o en verificación, mostrar mensaje apropiado
-    if pedido.estado_pedido_general == 'pagado':
-        messages.success(request, 'El pago de tu pedido ha sido confirmado.')
-    elif pedido.estado_pedido_general == 'pendiente_verificacion':
-        messages.info(request, 'Tu pago está siendo verificado por nuestro equipo. Te notificaremos cuando se confirme.')
-    else:
-        messages.warning(request, 'Tu pedido está pendiente de pago.')
-    
-    context = {
-        'pedido': pedido,
-        'detalles': detalles,
-        'subtotal': pedido.subtotal,
-        'iva': pedido.iva,
-        'costo_transporte': pedido.costo_transporte,
-        'total': pedido.total,
-    }
-    
-    return render(request, 'usuarios/confirmacion_pago.html', context)
-
-@login_required
-def ver_remision(request, pedido_id):
-    # Obtener el pedido y verificar que pertenece al usuario actual
-    pedido = get_object_or_404(Pedido, 
-                              id_pedido=pedido_id,
-                              cliente__usuario=request.user)
-    
-    # Obtener los detalles del pedido
-    detalles = DetallePedido.objects.filter(pedido=pedido)
-    
-    # Verificar si el pedido está en un estado que permita ver la remisión
-    estados_permitidos = ['confirmado', 'en_preparacion', 'listo_entrega', 
-                         'parcialmente_entregado', 'totalmente_entregado']
-    
-    if pedido.estado_pedido_general not in estados_permitidos:
-        messages.error(request, 
-                      "No se puede generar la remisión para este pedido en su estado actual.")
-        return redirect('usuarios:detalle_pedido', pedido_id=pedido_id)
-    
-    # Preparar el contexto
-    context = {
-        'pedido': pedido,
-        'detalles': detalles,
-        'cliente': pedido.cliente,
-        'fecha_actual': timezone.now(),
-        'total': pedido.total
-    }
-    
-    return render(request, 'usuarios/ver_remision.html', context)
-
-@login_required
-@user_passes_test(lambda u: u.is_staff)
-def generar_remision_admin(request, pedido_id):
-    # Obtener el pedido (sin filtrar por cliente ya que es vista de admin)
-    pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
-    
-    if request.method == 'POST':
-        # Actualizar estado del pedido si se solicita
-        nuevo_estado = request.POST.get('estado_pedido')
-        if nuevo_estado and nuevo_estado in dict(Pedido.ESTADO_CHOICES):
-            pedido.estado_pedido_general = nuevo_estado
-            pedido.save()
-            messages.success(request, f"Estado del pedido actualizado a: {pedido.get_estado_pedido_general_display()}")
-        
-        # Generar PDF de remisión
-        buffer = io.BytesIO()
-        p = canvas.Canvas(buffer, pagesize=letter)
-        width, height = letter
-
-        # Configuración inicial
-        styles = getSampleStyleSheet()
-        p.setFont("Helvetica-Bold", 16)
-        
-        # Logo y encabezado
-        p.drawString(50, height - 50, "MultiAndamios")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, height - 70, f"Remisión de Entrega - Pedido #{pedido.id_pedido}")
-        p.drawString(50, height - 90, f"Fecha: {timezone.now().strftime('%d/%m/%Y %H:%M')}")
-        
-        # Información de la empresa
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 120, "Información de la Empresa:")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, height - 140, "MultiAndamios")
-        p.drawString(50, height - 160, "NIT: 900.123.456-7")
-        p.drawString(50, height - 180, "Tel: (123) 456-7890")
-        
-        # Información del cliente
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 210, "Información del Cliente:")
-        p.setFont("Helvetica", 12)
-        p.drawString(50, height - 230, f"Cliente: {pedido.cliente.usuario.get_full_name()}")
-        p.drawString(50, height - 250, f"Documento: {pedido.cliente.tipo_documento} {pedido.cliente.numero_documento}")
-        p.drawString(50, height - 270, f"Dirección: {pedido.direccion_entrega}")
-        
-        # Detalles del pedido
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 310, "Detalles del Pedido:")
-        
-        # Tabla de productos
-        data = [['Producto', 'Cantidad', 'Estado']]
-        detalles = DetallePedido.objects.filter(pedido=pedido)
-        
-        y_position = height - 340
-        
-        for detalle in detalles:
-            data.append([
-                detalle.producto.nombre,
-                str(detalle.cantidad),
-                pedido.get_estado_pedido_general_display()
-            ])
-        
-        table = Table(data, colWidths=[250, 100, 150])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        table.wrapOn(p, width, height)
-        table.drawOn(p, 50, y_position - (len(data) * 20))
-        
-        # Firmas
-        y_firma = y_position - (len(data) * 20) - 100
-        p.drawString(50, y_firma, "_____________________")
-        p.drawString(300, y_firma, "_____________________")
-        p.drawString(50, y_firma - 20, "Firma Entrega")
-        p.drawString(300, y_firma - 20, "Firma Recibido")
-        
-        # Notas y condiciones
-        if pedido.notas:
-            p.drawString(50, y_firma - 60, f"Notas: {pedido.notas}")
-        
-        # Pie de página
-        p.setFont("Helvetica", 8)
-        p.drawString(50, 50, "Este documento es una remisión oficial de MultiAndamios")
-        p.drawString(50, 35, f"Generado por: {request.user.get_full_name()} - {timezone.now().strftime('%d/%m/%Y %H:%M')}")
-        
-        # Guardar PDF
-        p.showPage()
-        p.save()
-        
-        # Preparar la respuesta
-        buffer.seek(0)
-        response = HttpResponse(buffer, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="remision_pedido_{pedido.id_pedido}.pdf"'
-        
-        return response
-    
-    # Si es GET, mostrar formulario
-    context = {
-        'pedido': pedido,
-        'detalles': DetallePedido.objects.filter(pedido=pedido),
-        'estados': Pedido.ESTADO_CHOICES,
-    }
-    
-    return render(request, 'usuarios/generar_remision_admin.html', context)
-
-@login_required
-def actualizar_carrito(request):
-    """Vista para actualizar cantidades en el carrito"""
-    if request.method == 'POST':
-        if not request.user.is_authenticated:
-            messages.error(request, "Debes iniciar sesión para actualizar el carrito.")
-            return redirect('usuarios:login')
-        
-        for key, value in request.POST.items():
-            if key.startswith(('cantidad_', 'meses_')):
-                try:
-                    item_id = int(key.split('_')[1])
-                    nuevo_valor = int(value)
-                    if nuevo_valor < 1:
-                        continue
-                        
-                    item = get_object_or_404(CarritoItem, id=item_id, usuario=request.user)
-                    
-                    if key.startswith('cantidad_'):
-                        if nuevo_valor > item.producto.cantidad_disponible:
-                            messages.error(request, 
-                                         f'No hay suficiente stock de {item.producto.nombre}. '
-                                         f'Solo hay {item.producto.cantidad_disponible} disponibles.')
-                            continue
-                        item.cantidad = nuevo_valor
-                    else:  # meses_
-                        if nuevo_valor > 12:
-                            messages.error(request, 
-                                         f'El período máximo de renta es de 12 meses.')
-                            continue
-                        item.meses_renta = nuevo_valor
-                    
-                    item.save()
-                    
-                except ValueError:
-                    messages.error(request, "Valor inválido ingresado.")
-                except CarritoItem.DoesNotExist:
-                    messages.error(request, "Item no encontrado en el carrito.")
-        
-        return redirect('usuarios:ver_carrito')
-    
-    return redirect('usuarios:ver_carrito')
-
-@login_required
-def pedidos_pendientes(request):
-    """Vista para mostrar solo los pedidos pendientes de pago"""
-    if not request.user.rol == 'cliente':
-        messages.error(request, 'Solo los clientes pueden acceder a esta sección.')
-        return redirect('usuarios:inicio_cliente')
-    
-    cliente = get_object_or_404(Cliente, usuario=request.user)
-    
-    # Obtener solo pedidos pendientes de pago y que no estén vencidos
-    ahora = timezone.now()
-    pedidos = Pedido.objects.filter(
-        cliente=cliente,
-        estado_pedido_general='pendiente_pago',
-        fecha_limite_pago__gt=ahora
-    ).order_by('fecha_limite_pago')  # Ordenar por los que vencen primero
-    
-    # Procesar cada pedido para actualizar estados y calcular tiempos restantes
-    pedidos_info = []
-    for pedido in pedidos:
-        # Verificar si el pedido está vencido en este momento
-        if pedido.esta_vencido_pago():
-            pedido.estado_pedido_general = 'pago_vencido'
-            pedido.save()
-            continue
-        
-        # Calcular tiempo restante
-        tiempo_restante = pedido.get_tiempo_restante_pago()
-        if tiempo_restante:
-            horas = int(tiempo_restante.total_seconds() / 3600)
-            minutos = int((tiempo_restante.total_seconds() % 3600) / 60)
-            
-            # Solo incluir si aún hay tiempo
-            if horas > 0 or minutos > 0:
-                pedidos_info.append({
-                    'pedido': pedido,
-                    'tiempo_restante_str': f"{horas}h {minutos}m",
-                    'tiempo_restante_segundos': int(tiempo_restante.total_seconds()),
-                    'detalles': pedido.detalles.all().select_related('producto'),
-                    'total_con_iva': pedido.total * Decimal('1.19')
-                })
-    
-    # Para solicitudes AJAX, devolver solo la información necesaria
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            'cantidad_pedidos': len(pedidos_info),
-            'pedidos': [{
-                'id': info['pedido'].id_pedido,
-                'tiempo_restante': info['tiempo_restante_str'],
-                'total': float(info['pedido'].total)
-            } for info in pedidos_info]
-        })
-    
-    # Preparar contexto para la vista normal
-    context = {
-        'pedidos_info': pedidos_info,
-        'cliente': cliente,
-        'total_pendiente': sum(info['pedido'].total for info in pedidos_info),
-        'cantidad_pedidos': len(pedidos_info)
-    }
-    
-    return render(request, 'usuarios/pedidos_pendientes.html', context)
+# Vista para obtener el código DIVIPOLA de un municipio (AJAX)
+def obtener_codigo_divipola(request):
+    municipio_id = request.GET.get('municipio_id')
+    codigo_divipola = ''
+    if municipio_id:
+        try:
+            municipio = Municipio.objects.get(id=municipio_id)
+            codigo_divipola = municipio.codigo_divipola
+        except Municipio.DoesNotExist:
+            return JsonResponse({'error': 'Municipio no encontrado'}, status=404)
+    return JsonResponse({'codigo_divipola': codigo_divipola})

@@ -1,11 +1,15 @@
 from django.urls import path
-from . import views, views_divipola
+from . import views, views_divipola, views_empleados, views_empleados_temp
 
 app_name = 'usuarios'  # Agregar namespace
 
 urlpatterns = [
     # Nueva URL para pedidos pendientes
     path('pedidos-pendientes/', views.pedidos_pendientes, name='pedidos_pendientes'),
+
+    # URLs para la gestión de clientes
+    path('clientes/', views.lista_clientes, name='lista_clientes'),
+    path('clientes/nuevo/', views.crear_cliente, name='crear_cliente'),
 
     # DIVIPOLA API URLs
     path('api/departamentos/', views_divipola.get_departamentos, name='api_departamentos'),
@@ -38,4 +42,16 @@ urlpatterns = [
     path('carrito/confirmacion/<int:pedido_id>/', views.confirmacion_pago, name='confirmacion_pago'),
     path('pedido/<int:pedido_id>/remision/', views.ver_remision, name='ver_remision'),
     path('pedido/<int:pedido_id>/generar-remision/', views.generar_remision_admin, name='generar_remision_admin'),
+
+    # URLs para gestión de empleados (solo para administradores)
+    path('empleados/', views_empleados_temp.lista_empleados, name='lista_empleados'),
+    path('empleados/nuevo/', views_empleados_temp.crear_empleado, name='crear_empleado'),
+    path('empleados/<int:empleado_id>/', views_empleados_temp.detalle_empleado, name='detalle_empleado'),
+    path('empleados/<int:empleado_id>/editar/', views_empleados_temp.editar_empleado, name='editar_empleado'),
+    path('empleados/<int:empleado_id>/cambiar-password/', views_empleados_temp.cambiar_password_empleado, name='cambiar_password_empleado'),
+    path('empleados/<int:empleado_id>/activar-desactivar/', views_empleados_temp.activar_desactivar_empleado, name='activar_desactivar_empleado'),
+    path('empleados/<int:empleado_id>/eliminar/', views_empleados_temp.eliminar_empleado, name='eliminar_empleado'),
+
+    # AJAX endpoints
+    path('carrito/precio/<int:item_id>/', views.get_precio_carrito_item, name='get_precio_carrito_item'),
 ]

@@ -6,9 +6,12 @@ app_name = 'pedidos'  # Agregar namespace
 urlpatterns = [
     # URLs para administradores y empleados
     path('admin/clientes/', views.lista_clientes, name='lista_clientes'),  # Lista de clientes (admin)
+    path('admin/clientes/agregar/', views.agregar_cliente, name='agregar_cliente'),  # Agregar cliente (admin)
+    path('admin/clientes/cambiar_estado/<int:usuario_id>/', views.cambiar_estado_cliente, name='cambiar_estado_cliente'),
     path('admin/productos/', views.admin_productos, name='admin_productos'),  # Admin productos (admin)
     path('admin/productos/editar/<int:producto_id>/', views.editar_producto, name='editar_producto'),
     path('admin/productos/eliminar/<int:producto_id>/', views.eliminar_producto, name='eliminar_producto'),
+    path('admin/productos/cambiar_estado/<int:producto_id>/', views.cambiar_estado_producto, name='cambiar_estado_producto'),
     path('', views.lista_pedidos, name='lista_pedidos'),  # Lista de pedidos (admin)
     path('<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),  # Detalle de pedido (admin)
     path('<int:pedido_id>/remision/', views.generar_remision_pdf, name='generar_remision_pdf'),

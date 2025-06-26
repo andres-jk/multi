@@ -1,0 +1,72 @@
+/* Estilos personalizados para el admin de productos */
+
+.field-tipo_renta select {
+    width: 200px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.field-tipo_renta select:focus {
+    border-color: #007cba;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 124, 186, 0.3);
+}
+
+/* Mejorar la visualización de los precios */
+.field-precio input,
+.field-precio_semanal input {
+    width: 150px;
+    text-align: right;
+}
+
+.field-precio label::after,
+.field-precio_semanal label::after {
+    content: " (COP)";
+    color: #666;
+    font-size: 12px;
+}
+
+/* Resaltar el fieldset de precios */
+.module fieldset.module h2 {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-left: 4px solid #007cba;
+}
+
+/* Estilo para la descripción del fieldset */
+.fieldset .description {
+    background-color: #e7f3ff;
+    padding: 10px;
+    border: 1px solid #b3d9ff;
+    border-radius: 4px;
+    margin: 10px 0;
+    font-style: italic;
+    color: #0066cc;
+}
+
+/* Mejorar la tabla de lista de productos */
+.change-list .field-tipo_renta {
+    color: #007cba;
+    font-weight: bold;
+}
+
+.change-list .field-precio,
+.change-list .field-precio_semanal {
+    text-align: right;
+    font-family: monospace;
+}
+
+/* Indicadores visuales para tipos de renta */
+.change-list td .field-tipo_renta[title="mensual"] {
+    background-color: #e8f5e8;
+    padding: 2px 6px;
+    border-radius: 12px;
+}
+
+.change-list td .field-tipo_renta[title="semanal"] {
+    background-color: #fff3cd;
+    padding: 2px 6px;
+    border-radius: 12px;
+}

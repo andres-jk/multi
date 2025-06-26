@@ -1,0 +1,454 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Diagnóstico de Devoluciones{% endblock %}
+
+{% block extra_css %}
+<style>
+    .diagnostic-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .status-ok {
+        color: #28a745;
+        font-weight: bold;
+    }
+    
+    .status-warning {
+        color: #e67e22;
+        font-weight: bold;
+    }
+    
+    .status-error {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .summary-item {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border-left: 4px solid #007bff;
+        color: #333;
+    }
+    
+    .summary-item h3 {
+        color: #2c3e50;
+        margin: 0 0 5px 0;
+        font-size: 24px;
+    }
+    
+    .summary-item p {
+        color: #555;
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .summary-item.warning {
+        border-left-color: #e67e22;
+        background: #fef9e7;
+    }
+    
+    .summary-item.warning h3 {
+        color: #d68910;
+    }
+    
+    .summary-item.error {
+        border-left-color: #dc3545;
+        background: #fdf2f2;
+    }
+    
+    .summary-item.error h3 {
+        color: #c0392b;
+    }
+    
+    .summary-item.success {
+        border-left-color: #28a745;
+        background: #f0f9f0;
+    }
+    
+    .summary-item.success h3 {
+        color: #27ae60;
+    }
+    
+    .product-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+    
+    .product-table th,
+    .product-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+        color: #333;
+    }
+    
+    .product-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        color: #495057;
+    }
+    
+    .product-table .status-warning {
+        color: #d68910;
+        background-color: #fef9e7;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    
+    .product-table .status-error {
+        color: #c0392b;
+        background-color: #fdf2f2;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    
+    .product-table .status-ok {
+        color: #27ae60;
+        background-color: #f0f9f0;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    
+    .btn-action {
+        background: #007bff;
+        color: white;
+        padding: 6px 12px;
+        text-decoration: none;
+        border-radius: 4px;
+        font-size: 12px;
+        display: inline-block;
+    }
+    
+    .btn-action:hover {
+        background: #0056b3;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .badge.consolidado {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    /* Estilos para alertas mejorados */
+    .alert {
+        padding: 16px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    
+    .alert-success h4 {
+        color: #155724;
+        margin-top: 0;
+    }
+    
+    .alert-warning {
+        background-color: #fff3cd;
+        border-color: #ffeaa7;
+        color: #856404;
+    }
+    
+    .alert-warning h4 {
+        color: #856404;
+        margin-top: 0;
+    }
+    
+    .alert-warning p {
+        color: #856404;
+    }
+    
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    
+    .alert-danger h4 {
+        color: #721c24;
+        margin-top: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>🔍 Diagnóstico de Devoluciones</h1>
+            <p class="text-muted">Monitor del estado de devolución de productos en recibos de obra</p>
+            
+            <!-- Resumen General -->
+            <div class="summary-grid">
+                <div class="summary-item {% if productos_con_renta.count > 0 %}warning{% else %}success{% endif %}">
+                    <h3>{{ productos_con_renta.count }}</h3>
+                    <p>Productos con Stock en Renta</p>
+                </div>
+                
+                <div class="summary-item {% if recibos_con_pendientes.count > 0 %}warning{% else %}success{% endif %}">
+                    <h3>{{ recibos_con_pendientes.count }}</h3>
+                    <p>Recibos con Pendientes</p>
+                </div>
+                
+                <div class="summary-item {% if total_detalles_pendientes > 0 %}warning{% else %}success{% endif %}">
+                    <h3>{{ total_detalles_pendientes }}</h3>
+                    <p>Detalles Pendientes</p>
+                </div>
+                
+                <div class="summary-item {% if total_inconsistencias > 0 %}error{% else %}success{% endif %}">
+                    <h3>{{ total_inconsistencias }}</h3>
+                    <p>Inconsistencias de Inventario</p>
+                </div>
+            </div>
+            
+            <!-- Estado General -->
+            <div class="diagnostic-card">
+                <h3>📊 Estado General</h3>
+                {% if total_problemas == 0 and total_inconsistencias == 0 %}
+                    <div class="alert alert-success">
+                        <h4>✅ Sistema Funcionando Correctamente</h4>
+                        <p>No se encontraron problemas en el sistema de devoluciones. Todos los productos han sido devueltos correctamente al inventario.</p>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <h4>⚠️ Se Encontraron Problemas</h4>
+                        <p>
+                            Hay {{ total_problemas }} recibo(s) con productos pendientes de devolución.
+                            {% if total_inconsistencias > 0 %}
+                                Además, se detectaron {{ total_inconsistencias }} inconsistencia(s) de inventario que requieren atención.
+                            {% endif %}
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <!-- Productos con Stock en Renta -->
+            {% if productos_con_renta.count > 0 %}
+            <div class="diagnostic-card">
+                <h3>📦 Productos con Stock en Renta</h3>
+                <p>Los siguientes productos tienen stock marcado como "en renta":</p>
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Disponible</th>
+                            <th>En Renta</th>
+                            <th>Reservada</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for producto in productos_con_renta %}
+                        <tr>
+                            <td>{{ producto.nombre }}</td>
+                            <td>{{ producto.cantidad_disponible }}</td>
+                            <td class="status-warning">{{ producto.cantidad_en_renta }}</td>
+                            <td>{{ producto.cantidad_reservada }}</td>
+                            <td>{{ producto.cantidad_total }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Recibos con Pendientes -->
+            {% if recibos_con_pendientes.count > 0 %}
+            <div class="diagnostic-card">
+                <h3>📄 Recibos con Pendientes</h3>
+                <p>Los siguientes recibos tienen productos pendientes de devolución:</p>
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Recibo ID</th>
+                            <th>Cliente</th>
+                            <th>Productos</th>
+                            <th>Solicitada Total</th>
+                            <th>Devuelta Total</th>
+                            <th>Pendiente Total</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recibo in recibos_con_pendientes %}
+                        <tr>
+                            <td>#{{ recibo.id }}</td>
+                            <td>{{ recibo.cliente.usuario.get_full_name }}</td>
+                            <td>
+                                {% if recibo.detalles.count == 1 %}
+                                    {{ recibo.producto.nombre }}
+                                {% else %}
+                                    <span class="badge consolidado">{{ recibo.detalles.count }} productos</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ recibo.cantidad_solicitada }}</td>
+                            <td>{{ recibo.cantidad_vuelta }}</td>
+                            <td class="status-warning">{{ recibo.cantidad_pendiente }}</td>
+                            <td>{{ recibo.fecha_entrega|date:"d/m/Y" }}</td>
+                            <td>
+                                <a href="{% url 'recibos:registrar_devolucion' recibo.id %}" class="btn-action">
+                                    🔄 Procesar Devolución
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Detalles Consolidados Pendientes -->
+            {% if detalles_pendientes.count > 0 %}
+            <div class="diagnostic-card">
+                <h3>📋 Recibos Consolidados Pendientes</h3>
+                <p>Los siguientes detalles de recibos consolidados tienen productos pendientes:</p>
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Detalle ID</th>
+                            <th>Recibo ID</th>
+                            <th>Producto</th>
+                            <th>Solicitada</th>
+                            <th>Devuelta</th>
+                            <th>Pendiente</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles_pendientes %}
+                        <tr>
+                            <td>#{{ detalle.id }}</td>
+                            <td>#{{ detalle.recibo.id }}</td>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td>{{ detalle.cantidad_solicitada }}</td>
+                            <td>{{ detalle.cantidad_vuelta }}</td>
+                            <td class="status-warning">{{ detalle.cantidad_pendiente }}</td>
+                            <td>
+                                <a href="{% url 'recibos:registrar_devolucion_consolidado' detalle.recibo.id %}" class="btn-action">
+                                    🔄 Procesar Devolución
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Inconsistencias -->
+            {% if inconsistencias %}
+            <div class="diagnostic-card">
+                <h3>❌ Inconsistencias de Inventario</h3>
+                <div class="alert alert-danger">
+                    <h4>⚠️ Atención: Inconsistencias Detectadas</h4>
+                    <p>Las siguientes inconsistencias requieren corrección manual:</p>
+                </div>
+                <table class="product-table">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Cantidad Pendiente</th>
+                            <th>Stock en Renta</th>
+                            <th>Problema</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inc in inconsistencias %}
+                        <tr>
+                            <td>
+                                {% if inc.tipo == 'recibo_simple' %}
+                                    Recibo Simple
+                                {% else %}
+                                    Recibo Consolidado
+                                {% endif %}
+                            </td>
+                            <td>#{{ inc.objeto.id }}</td>
+                            <td>{{ inc.producto.nombre }}</td>
+                            <td class="status-error">{{ inc.pendiente }}</td>
+                            <td class="status-error">{{ inc.en_renta }}</td>
+                            <td class="status-error">Stock insuficiente en renta</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="alert alert-info mt-3">
+                    <h5>💡 Cómo Corregir:</h5>
+                    <ol>
+                        <li>Verificar el estado real de los productos físicamente</li>
+                        <li>Ajustar el inventario manualmente en el admin de productos</li>
+                        <li>Procesar las devoluciones pendientes</li>
+                        <li>Verificar que no haya errores en el proceso de entrega/devolución</li>
+                    </ol>
+                </div>
+            {% endif %}
+            
+            <!-- Acciones -->
+            <div class="diagnostic-card">
+                <h3>🔧 Acciones Disponibles</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <a href="{% url 'recibos:lista_recibos' %}" class="btn btn-primary btn-block mb-2">
+                            📄 Ver Lista de Recibos
+                        </a>
+                        <a href="/admin/recibos/reciboobra/" class="btn btn-secondary btn-block mb-2">
+                            ⚙️ Administrar Recibos (Admin)
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="/admin/productos/producto/" class="btn btn-info btn-block mb-2">
+                            📦 Administrar Inventario (Admin)
+                        </a>
+                        <button onclick="location.reload()" class="btn btn-success btn-block mb-2">
+                            🔄 Actualizar Diagnóstico
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh cada 30 segundos si hay problemas
+{% if total_problemas > 0 %}
+setTimeout(function() {
+    location.reload();
+}, 30000);
+{% endif %}
+</script>
+{% endblock %}

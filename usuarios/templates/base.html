@@ -814,11 +814,14 @@
                     </a>
                       {% if user.is_staff %}
                         <div class="dropdown">
-                            <a href="#" class="dropdown-toggle {% if '/panel/admin/' in request.path or '/recibos/lista/' in request.path or '/recibos/resumen/' in request.path %}active{% endif %}">
+                            <a href="#" class="dropdown-toggle {% if '/panel/admin/' in request.path or '/recibos/lista/' in request.path or '/recibos/resumen/' in request.path or '/empleados/' in request.path %}active{% endif %}">
                                 <i class="fas fa-cogs"></i> Administración <i class="fas fa-chevron-down"></i>
                             </a>
                             <div class="dropdown-menu">
                                 <a href="{% url 'pedidos:lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
+                                {% if user.rol == 'admin' or user.is_superuser %}
+                                <a href="{% url 'usuarios:lista_empleados' %}"><i class="fas fa-user-tie"></i> Empleados</a>
+                                {% endif %}
                                 <a href="{% url 'recibos:lista_recibos' %}"><i class="fas fa-clipboard-list"></i> Recibos de Obra</a>
                                 <a href="{% url 'recibos:resumen_sistema' %}"><i class="fas fa-chart-line"></i> Resumen</a>
                                 <a href="{% url 'pedidos:admin_productos' %}"><i class="fas fa-tools"></i> Productos</a>

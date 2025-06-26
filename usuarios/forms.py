@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import Usuario, MetodoPago, Cliente, Direccion
 from .models_divipola import Departamento, Municipio
 
@@ -12,15 +12,22 @@ class RegistroForm(UserCreationForm):
         fields = ('username', 'first_name', 'last_name', 'email', 'direccion', 'telefono', 'password1', 'password2')
 
 class UsuarioForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), label="Contraseña")
+
     class Meta:
         model = Usuario
-        fields = ['first_name', 'last_name', 'email', 'numero_identidad']
+        fields = ['username', 'first_name', 'last_name', 'email', 'numero_identidad', 'password']
         widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
             'first_name': forms.TextInput(attrs={'class': 'form-control'}),
             'last_name': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'numero_identidad': forms.TextInput(attrs={'class': 'form-control'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super(UsuarioForm, self).__init__(*args, **kwargs)
+        self.fields['numero_identidad'].required = True
 
 class ClienteForm(forms.ModelForm):
     class Meta:
@@ -34,15 +41,13 @@ class ClienteForm(forms.ModelForm):
 class DireccionForm(forms.ModelForm):
     class Meta:
         model = Direccion
-        fields = ['calle', 'numero', 'complemento', 'departamento', 'municipio', 'codigo_postal', 'principal']
+        fields = ['calle', 'numero', 'complemento', 'departamento', 'municipio', 'principal']
         widgets = {
             'calle': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre de la calle'}),
             'numero': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número'}),
             'complemento': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apartamento, oficina, etc.'}),
             'departamento': forms.Select(attrs={'class': 'form-control'}),
-            'municipio': forms.Select(attrs={'class': 'form-control', 'disabled': True}),
-            'codigo_postal': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Código postal'}),
-            'principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'municipio': forms.Select(attrs={'class': 'form-control'}),
         }
 
 class MetodoPagoForm(forms.ModelForm):
@@ -88,3 +93,161 @@ class MetodoPagoForm(forms.ModelForm):
                 self.add_error('comprobante', 'Debe adjuntar un comprobante de pago.')
         
         return cleaned_data
+
+class ClienteAdminForm(forms.ModelForm):
+    username = forms.CharField(max_length=150, label='Nombre de usuario')
+    email = forms.EmailField(label='Correo electrónico')
+    first_name = forms.CharField(max_length=30, required=False, label='Nombres')
+    last_name = forms.CharField(max_length=150, required=False, label='Apellidos')
+    password = forms.CharField(widget=forms.PasswordInput, label='Contraseña')
+    numero_identidad = forms.CharField(max_length=20, label='Número de Identidad')
+    telefono = forms.CharField(max_length=20, required=False, label='Teléfono')
+    direccion = forms.CharField(max_length=255, required=False, label='Dirección')
+
+    class Meta:
+        model = Cliente
+        fields = ['telefono', 'direccion']
+
+class UsuarioAdminCreationForm(UserCreationForm):
+    class Meta(UserCreationForm.Meta):
+        model = Usuario
+        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'numero_identidad', 'rol')
+
+class UsuarioAdminChangeForm(UserChangeForm):
+    class Meta(UserChangeForm.Meta):
+        model = Usuario
+        fields = '__all__'
+
+class EmpleadoCreationForm(forms.ModelForm):
+    """Formulario para que administradores creen nuevos empleados"""
+    password1 = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='La contraseña debe tener al menos 8 caracteres.'
+    )
+    password2 = forms.CharField(
+        label='Confirmar contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='Ingrese la misma contraseña que arriba, para verificación.'
+    )
+
+    class Meta:
+        model = Usuario
+        fields = ['username', 'first_name', 'last_name', 'email', 'numero_identidad', 'rol',
+                 'puede_gestionar_productos', 'puede_gestionar_pedidos', 'puede_gestionar_recibos',
+                 'puede_gestionar_clientes', 'puede_ver_reportes', 'puede_gestionar_inventario',
+                 'puede_procesar_pagos', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'numero_identidad': forms.TextInput(attrs={'class': 'form-control'}),
+            'rol': forms.Select(attrs={'class': 'form-control'}),
+            'puede_gestionar_productos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_pedidos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_recibos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_clientes': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_ver_reportes': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_inventario': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_procesar_pagos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['numero_identidad'].required = True
+        self.fields['first_name'].required = True
+        self.fields['last_name'].required = True
+        self.fields['email'].required = True
+        # Filtrar roles para mostrar solo los apropiados para empleados
+        self.fields['rol'].choices = [
+            ('empleado', 'Empleado'),
+            ('recibos_obra', 'Empleado de Recibos de Obra'),
+        ]
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get("password1")
+        password2 = self.cleaned_data.get("password2")
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError("Las contraseñas no coinciden.")
+        return password2
+
+    def clean_password1(self):
+        password1 = self.cleaned_data.get("password1")
+        if password1 and len(password1) < 8:
+            raise forms.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        return password1
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password1"])
+        if commit:
+            user.save()
+        return user
+
+
+class EmpleadoUpdateForm(forms.ModelForm):
+    """Formulario para que administradores editen empleados existentes"""
+    
+    class Meta:
+        model = Usuario
+        fields = ['username', 'first_name', 'last_name', 'email', 'numero_identidad', 'rol',
+                 'puede_gestionar_productos', 'puede_gestionar_pedidos', 'puede_gestionar_recibos',
+                 'puede_gestionar_clientes', 'puede_ver_reportes', 'puede_gestionar_inventario',
+                 'puede_procesar_pagos', 'is_active']
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'numero_identidad': forms.TextInput(attrs={'class': 'form-control'}),
+            'rol': forms.Select(attrs={'class': 'form-control'}),
+            'puede_gestionar_productos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_pedidos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_recibos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_clientes': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_ver_reportes': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_gestionar_inventario': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'puede_procesar_pagos': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['numero_identidad'].required = True
+        self.fields['first_name'].required = True
+        self.fields['last_name'].required = True
+        self.fields['email'].required = True
+        # Filtrar roles para mostrar solo los apropiados para empleados
+        self.fields['rol'].choices = [
+            ('empleado', 'Empleado'),
+            ('recibos_obra', 'Empleado de Recibos de Obra'),
+        ]
+
+
+class CambiarPasswordEmpleadoForm(forms.Form):
+    """Formulario para que administradores cambien contraseñas de empleados"""
+    nueva_password1 = forms.CharField(
+        label='Nueva contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='La contraseña debe tener al menos 8 caracteres.'
+    )
+    nueva_password2 = forms.CharField(
+        label='Confirmar nueva contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+        help_text='Ingrese la misma contraseña que arriba, para verificación.'
+    )
+
+    def clean_nueva_password2(self):
+        password1 = self.cleaned_data.get("nueva_password1")
+        password2 = self.cleaned_data.get("nueva_password2")
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError("Las contraseñas no coinciden.")
+        return password2
+
+    def clean_nueva_password1(self):
+        password1 = self.cleaned_data.get("nueva_password1")
+        if password1 and len(password1) < 8:
+            raise forms.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+        return password1

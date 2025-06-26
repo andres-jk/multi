@@ -1,19 +1,87 @@
 from django.contrib import admin
 from django.utils import timezone
+from django.contrib.admin import SimpleListFilter
 from .models import Usuario, Cliente, Direccion, CarritoItem, MetodoPago
 from .models_divipola import Departamento, Municipio
 from .utils import enviar_correo_pago
+from .forms import UsuarioAdminCreationForm, UsuarioAdminChangeForm
+
+class EstadoUsuarioFilter(SimpleListFilter):
+    title = 'Estado del Usuario'
+    parameter_name = 'estado_usuario'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('activo', 'Activos'),
+            ('inactivo', 'Inactivos'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'activo':
+            return queryset.filter(usuario__is_active=True)
+        if self.value() == 'inactivo':
+            return queryset.filter(usuario__is_active=False)
+        return queryset
+
+class RolUsuarioFilter(SimpleListFilter):
+    title = 'Rol del Usuario'
+    parameter_name = 'rol_usuario'
+
+    def lookups(self, request, model_admin):
+        return Usuario.ROLES
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(usuario__rol=self.value())
+        return queryset
+
+class ClienteInline(admin.StackedInline):
+    model = Cliente
+    can_delete = False
+    verbose_name_plural = 'Datos de Cliente'
+    max_num = 1
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):
+    add_form = UsuarioAdminCreationForm
+    form = UsuarioAdminChangeForm
     list_display = ('username', 'first_name', 'last_name', 'email', 'rol')
-    search_fields = ('username', 'first_name', 'last_name', 'email')
-    list_filter = ('rol', 'is_active')
+    search_fields = ('username', 'first_name', 'last_name', 'email', 'numero_identidad')
+    list_filter = ('rol', 'is_active', EstadoUsuarioFilter, RolUsuarioFilter)
+    inlines = [ClienteInline]
+    fieldsets = (
+        (None, {'fields': ('username', 'password')}),
+        ('Información Personal', {'fields': ('first_name', 'last_name', 'email', 'numero_identidad')}),
+        ('Permisos', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Fechas Importantes', {'fields': ('last_login', 'date_joined')}),
+        ('Rol', {'fields': ('rol',)}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'password', 'password2', 'first_name', 'last_name', 'email', 'numero_identidad', 'rol')
+        }),
+    )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not hasattr(obj, 'cliente'):
+            Cliente.objects.create(usuario=obj)
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'telefono')
-    search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name')
+    list_display = ('usuario', 'get_numero_identidad', 'telefono', 'get_estado_usuario')
+    search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name', 'usuario__numero_identidad')
+    list_filter = (EstadoUsuarioFilter, RolUsuarioFilter)
+
+    def get_numero_identidad(self, obj):
+        return obj.usuario.numero_identidad
+    get_numero_identidad.short_description = 'Número de Identidad'
+    
+    def get_estado_usuario(self, obj):
+        return 'Activo' if obj.usuario.is_active else 'Inactivo'
+    get_estado_usuario.short_description = 'Estado'
+    get_estado_usuario.admin_order_field = 'usuario__is_active'
 
 @admin.register(CarritoItem)
 class CarritoItemAdmin(admin.ModelAdmin):
@@ -38,18 +106,6 @@ class MetodoPagoAdmin(admin.ModelAdmin):
     readonly_fields = ('fecha_creacion', 'fecha_pago', 'fecha_verificacion')
     raw_id_fields = ['usuario', 'pedido', 'verificado_por']
     actions = ['aprobar_pagos', 'rechazar_pagos']
-    
-    fieldsets = (
-        ('Información Básica', {
-            'fields': ('pedido', 'usuario', 'tipo', 'monto', 'estado')
-        }),
-        ('Detalles del Pago', {
-            'fields': ('comprobante', 'numero_referencia', 'notas')
-        }),
-        ('Información de Verificación', {
-            'fields': ('verificado_por', 'fecha_verificacion', 'fecha_pago', 'fecha_creacion')
-        })
-    )
 
     def dias_pendiente(self, obj):
         if obj.estado == 'pendiente' and not obj.fecha_verificacion:

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista de Clientes</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Lista de Clientes</h1>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-8">
+                <h2>Clientes Existentes</h2>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre de Usuario</th>
+                            <th>Nombre Completo</th>
+                            <th>Email</th>
+                            <th>Teléfono</th>
+                            <th>Dirección</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                            <tr>
+                                <td>{{ cliente.usuario.id }}</td>
+                                <td>{{ cliente.usuario.username }}</td>
+                                <td>{{ cliente.usuario.get_full_name }}</td>
+                                <td>{{ cliente.usuario.email }}</td>
+                                <td>{{ cliente.telefono }}</td>
+                                <td>{{ cliente.direccion }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-4">
+                <h2>Agregar Nuevo Cliente</h2>
+                <form method="post" action="{% url 'usuarios:crear_cliente' %}">
+                    {% csrf_token %}
+
+                    <h4>Información del Usuario</h4>
+                    {% for field in usuario_form %}
+                        <div class="form-group">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="alert alert-danger mt-1">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    <hr>
+                    <h4>Información del Cliente</h4>
+                    {% for field in cliente_form %}
+                        <div class="form-group">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="alert alert-danger mt-1">{{ field.errors }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    <button type="submit" class="btn btn-primary btn-block">Guardar Cliente</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{% load permisos_tags %}
+
+<div class="permisos-badges">
+    {% if es_admin %}
+        <span class="badge badge-danger">
+            <i class="fas fa-crown"></i> Administrador
+        </span>
+    {% else %}
+        {% if permisos.productos %}
+            <span class="badge badge-primary">
+                <i class="fas fa-boxes"></i> Productos
+            </span>
+        {% endif %}
+        {% if permisos.pedidos %}
+            <span class="badge badge-success">
+                <i class="fas fa-shopping-cart"></i> Pedidos
+            </span>
+        {% endif %}
+        {% if permisos.recibos %}
+            <span class="badge badge-info">
+                <i class="fas fa-receipt"></i> Recibos
+            </span>
+        {% endif %}
+        {% if permisos.clientes %}
+            <span class="badge badge-warning">
+                <i class="fas fa-users"></i> Clientes
+            </span>
+        {% endif %}
+        {% if permisos.reportes %}
+            <span class="badge badge-secondary">
+                <i class="fas fa-chart-bar"></i> Reportes
+            </span>
+        {% endif %}
+        {% if permisos.inventario %}
+            <span class="badge badge-dark">
+                <i class="fas fa-warehouse"></i> Inventario
+            </span>
+        {% endif %}
+        {% if permisos.pagos %}
+            <span class="badge badge-success">
+                <i class="fas fa-credit-card"></i> Pagos
+            </span>
+        {% endif %}
+    {% endif %}
+</div>
+
+<style>
+.permisos-badges .badge {
+    margin: 2px;
+    font-size: 0.8em;
+}
+</style>

@@ -2,13 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.utils import timezone
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.db.models import Count, Q, Sum
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 import io
-from .models import ReciboObra, DetalleReciboObra
+from .models import ReciboObra, DetalleReciboObra, EstadoProductoIndividual
 from pedidos.models import Pedido, DetallePedido
 from usuarios.models import Cliente
 from productos.models import Producto
@@ -41,16 +41,16 @@ def lista_recibos(request):
                 recibos = recibos.filter(
                     Q(cliente__usuario__first_name__icontains=search_query) |
                     Q(cliente__usuario__last_name__icontains=search_query) |
-                    Q(producto__nombre__icontains=search_query)
-                )
+                    Q(detalles__producto__nombre__icontains=search_query)
+                ).distinct()
         except ValueError:
             # Si no es un número, buscar por nombre de cliente o producto
             from django.db.models import Q
             recibos = recibos.filter(
                 Q(cliente__usuario__first_name__icontains=search_query) |
                 Q(cliente__usuario__last_name__icontains=search_query) |
-                Q(producto__nombre__icontains=search_query)
-            )
+                Q(detalles__producto__nombre__icontains=search_query)
+            ).distinct()
     
     recibos = recibos.order_by('-fecha_entrega')
     
@@ -97,16 +97,25 @@ def crear_recibo(request, pedido_id):
                         messages.error(request, f"No hay suficientes productos disponibles o en renta para crear el recibo: {cantidad} solicitados, {producto.cantidad_en_renta} en renta, {producto.cantidad_disponible} disponibles")
                         return redirect('recibos:crear_recibo', pedido_id=pedido_id)
             
-            # Crear el recibo
+            # Crear el recibo principal
             recibo = ReciboObra.objects.create(
                 pedido=pedido,
                 cliente=pedido.cliente,
-                producto_id=producto_id,
-                cantidad_solicitada=cantidad,
                 notas_entrega=notas,
                 condicion_entrega=condicion,
                 empleado=request.user
             )
+            
+            # Crear el detalle del recibo para el producto seleccionado
+            detalle_pedido = pedido.detalles.filter(producto_id=producto_id).first()
+            if detalle_pedido:
+                DetalleReciboObra.objects.create(
+                    recibo=recibo,
+                    producto_id=producto_id,
+                    detalle_pedido=detalle_pedido,
+                    cantidad_solicitada=cantidad,
+                    estado='PENDIENTE'
+                )
             
             messages.success(request, f"Recibo de obra #{recibo.id} creado exitosamente.")
             return redirect('recibos:generar_pdf', recibo_id=recibo.id)
@@ -127,6 +136,13 @@ def crear_recibo(request, pedido_id):
 def registrar_devolucion(request, recibo_id):
     """Vista para registrar la devolución de equipos"""
     recibo = get_object_or_404(ReciboObra, id=recibo_id)
+    
+    # Obtener el primer detalle para compatibilidad con recibos simples
+    detalle_principal = recibo.detalles.first()
+    
+    if not detalle_principal:
+        messages.error(request, "Este recibo no tiene detalles asociados.")
+        return redirect('recibos:lista_recibos')
     
     if request.method == 'POST':
         try:
@@ -149,20 +165,25 @@ def registrar_devolucion(request, recibo_id):
                 raise ValueError("Debes registrar la devolución de al menos un producto.")
                 
             # Validar que la cantidad no exceda la pendiente
-            cantidad_pendiente = recibo.cantidad_solicitada - recibo.cantidad_vuelta
+            cantidad_pendiente = detalle_principal.cantidad_pendiente
             if cantidad_total > cantidad_pendiente:
                 raise ValueError(f"La cantidad total devuelta ({cantidad_total}) no puede ser mayor a la cantidad pendiente ({cantidad_pendiente}).")
-              # Actualizar el recibo
-            recibo.cantidad_buen_estado += cantidad_buen_estado
-            recibo.cantidad_danados += cantidad_danados
-            recibo.cantidad_inservibles += cantidad_inservibles
-            recibo.cantidad_vuelta += cantidad_total
-            recibo.estado = estado
+            
+            # Actualizar el detalle del recibo
+            detalle_principal.cantidad_buen_estado += cantidad_buen_estado
+            detalle_principal.cantidad_danados += cantidad_danados
+            detalle_principal.cantidad_inservibles += cantidad_inservibles
+            detalle_principal.cantidad_vuelta += cantidad_total
+            detalle_principal.estado = estado
+            detalle_principal.save()
+            
+            # Actualizar el recibo principal
             recibo.notas_devolucion = notas
             recibo.condicion_devolucion = condicion
             recibo.fecha_devolucion = timezone.now()
             recibo.save()
-              # Devolver al inventario los productos en buen estado
+            
+            # Devolver al inventario los productos en buen estado
             if cantidad_buen_estado > 0 and recibo.producto:
                 try:
                     # Obtener el producto correctamente
@@ -176,52 +197,76 @@ def registrar_devolucion(request, recibo_id):
                     previous_en_renta = producto_actualizado.cantidad_en_renta
                     previous_reservada = producto_actualizado.cantidad_reservada
                     
-                    # Imprimir valores para depuración detallada
-                    print(f"=== DEVOLUCIÓN DE PRODUCTOS ===")
-                    print(f"Producto ID: {producto_id}")
-                    print(f"Producto Nombre: {producto_actualizado.nombre}")
-                    print(f"Cantidad total del producto: {producto_actualizado.cantidad_total()}")
-                    print(f"Cantidad en renta antes: {previous_en_renta}")
-                    print(f"Cantidad disponible antes: {previous_disponible}")
-                    print(f"Cantidad reservada antes: {previous_reservada}")
-                    print(f"Cantidad a devolver: {cantidad_buen_estado}")
-                      # Verificar que haya suficiente cantidad en renta
+                    # Logging detallado para depuración
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"=== DEVOLUCIÓN DE PRODUCTOS ===")
+                    logger.info(f"Producto ID: {producto_id}")
+                    logger.info(f"Producto Nombre: {producto_actualizado.nombre}")
+                    logger.info(f"Cantidad total del producto: {producto_actualizado.cantidad_total()}")
+                    logger.info(f"Cantidad en renta antes: {previous_en_renta}")
+                    logger.info(f"Cantidad disponible antes: {previous_disponible}")
+                    logger.info(f"Cantidad reservada antes: {previous_reservada}")
+                    logger.info(f"Cantidad a devolver: {cantidad_buen_estado}")
+                    
+                    # Verificar que haya suficiente cantidad en renta
                     if cantidad_buen_estado <= producto_actualizado.cantidad_en_renta:
                         # Flujo normal - tenemos suficientes en renta
-                        producto_actualizado.cantidad_en_renta -= cantidad_buen_estado
-                        producto_actualizado.cantidad_disponible += cantidad_buen_estado
-                        producto_actualizado.save()
+                        from django.db import transaction
                         
-                        # Verificar que se haya guardado correctamente
-                        producto_verificado = Producto.objects.get(id_producto=producto_id)
-                        
-                        print(f"Devolución exitosa - Producto {producto_id}")
-                        print(f"Cantidad en renta después: {producto_verificado.cantidad_en_renta}")
-                        print(f"Cantidad disponible después: {producto_verificado.cantidad_disponible}")
-                        print(f"=== FIN DEVOLUCIÓN ===")
-                        
-                        messages.success(request,
-                            f"Se han devuelto {cantidad_buen_estado} unidades en buen estado al inventario. "
-                            f"Disponibles antes: {previous_disponible}, después: {producto_verificado.cantidad_disponible}. "
-                            f"En renta antes: {previous_en_renta}, después: {producto_verificado.cantidad_en_renta}.")
+                        try:
+                            with transaction.atomic():
+                                if producto_actualizado.devolver_de_renta(cantidad_buen_estado):
+                                    # Verificar que se haya guardado correctamente
+                                    producto_verificado = Producto.objects.get(id_producto=producto_id)
+                                    
+                                    logger.info(f"Devolución exitosa - Producto {producto_id}")
+                                    logger.info(f"Cantidad en renta después: {producto_verificado.cantidad_en_renta}")
+                                    logger.info(f"Cantidad disponible después: {producto_verificado.cantidad_disponible}")
+                                    logger.info(f"=== FIN DEVOLUCIÓN EXITOSA ===")
+                                    
+                                    messages.success(request,
+                                        f"✅ Se han devuelto {cantidad_buen_estado} unidades en buen estado al inventario. "
+                                        f"Disponibles: {previous_disponible} → {producto_verificado.cantidad_disponible}. "
+                                        f"En renta: {previous_en_renta} → {producto_verificado.cantidad_en_renta}.")
+                                else:
+                                    raise Exception("El método devolver_de_renta retornó False")
+                        except Exception as txn_error:
+                            logger.error(f"ERROR en transacción de devolución: {str(txn_error)}")
+                            messages.error(request, f"Error al devolver {cantidad_buen_estado} productos al inventario: {str(txn_error)}")
                     else:
-                        # Corregimos inconsistencia: los productos deberían estar en renta pero no lo están
-                        # Asumimos que están disponibles (fueron devueltos de otra manera)
+                        # Caso especial: no hay suficientes productos en renta
+                        logger.warning(f"Productos insuficientes en renta: {cantidad_buen_estado} > {producto_actualizado.cantidad_en_renta}")
+                        
+                        # Verificar si ya están disponibles (posible inconsistencia de datos)
                         if producto_actualizado.cantidad_disponible >= cantidad_buen_estado:
-                            # No es necesario mover inventario, solo registramos la devolución
-                            print(f"NOTA: Los productos ya están disponibles, solo registramos la devolución en el recibo")
+                            # Los productos ya están disponibles, solo registramos la devolución
+                            logger.info(f"Los productos ya están disponibles, solo registrando la devolución en el recibo")
                             messages.info(request,
-                                f"Los productos ya estaban disponibles en el inventario. Solo se ha registrado la devolución.")
+                                f"⚠️ Los productos ya estaban disponibles en el inventario. Solo se ha registrado la devolución.")
                         else:
-                            print(f"ERROR: La cantidad a devolver ({cantidad_buen_estado}) excede tanto la cantidad en renta ({producto_actualizado.cantidad_en_renta}) como la disponible ({producto_actualizado.cantidad_disponible})")
-                            print(f"=== FIN DEVOLUCIÓN CON ERROR ===")
+                            # Error: no hay suficientes productos en ningún estado
+                            total_disponible = producto_actualizado.cantidad_disponible + producto_actualizado.cantidad_en_renta
+                            logger.error(f"Error crítico: Cantidad a devolver ({cantidad_buen_estado}) excede el total disponible ({total_disponible})")
                             
-                            messages.warning(request, 
-                                f"No se pudieron devolver los productos al inventario. La cantidad a devolver ({cantidad_buen_estado}) "
-                                f"no está disponible en ningún estado del inventario.")
+                            messages.error(request, 
+                                f"❌ Error crítico: No se pudieron devolver los productos al inventario. "
+                                f"Cantidad a devolver: {cantidad_buen_estado}, "
+                                f"En renta: {producto_actualizado.cantidad_en_renta}, "
+                                f"Disponible: {producto_actualizado.cantidad_disponible}")
+                            
+                            # Enviar notificación al administrador
+                            logger.critical(f"INCONSISTENCIA DE INVENTARIO - Recibo #{recibo.id}, Producto {producto_actualizado.nombre}")
+                            
                 except Exception as e:
-                    print(f"ERROR en devolución: {str(e)}")
-                    messages.error(request, f"Error al procesar la devolución: {str(e)}")
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"ERROR GENERAL en devolución: {str(e)}")
+                    logger.error(f"Recibo: {recibo.id}, Producto: {recibo.producto.nombre if recibo.producto else 'N/A'}")
+                    messages.error(request, f"Error inesperado al procesar la devolución: {str(e)}")
+                    
+                    # En caso de error crítico, no fallar completamente
+                    # Solo registrar el error pero permitir continuar con el resto del proceso
             
             # Marcar el pedido como completado si todos los productos han sido devueltos
             if recibo.cantidad_vuelta >= recibo.cantidad_solicitada:
@@ -244,6 +289,142 @@ def registrar_devolucion(request, recibo_id):
         'recibo': recibo,
         'cantidad_pendiente': cantidad_pendiente
     })
+
+@login_required
+@user_passes_test(puede_ver_recibos)
+def administrar_productos_individuales(request, recibo_id):
+    """Vista para administrar el estado individual de cada producto en un recibo de obra"""
+    recibo = get_object_or_404(ReciboObra, id=recibo_id)
+    detalles = recibo.detalles.all()
+    
+    # Verificar si la tabla EstadoProductoIndividual existe
+    tabla_existe = True
+    try:
+        # Probar una consulta simple para verificar que la tabla existe
+        list(EstadoProductoIndividual.objects.all()[:1])  # Forzar evaluación de la consulta
+    except Exception as e:
+        tabla_existe = False
+        print(f"Tabla no existe, intentando crearla: {e}")
+        
+        # Intentar crear la tabla automáticamente
+        if crear_tabla_estado_individual():
+            print("Tabla creada exitosamente, verificando nuevamente...")
+            try:
+                list(EstadoProductoIndividual.objects.all()[:1])
+                tabla_existe = True
+                print("Tabla ahora accesible")
+            except Exception as e2:
+                print(f"Tabla creada pero aún no accesible: {e2}")
+                tabla_existe = False
+        
+        if not tabla_existe and request.method == 'POST':
+            messages.error(request, 
+                "Error: La tabla de estados individuales no existe y no se pudo crear automáticamente. "
+                "Por favor, contacta al administrador para aplicar las migraciones necesarias."
+            )
+            return redirect('recibos:lista_recibos')
+    
+    if request.method == 'POST':
+        try:
+            # Procesar el formulario de estado de productos
+            for detalle in detalles:
+                # Crear estados individuales para cada producto si no existen
+                for i in range(detalle.cantidad_solicitada):
+                    estado_key = f'estado_{detalle.id}_{i}'
+                    observaciones_key = f'observaciones_{detalle.id}_{i}'
+                    numero_serie_key = f'numero_serie_{detalle.id}_{i}'
+                    
+                    if estado_key in request.POST:
+                        estado_valor = request.POST[estado_key]
+                        observaciones = request.POST.get(observaciones_key, '')
+                        numero_serie = request.POST.get(numero_serie_key, '')
+                        
+                        # Buscar o crear el estado individual
+                        estado_individual, created = EstadoProductoIndividual.objects.get_or_create(
+                            detalle_recibo=detalle,
+                            numero_serie=numero_serie or f"Item-{i+1}",
+                            defaults={
+                                'estado': estado_valor,
+                                'observaciones': observaciones,
+                                'revisado_por': request.user,
+                            }
+                        )
+                    
+                    if not created:
+                        # Actualizar estado existente
+                        estado_individual.estado = estado_valor
+                        estado_individual.observaciones = observaciones
+                        estado_individual.revisado_por = request.user
+                        estado_individual.fecha_revision = timezone.now()
+                        estado_individual.save()
+        
+            messages.success(request, 'Estados de productos actualizados exitosamente.')
+            return redirect('recibos:administrar_productos_individuales', recibo_id=recibo_id)
+            
+        except Exception as e:
+            messages.error(request, f'Error al actualizar estados de productos: {str(e)}')
+            return redirect('recibos:lista_recibos')
+    
+    # Preparar datos para la plantilla
+    productos_data = []
+    for detalle in detalles:
+        estados_existentes = []
+        if tabla_existe:
+            try:
+                estados_existentes = EstadoProductoIndividual.objects.filter(detalle_recibo=detalle)
+                # Forzar evaluación del QuerySet para verificar que la tabla realmente existe
+                list(estados_existentes)
+            except Exception as e:
+                # Si la tabla no existe, usar lista vacía y marcar tabla como no existente
+                estados_existentes = []
+                tabla_existe = False
+                print(f"Error al acceder a EstadoProductoIndividual: {e}")  # Para debug
+        
+        # Crear lista de productos individuales
+        productos_individuales = []
+        for i in range(detalle.cantidad_solicitada):
+            # Buscar estado existente o crear uno por defecto
+            estado_individual = None
+            if tabla_existe:
+                try:
+                    # Solo evaluar si la tabla existe
+                    if estados_existentes:  # Esto puede ser una lista o QuerySet
+                        for estado in estados_existentes:
+                            if estado.numero_serie == f"Item-{i+1}":
+                                estado_individual = estado
+                                break
+                except Exception:
+                    estado_individual = None
+            
+            productos_individuales.append({
+                'index': i,
+                'numero_serie': f"Item-{i+1}",
+                'estado_individual': estado_individual,
+            })
+        
+        productos_data.append({
+            'detalle': detalle,
+            'productos_individuales': productos_individuales,
+        })
+    
+    # Obtener opciones de estado
+    if tabla_existe:
+        estados_choices = EstadoProductoIndividual.ESTADO_CHOICES
+    else:
+        estados_choices = [
+            ('BUEN_ESTADO', 'Buen Estado'),
+            ('PARA_REPARACION', 'Para Reparación'),
+            ('INUTILIZABLE', 'Inutilizable'),
+        ]
+    
+    context = {
+        'recibo': recibo,
+        'productos_data': productos_data,
+        'estados_choices': estados_choices,
+        'tabla_existe': tabla_existe,
+    }
+    
+    return render(request, 'recibos/administrar_productos_individuales.html', context)
 
 @login_required
 def generar_pdf(request, recibo_id):
@@ -324,12 +505,22 @@ def resumen_sistema(request):
     pedidos_completados = pedidos.filter(estado_pedido_general='CERRADO').count()
     
     # Estadísticas de recibos
-    recibos = ReciboObra.objects.all()
+    recibos = ReciboObra.objects.prefetch_related('detalles').all()
     recibos_count = recibos.count()
-    recibos_pendientes = recibos.filter(estado='PENDIENTE').count()
-    recibos_en_uso = recibos.filter(estado='EN_USO').count()
-    recibos_devueltos = recibos.filter(estado='DEVUELTO').count()
     
+    recibos_pendientes = 0
+    recibos_en_uso = 0
+    recibos_devueltos = 0
+
+    for recibo in recibos:
+        estado = recibo.estado_general
+        if estado == 'PENDIENTE':
+            recibos_pendientes += 1
+        elif estado == 'EN_USO':
+            recibos_en_uso += 1
+        elif estado == 'DEVUELTO':
+            recibos_devueltos += 1
+
     # Actividades recientes (simuladas por ahora)
     actividades = [
         {
@@ -647,7 +838,6 @@ def crear_recibo_consolidado(request, pedido_id):
         recibo = ReciboObra.objects.create(
             pedido=pedido,
             cliente=pedido.cliente,
-            cantidad_solicitada=0,  # Se actualizará después
             notas_entrega=notas_generales,
             condicion_entrega=condicion_general,
             empleado=request.user
@@ -694,8 +884,7 @@ def crear_recibo_consolidado(request, pedido_id):
                         recibo=recibo,
                         producto=producto,
                         detalle_pedido=detalle,
-                        cantidad_solicitada=cantidad,
-                        condicion_entrega=condicion_general
+                        cantidad_solicitada=cantidad
                     )
                     
                     cantidad_total += cantidad
@@ -703,10 +892,6 @@ def crear_recibo_consolidado(request, pedido_id):
                     
                 except ValueError:
                     errores.append(f"Error al procesar la cantidad para {detalle.producto.nombre}.")
-        
-        # Actualizar la cantidad total en el recibo principal
-        recibo.cantidad_solicitada = cantidad_total
-        recibo.save()
         
         # Mostrar mensajes según los resultados
         if productos_procesados:
@@ -946,23 +1131,43 @@ def registrar_devolucion_consolidado(request, recibo_id):
                     try:
                         producto = detalle.producto
                         
-                        # Verificar que haya suficientes en renta
-                        if producto.cantidad_en_renta >= buen_estado:
-                            producto.cantidad_en_renta -= buen_estado
-                            producto.cantidad_disponible += buen_estado
-                            producto.save()
-                            print(f"Devueltos {buen_estado} {producto.nombre} al inventario")
-                        else:
-                            print(f"ADVERTENCIA: No hay suficientes {producto.nombre} en renta")
-                            errores.append(f"No hay suficientes {producto.nombre} en renta para devolver.")
+                        # Obtener estado actual para logging
+                        previous_disponible = producto.cantidad_disponible
+                        previous_en_renta = producto.cantidad_en_renta
+                        
+                        # Logging detallado
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.info(f"=== DEVOLUCIÓN CONSOLIDADA ===")
+                        logger.info(f"Producto: {producto.nombre}")
+                        logger.info(f"Estado antes - En renta: {previous_en_renta}, Disponible: {previous_disponible}")
+                        logger.info(f"Cantidad a devolver: {buen_estado}")
+                        
+                        # Usar el método del modelo para manejar la devolución correctamente
+                        from django.db import transaction
+                        
+                        try:
+                            with transaction.atomic():
+                                if producto.devolver_de_renta(buen_estado):
+                                    # Verificar cambio
+                                    producto.refresh_from_db()
+                                    logger.info(f"✅ Devolución exitosa - En renta: {previous_en_renta} → {producto.cantidad_en_renta}")
+                                    logger.info(f"Disponible: {previous_disponible} → {producto.cantidad_disponible}")
+                                    logger.info(f"=== FIN DEVOLUCIÓN CONSOLIDADA EXITOSA ===")
+                                else:
+                                    raise Exception(f"No hay suficientes {producto.nombre} en renta para devolver {buen_estado} unidades")
+                        except Exception as txn_error:
+                            logger.error(f"ERROR en devolución consolidada: {str(txn_error)}")
+                            errores.append(f"Error al devolver {producto.nombre}: {str(txn_error)}")
+                            
                     except Exception as e:
-                        print(f"ERROR en devolución: {str(e)}")
-                        errores.append(f"Error al procesar la devolución de {detalle.producto.nombre}: {str(e)}")
+                        import logging
+                        logger = logging.getLogger(__name__)
+                        logger.error(f"ERROR GENERAL en devolución consolidada: {str(e)}")
+                        errores.append(f"Error inesperado al procesar la devolución de {detalle.producto.nombre}: {str(e)}")
         
         # Actualizar el recibo principal si se procesó algún producto
         if productos_procesados:
-            recibo.cantidad_vuelta += cantidad_total_devuelta
-            recibo.estado = estado
             recibo.notas_devolucion = notas_devolucion
             recibo.condicion_devolucion = condicion_devolucion
             recibo.fecha_devolucion = timezone.now()
@@ -976,15 +1181,13 @@ def registrar_devolucion_consolidado(request, recibo_id):
                 for error in errores:
                     messages.warning(request, error)
             
-            # Verificar si el recibo está completo para cerrar el pedido
-            if recibo.cantidad_vuelta >= recibo.cantidad_solicitada:
-                # Verificar si todos los detalles están completos
-                todos_completos = all(detalle.cantidad_vuelta == detalle.cantidad_solicitada for detalle in detalles)
+            # Verificar si todos los detalles están completos para cerrar el pedido
+            todos_completos = all(detalle.esta_completo for detalle in detalles)
                 
-                if todos_completos:
-                    recibo.pedido.estado_pedido_general = 'CERRADO'
-                    recibo.pedido.save()
-                    messages.info(request, "El pedido ha sido marcado como CERRADO.")
+            if todos_completos:
+                recibo.pedido.estado_pedido_general = 'CERRADO'
+                recibo.pedido.save()
+                messages.info(request, "El pedido ha sido marcado como CERRADO.")
             
             return redirect('recibos:lista_recibos')
         else:
@@ -994,11 +1197,92 @@ def registrar_devolucion_consolidado(request, recibo_id):
                 for error in errores:
                     messages.error(request, error)
     
-    # Preparar estado para el template
-    estados = ReciboObra.ESTADO_CHOICES
-    
     return render(request, 'recibos/registrar_devolucion_consolidado.html', {
         'recibo': recibo,
         'detalles': detalles,
-        'estados': estados
     })
+
+def crear_tabla_estado_individual():
+    """Crear la tabla EstadoProductoIndividual si no existe"""
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS "recibos_estadoproductoindividual" (
+                    "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    "numero_serie" varchar(100),
+                    "estado" varchar(20) NOT NULL DEFAULT 'BUEN_ESTADO',
+                    "observaciones" text,
+                    "fecha_revision" datetime NOT NULL,
+                    "detalle_recibo_id" bigint NOT NULL,
+                    "revisado_por_id" integer,
+                    FOREIGN KEY ("detalle_recibo_id") REFERENCES "recibos_detallereciboobra" ("id") DEFERRABLE INITIALLY DEFERRED,
+                    FOREIGN KEY ("revisado_por_id") REFERENCES "usuarios_usuario" ("id") DEFERRABLE INITIALLY DEFERRED
+                );
+            """)
+            cursor.execute('CREATE INDEX IF NOT EXISTS "recibos_estadoproductoindividual_detalle_recibo_id_a8e0de9c" ON "recibos_estadoproductoindividual" ("detalle_recibo_id");')
+            cursor.execute('CREATE INDEX IF NOT EXISTS "recibos_estadoproductoindividual_revisado_por_id_12345678" ON "recibos_estadoproductoindividual" ("revisado_por_id");')
+            cursor.execute("INSERT OR IGNORE INTO django_migrations (app, name, applied) VALUES ('recibos', '0003_estadoproductoindividual', datetime('now'));")
+        return True
+    except Exception as e:
+        print(f"Error creando tabla: {e}")
+        return False
+
+@login_required
+@user_passes_test(es_staff)
+def diagnostico_devoluciones(request):
+    """Vista para diagnosticar problemas de devolución"""
+    from django.db.models import F, Sum
+    
+    # Obtener información de productos
+    productos_con_renta = Producto.objects.filter(cantidad_en_renta__gt=0)
+    
+    # Obtener recibos que tienen detalles pendientes
+    recibos_con_pendientes = ReciboObra.objects.filter(
+        detalles__cantidad_vuelta__lt=F('detalles__cantidad_solicitada')
+    ).distinct()
+    
+    # Obtener detalles pendientes directamente
+    detalles_pendientes = DetalleReciboObra.objects.filter(cantidad_vuelta__lt=F('cantidad_solicitada'))
+    
+    # Verificar inconsistencias
+    inconsistencias = []
+    
+    # Para recibos con detalles pendientes, verificar cada detalle
+    for recibo in recibos_con_pendientes:
+        for detalle in recibo.detalles.filter(cantidad_vuelta__lt=F('cantidad_solicitada')):
+            pendiente = detalle.cantidad_solicitada - detalle.cantidad_vuelta
+            if detalle.producto and pendiente > detalle.producto.cantidad_en_renta:
+                inconsistencias.append({
+                    'tipo': 'detalle_pendiente',
+                    'objeto': detalle,
+                    'recibo': recibo,
+                    'pendiente': pendiente,
+                    'en_renta': detalle.producto.cantidad_en_renta,
+                    'producto': detalle.producto
+                })
+    
+    # También verificar detalles independientemente para una vista completa
+    detalles_con_problemas = []
+    for detalle in detalles_pendientes:
+        pendiente = detalle.cantidad_solicitada - detalle.cantidad_vuelta
+        if detalle.producto and pendiente > detalle.producto.cantidad_en_renta:
+            detalles_con_problemas.append({
+                'detalle': detalle,
+                'pendiente': pendiente,
+                'en_renta': detalle.producto.cantidad_en_renta,
+                'producto': detalle.producto
+            })
+    
+    context = {
+        'productos_con_renta': productos_con_renta,
+        'recibos_con_pendientes': recibos_con_pendientes,
+        'detalles_pendientes': detalles_pendientes,
+        'inconsistencias': inconsistencias,
+        'detalles_con_problemas': detalles_con_problemas,
+        'total_problemas': len(recibos_con_pendientes),
+        'total_detalles_pendientes': len(detalles_pendientes),
+        'total_inconsistencias': len(inconsistencias),
+    }
+    
+    return render(request, 'recibos/diagnostico_devoluciones.html', context)

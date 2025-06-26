@@ -12,10 +12,11 @@ from decimal import Decimal
 import io
 import os
 from .models import Pedido, DetallePedido
-from usuarios.models import Cliente
+from usuarios.models import Cliente, Usuario
 from productos.models import Producto
 from django.db.models import Q
 from django.db import transaction
+from usuarios.forms import ClienteAdminForm
 
 def es_staff(user):
     """Verifica si un usuario es staff, admin o empleado"""
@@ -29,10 +30,48 @@ def es_cliente(user):
 @user_passes_test(es_staff)
 def lista_clientes(request):
     busqueda = request.GET.get('busqueda_identidad', '')
+    estado_filtro = request.GET.get('estado', '')
+    rol_filtro = request.GET.get('rol', '')
+    
     clientes = Cliente.objects.select_related('usuario').all()
+    
+    # Filtro por búsqueda
     if busqueda:
-        clientes = clientes.filter(Q(usuario__numero_identidad__icontains=busqueda))
-    return render(request, 'pedidos/lista_clientes.html', {'clientes': clientes})
+        clientes = clientes.filter(
+            Q(usuario__numero_identidad__icontains=busqueda) |
+            Q(usuario__first_name__icontains=busqueda) |
+            Q(usuario__last_name__icontains=busqueda)
+        )
+    
+    # Filtro por estado
+    if estado_filtro == 'activo':
+        clientes = clientes.filter(usuario__is_active=True)
+    elif estado_filtro == 'inactivo':
+        clientes = clientes.filter(usuario__is_active=False)
+    
+    # Filtro por rol
+    if rol_filtro:
+        clientes = clientes.filter(usuario__rol=rol_filtro)
+    
+    # Opciones para los filtros
+    estados = [
+        ('', 'Todos los estados'),
+        ('activo', 'Activos'),
+        ('inactivo', 'Inactivos'),
+    ]
+    
+    roles = [('', 'Todos los roles')] + list(Usuario.ROLES)
+    
+    context = {
+        'clientes': clientes,
+        'busqueda': busqueda,
+        'estado_filtro': estado_filtro,
+        'rol_filtro': rol_filtro,
+        'estados': estados,
+        'roles': roles,
+    }
+    
+    return render(request, 'pedidos/lista_clientes.html', context)
 @login_required
 @user_passes_test(es_staff)
 def lista_pedidos(request):
@@ -47,21 +86,56 @@ def admin_productos(request):
     productos = Producto.objects.all()
     
     if request.method == 'POST':
-        nombre = request.POST.get('nombre')
-        descripcion = request.POST.get('descripcion')
-        precio = request.POST.get('precio')
-        tipo_renta = request.POST.get('tipo_renta')
-        cantidad = request.POST.get('cantidad')
-        imagen = request.FILES.get('imagen')
+        try:
+            nombre = request.POST.get('nombre')
+            descripcion = request.POST.get('descripcion')
+            precio = request.POST.get('precio')
+            precio_semanal = request.POST.get('precio_semanal')
+            peso = request.POST.get('peso')
+            tipo_renta = request.POST.get('tipo_renta')
+            cantidad = request.POST.get('cantidad')
+            imagen = request.FILES.get('imagen')
+            
+            # Validar tipo de renta
+            if tipo_renta not in ['mensual', 'semanal']:
+                messages.error(request, 'Tipo de renta debe ser mensual o semanal')
+                return redirect('pedidos:admin_productos')
+            
+            # Validar y convertir valores numéricos
+            try:
+                precio_decimal = Decimal(precio) if precio else Decimal('0')
+                peso_decimal = Decimal(peso) if peso else Decimal('0')
+                cantidad_int = int(cantidad) if cantidad else 0
+            except (ValueError, TypeError):
+                messages.error(request, 'Error en los valores numéricos. Verifique precio, peso y cantidad.')
+                return redirect('pedidos:admin_productos')
+            
+            # Crear el producto
+            producto_data = {
+                'nombre': nombre,
+                'descripcion': descripcion,
+                'precio': precio_decimal,
+                'peso': peso_decimal,
+                'tipo_renta': tipo_renta,
+                'cantidad_disponible': cantidad_int,
+                'imagen': imagen
+            }
+            
+            # Agregar precio semanal si se proporcionó
+            if precio_semanal:
+                try:
+                    precio_semanal_decimal = Decimal(precio_semanal)
+                    producto_data['precio_semanal'] = precio_semanal_decimal
+                except (ValueError, TypeError):
+                    messages.error(request, 'Error en el precio semanal.')
+                    return redirect('pedidos:admin_productos')
+            
+            Producto.objects.create(**producto_data)
+            messages.success(request, f'Producto "{nombre}" creado exitosamente')
+            
+        except Exception as e:
+            messages.error(request, f'Error al crear el producto: {str(e)}')
         
-        Producto.objects.create(
-            nombre=nombre,
-            descripcion=descripcion,
-            precio=precio,
-            tipo_renta=tipo_renta,
-            cantidad_disponible=cantidad,
-            imagen=imagen
-        )
         return redirect('pedidos:admin_productos')
         
     return render(request, 'pedidos/admin_productos.html', {'productos': productos})
@@ -736,3 +810,56 @@ def programar_devolucion(request, pedido_id):
         'fecha_minima': timezone.now().date().isoformat(),
         'fecha_sugerida': (pedido.fecha_vencimiento or timezone.now()).date().isoformat()
     })
+
+@login_required
+@user_passes_test(es_staff)
+def agregar_cliente(request):
+    """Vista para agregar un nuevo cliente desde el panel de administración"""
+    if request.method == 'POST':
+        form = ClienteAdminForm(request.POST)
+        if form.is_valid():
+            # Crear el usuario
+            usuario = Usuario.objects.create_user(
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password']
+            )
+            usuario.first_name = form.cleaned_data.get('first_name', '')
+            usuario.last_name = form.cleaned_data.get('last_name', '')
+            usuario.email = form.cleaned_data.get('email', '')
+            usuario.rol = 'cliente'
+            usuario.numero_identidad = form.cleaned_data.get('numero_identidad', '')
+            usuario.save()
+            
+            # Crear el cliente asociado al usuario
+            cliente = Cliente.objects.create(
+                usuario=usuario,
+                telefono=form.cleaned_data.get('telefono', ''),
+                direccion=form.cleaned_data.get('direccion', '')
+            )
+            
+            messages.success(request, f'Cliente {usuario.username} creado exitosamente.')
+            return redirect('pedidos:lista_clientes')
+    else:
+        form = ClienteAdminForm()
+        
+    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+
+@login_required
+@user_passes_test(es_staff)
+def cambiar_estado_cliente(request, usuario_id):
+    if request.method == 'POST':
+        usuario = get_object_or_404(Usuario, id=usuario_id)
+        usuario.is_active = not usuario.is_active
+        usuario.save()
+        messages.success(request, f'El estado del cliente {usuario.username} ha sido actualizado.')
+    return redirect('pedidos:lista_clientes')
+
+@login_required
+@user_passes_test(es_staff)
+def cambiar_estado_producto(request, producto_id):
+    if request.method == 'POST':
+        producto = get_object_or_404(Producto, id_producto=producto_id)
+        producto.activo = not producto.activo
+        producto.save()
+        messages.success(request, f'El estado del producto {producto.nombre} ha sido actualizado.')
+    return redirect('pedidos:admin_productos')

@@ -48,6 +48,7 @@
                         <tr>
                             <th>Producto</th>
                             <th>Cantidad</th>
+                            <th>Peso (kg)</th>
                             <th>Precio Unit.</th>
                             <th>Subtotal</th>
                         </tr>
@@ -57,12 +58,16 @@
                         <tr>
                             <td>{{ detalle.producto.nombre }}</td>
                             <td>{{ detalle.cantidad }}</td>
+                            <td>{{ detalle.producto.peso|floatformat:2 }}</td>
                             <td>${{ detalle.precio_unitario|floatformat:2 }}</td>
                             <td>${{ detalle.subtotal|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            <div class="d-flex justify-content-end">
+                <strong>Peso total: {{ peso_total|floatformat:2 }} kg</strong>
             </div>
 
             <form method="post" class="mb-4">

@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Agregar Cliente{% endblock %}
+{% block nav %}
+<a href="/panel/">Pedidos</a>
+<a href="/panel/admin/clientes/">Lista de Clientes</a>
+<a href="/panel/admin/productos/">Administrar Productos</a>
+<a href="{% url 'recibos:lista_recibos' %}">Recibos de Obra</a>
+<a href="/">Inicio</a>
+{% endblock %}
+{% block content %}
+<div class="card">
+    <h1 class="highlight">Agregar Nuevo Cliente</h1>
+    
+    <form method="post" class="form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <h3>Información del Usuario</h3>
+            <div class="row">
+                <div class="col">
+                    <label for="id_username">Nombre de usuario:</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="error">{{ form.username.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <label for="id_password">Contraseña:</label>
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                    <div class="error">{{ form.password.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <label for="id_first_name">Nombre:</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <div class="error">{{ form.first_name.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <label for="id_last_name">Apellidos:</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <div class="error">{{ form.last_name.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <label for="id_email">Correo electrónico:</label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="error">{{ form.email.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <label for="id_numero_identidad">Número de Identidad:</label>
+                    {{ form.numero_identidad }}
+                    {% if form.numero_identidad.errors %}
+                    <div class="error">{{ form.numero_identidad.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <h3>Información del Cliente</h3>
+            <div class="row">
+                <div class="col">
+                    <label for="id_telefono">Teléfono:</label>
+                    {{ form.telefono }}
+                    {% if form.telefono.errors %}
+                    <div class="error">{{ form.telefono.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="col">
+                    <label for="id_direccion">Dirección:</label>
+                    {{ form.direccion }}
+                    {% if form.direccion.errors %}
+                    <div class="error">{{ form.direccion.errors }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+            <a href="{% url 'pedidos:lista_clientes' %}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
