@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Procesar Pago - Pedido #{{ pedido.id_pedido }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">Procesar Pago - Pedido #{{ pedido.id_pedido }}</h3>
+                </div>
+                <div class="card-body">
+                    <!-- Order Summary -->
+                    <div class="mb-4">
+                        <h5>Resumen del Pedido</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Subtotal:</strong> ${{ pedido.subtotal|floatformat:2 }}</p>
+                                <p><strong>IVA (19%):</strong> ${{ pedido.iva|floatformat:2 }}</p>
+                                <p><strong>Transporte:</strong> ${{ pedido.costo_transporte|floatformat:2 }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Dirección:</strong> {{ pedido.direccion_entrega }}</p>
+                                <h4><strong>Total: ${{ pedido.total|floatformat:2 }}</strong></h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Form -->
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="metodo_pago" class="form-label">Método de Pago</label>
+                            <select class="form-control" id="metodo_pago" name="metodo_pago" required>
+                                <option value="">Selecciona un método de pago</option>
+                                <option value="efectivo">Efectivo</option>
+                                <option value="transferencia">Transferencia Bancaria</option>
+                                <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3" id="referencia_div" style="display:none;">
+                            <label for="numero_referencia" class="form-label">Número de Referencia/Transacción</label>
+                            <input type="text" class="form-control" id="numero_referencia" name="numero_referencia" 
+                                   placeholder="Ingresa el número de referencia de tu transacción">
+                        </div>
+
+                        <div class="mb-3" id="comprobante_div" style="display:none;">
+                            <label for="comprobante" class="form-label">Comprobante de Pago</label>
+                            <input type="file" class="form-control" id="comprobante" name="comprobante" 
+                                   accept=".pdf,.jpg,.jpeg,.png">
+                            <small class="form-text text-muted">Sube tu comprobante de pago (PDF, JPG, PNG)</small>
+                        </div>
+
+                        <!-- Payment Instructions -->
+                        <div id="instrucciones_pago" style="display:none;">
+                            <div class="alert alert-info">
+                                <h6>Información para el pago:</h6>
+                                <div id="info_efectivo" style="display:none;">
+                                    <p><strong>Pago en Efectivo:</strong> Puedes realizar el pago en efectivo en nuestras oficinas o contra entrega.</p>
+                                    <p><strong>Dirección:</strong> Calle Principal #123, Bogotá</p>
+                                    <p><strong>Horarios:</strong> Lunes a Viernes 8:00 AM - 6:00 PM</p>
+                                </div>
+                                <div id="info_transferencia" style="display:none;">
+                                    <p><strong>Transferencia Bancaria:</strong></p>
+                                    <p><strong>Banco:</strong> Banco de Bogotá</p>
+                                    <p><strong>Cuenta Corriente:</strong> 123-456789-01</p>
+                                    <p><strong>Titular:</strong> MultiAndamios S.A.S.</p>
+                                    <p><strong>NIT:</strong> 900.123.456-7</p>
+                                </div>
+                                <div id="info_tarjeta" style="display:none;">
+                                    <p><strong>Pago con Tarjeta:</strong> Serás redirigido a nuestro procesador de pagos seguro.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Confirmar Pago</button>
+                            <a href="{% url 'pedidos:mis_pedidos' %}" class="btn btn-secondary">Volver a Mis Pedidos</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('metodo_pago').addEventListener('change', function() {
+    const metodo = this.value;
+    const referenciaDiv = document.getElementById('referencia_div');
+    const comprobanteDiv = document.getElementById('comprobante_div');
+    const instruccionesDiv = document.getElementById('instrucciones_pago');
+    
+    // Hide all info divs
+    document.getElementById('info_efectivo').style.display = 'none';
+    document.getElementById('info_transferencia').style.display = 'none';
+    document.getElementById('info_tarjeta').style.display = 'none';
+    
+    if (metodo) {
+        instruccionesDiv.style.display = 'block';
+        document.getElementById('info_' + metodo).style.display = 'block';
+        
+        if (metodo === 'transferencia') {
+            referenciaDiv.style.display = 'block';
+            comprobanteDiv.style.display = 'block';
+            document.getElementById('numero_referencia').required = true;
+        } else if (metodo === 'tarjeta') {
+            referenciaDiv.style.display = 'block';
+            comprobanteDiv.style.display = 'block';
+            document.getElementById('numero_referencia').required = true;
+        } else {
+            referenciaDiv.style.display = 'none';
+            comprobanteDiv.style.display = 'none';
+            document.getElementById('numero_referencia').required = false;
+        }
+    } else {
+        instruccionesDiv.style.display = 'none';
+        referenciaDiv.style.display = 'none';
+        comprobanteDiv.style.display = 'none';
+        document.getElementById('numero_referencia').required = false;
+    }
+});
+</script>
+{% endblock %}

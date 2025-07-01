@@ -1,0 +1,381 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de Tiempo - Pedido #{{ pedido.id_pedido }}{% endblock %}
+{% block content %}
+<div class="card card-detalle">
+    <h1 class="highlight">⏰ Detalle de Tiempo - Pedido #{{ pedido.id_pedido }}</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Información general del pedido -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5>📋 Información del Pedido</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+                    <p><strong>Cédula:</strong> {{ pedido.cliente.usuario.numero_identidad }}</p>
+                    <p><strong>Fecha del pedido:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong> 
+                        <span class="badge 
+                            {% if pedido.estado_pedido_general == 'entregado' %}bg-success
+                            {% elif pedido.estado_pedido_general == 'pagado' %}bg-primary
+                            {% elif pedido.estado_pedido_general == 'en_preparacion' %}bg-warning
+                            {% else %}bg-secondary{% endif %}
+                        ">
+                            {{ pedido.get_estado_pedido_general_display }}
+                        </span>
+                    </p>
+                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:0 }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header 
+                    {% if tiempo_info.estado_tiempo == 'vencido' %}bg-danger text-white
+                    {% elif tiempo_info.estado_tiempo == 'vence_hoy' %}bg-warning
+                    {% elif tiempo_info.estado_tiempo == 'vence_pronto' %}bg-info text-white
+                    {% elif tiempo_info.estado_tiempo == 'normal' %}bg-success text-white
+                    {% else %}bg-secondary text-white{% endif %}
+                ">
+                    <h5>⏱️ Estado del Tiempo</h5>
+                </div>
+                <div class="card-body">
+                    {% if tiempo_info.fecha_inicio %}
+                        <p><strong>Inicio de renta:</strong> {{ tiempo_info.fecha_inicio|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Fin de renta:</strong> {{ tiempo_info.fecha_fin|date:"d/m/Y H:i" }}</p>
+                        <p><strong>Tiempo restante:</strong> 
+                            <span class="
+                                {% if tiempo_info.estado_tiempo == 'vencido' %}text-danger
+                                {% elif tiempo_info.estado_tiempo == 'vence_hoy' %}text-warning
+                                {% elif tiempo_info.estado_tiempo == 'vence_pronto' %}text-info
+                                {% elif tiempo_info.estado_tiempo == 'normal' %}text-success
+                                {% else %}text-muted{% endif %}
+                            ">
+                                <strong>{{ tiempo_info.tiempo_humanizado }}</strong>
+                            </span>
+                        </p>
+                        <p><strong>Progreso:</strong></p>
+                        <div class="progress mb-2" style="height: 25px;">
+                            <div class="progress-bar 
+                                {% if tiempo_info.estado_tiempo == 'vencido' %}bg-danger
+                                {% elif tiempo_info.estado_tiempo == 'vence_hoy' %}bg-warning
+                                {% elif tiempo_info.estado_tiempo == 'vence_pronto' %}bg-info
+                                {% else %}bg-success{% endif %}
+                            " role="progressbar" style="width: {{ tiempo_info.porcentaje_transcurrido }}%">
+                                {{ tiempo_info.porcentaje_transcurrido|floatformat:1 }}%
+                            </div>
+                        </div>
+                        <p><strong>Estado:</strong>
+                            {% if tiempo_info.estado_tiempo == 'vencido' %}
+                                <span class="badge bg-danger">🚨 Vencido</span>
+                            {% elif tiempo_info.estado_tiempo == 'vence_hoy' %}
+                                <span class="badge bg-warning">⏰ Vence Hoy</span>
+                            {% elif tiempo_info.estado_tiempo == 'vence_pronto' %}
+                                <span class="badge bg-info">⚠️ Próximo a Vencer</span>
+                            {% elif tiempo_info.estado_tiempo == 'normal' %}
+                                <span class="badge bg-success">✅ Normal</span>
+                            {% else %}
+                                <span class="badge bg-secondary">⏸️ Sin Iniciar</span>
+                            {% endif %}
+                        </p>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <strong>ℹ️ Información:</strong> La renta aún no ha iniciado. El tiempo comenzará a contar desde la fecha de entrega.
+                        </div>
+                        {% if pedido.fecha_pago %}
+                            <p><strong>Fecha de pago:</strong> {{ pedido.fecha_pago|date:"d/m/Y H:i" }}</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalle por producto -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5>📦 Detalle por Producto</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Días de Renta</th>
+                            <th>Precio Diario</th>
+                            <th>Subtotal</th>
+                            <th>Estado</th>
+                            <th>Fecha Entrega</th>
+                            <th>Debe Devolver</th>
+                            <th>Tiempo Restante</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr class="
+                            {% if detalle.get_estado_tiempo_renta_detalle == 'vencido' %}table-danger
+                            {% elif detalle.get_estado_tiempo_renta_detalle == 'vence_hoy' %}table-warning
+                            {% elif detalle.get_estado_tiempo_renta_detalle == 'vence_pronto' %}table-info
+                            {% elif detalle.get_estado_tiempo_renta_detalle == 'normal' %}table-success
+                            {% else %}table-light{% endif %}
+                        ">
+                            <td>
+                                <strong>{{ detalle.producto.nombre }}</strong>
+                                {% if detalle.producto.imagen %}
+                                    <br><img src="{{ detalle.producto.imagen.url }}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;" alt="{{ detalle.producto.nombre }}">
+                                {% endif %}
+                            </td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>{{ detalle.dias_renta }} día{{ detalle.dias_renta|pluralize }}</td>
+                            <td>${{ detalle.precio_diario|floatformat:0 }}</td>
+                            <td><strong>${{ detalle.subtotal|floatformat:0 }}</strong></td>
+                            <td>
+                                <span class="badge 
+                                    {% if detalle.estado == 'entregado' %}bg-success
+                                    {% elif detalle.estado == 'devuelto' %}bg-secondary
+                                    {% elif detalle.estado == 'listo_entrega' %}bg-primary
+                                    {% elif detalle.estado == 'en_preparacion' %}bg-warning
+                                    {% else %}bg-info{% endif %}
+                                ">
+                                    {{ detalle.get_estado_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if detalle.fecha_entrega %}
+                                    {{ detalle.fecha_entrega|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">No entregado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if detalle.get_fecha_fin_renta_detalle %}
+                                    {{ detalle.get_fecha_fin_renta_detalle|date:"d/m/Y H:i" }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong class="
+                                    {% if detalle.get_estado_tiempo_renta_detalle == 'vencido' %}text-danger
+                                    {% elif detalle.get_estado_tiempo_renta_detalle == 'vence_hoy' %}text-warning
+                                    {% elif detalle.get_estado_tiempo_renta_detalle == 'vence_pronto' %}text-info
+                                    {% elif detalle.get_estado_tiempo_renta_detalle == 'normal' %}text-success
+                                    {% else %}text-muted{% endif %}
+                                ">
+                                    {{ detalle.get_tiempo_restante_humanizado_detalle }}
+                                </strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acciones y alertas -->
+    {% if tiempo_info.debe_notificar %}
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5>⚠️ Acciones Recomendadas</h5>
+        </div>
+        <div class="card-body">
+            {% if tiempo_info.estado_tiempo == 'vencido' %}
+                <div class="alert alert-danger">
+                    <strong>🚨 Atención Urgente:</strong> Este pedido está vencido. Es necesario contactar al cliente inmediatamente.
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-danger" onclick="contactarCliente()">📞 Contactar Cliente</button>
+                    <button class="btn btn-warning" onclick="extenderRenta()">⏳ Extender Renta</button>
+                    <button class="btn btn-info" onclick="programarRecogida()">📦 Programar Recogida</button>
+                </div>
+            {% elif tiempo_info.estado_tiempo == 'vence_hoy' %}
+                <div class="alert alert-warning">
+                    <strong>⏰ Vence Hoy:</strong> Este pedido vence hoy. Se recomienda contactar al cliente.
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-warning" onclick="notificarCliente()">🔔 Notificar Cliente</button>
+                    <button class="btn btn-info" onclick="programarRecogida()">📦 Programar Recogida</button>
+                </div>
+            {% elif tiempo_info.estado_tiempo == 'vence_pronto' %}
+                <div class="alert alert-info">
+                    <strong>ℹ️ Próximo a Vencer:</strong> Este pedido vence pronto. Se puede enviar recordatorio al cliente.
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-info" onclick="enviarRecordatorio()">📨 Enviar Recordatorio</button>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial de fechas importantes -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5>📅 Cronología del Pedido</h5>
+        </div>
+        <div class="card-body">
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-primary"></div>
+                    <div class="timeline-content">
+                        <h6>Pedido Creado</h6>
+                        <p>{{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+                {% if pedido.fecha_pago %}
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-success"></div>
+                    <div class="timeline-content">
+                        <h6>Pago Procesado</h6>
+                        <p>{{ pedido.fecha_pago|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if tiempo_info.fecha_inicio %}
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-info"></div>
+                    <div class="timeline-content">
+                        <h6>Renta Iniciada (Entrega)</h6>
+                        <p>{{ tiempo_info.fecha_inicio|date:"d/m/Y H:i" }}</p>
+                    </div>
+                </div>
+                {% endif %}
+                {% if tiempo_info.fecha_fin %}
+                <div class="timeline-item">
+                    <div class="timeline-marker {% if tiempo_info.estado_tiempo == 'vencido' %}bg-danger{% else %}bg-warning{% endif %}"></div>
+                    <div class="timeline-content">
+                        <h6>Fecha Límite de Devolución</h6>
+                        <p>{{ tiempo_info.fecha_fin|date:"d/m/Y H:i" }}</p>
+                        {% if tiempo_info.estado_tiempo == 'vencido' %}
+                            <small class="text-danger">⚠️ Vencido</small>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de navegación -->
+    <div class="d-flex justify-content-between">
+        <div>
+            {% if user.rol == 'cliente' %}
+                <a href="{% url 'pedidos:mis_pedidos_tiempo' %}" class="btn btn-secondary">⬅️ Volver a Mis Pedidos</a>
+            {% else %}
+                <a href="{% url 'pedidos:reporte_tiempo_global' %}" class="btn btn-secondary">⬅️ Reporte Global</a>
+                <a href="{% url 'pedidos:dashboard_tiempo' %}" class="btn btn-info">📊 Dashboard</a>
+            {% endif %}
+        </div>
+        <div>
+            <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-outline-primary">📄 Ver Pedido Completo</a>
+            <button class="btn btn-outline-secondary" onclick="window.print()">🖨️ Imprimir</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-detalle {
+    margin: 20px auto;
+    max-width: 1200px;
+}
+
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding-left: 20px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -25px;
+    top: 8px;
+    width: 2px;
+    height: calc(100% + 10px);
+    background-color: #dee2e6;
+}
+
+.timeline-item:last-child::before {
+    display: none;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -30px;
+    top: 8px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content h6 {
+    margin: 0 0 5px 0;
+    font-weight: 600;
+}
+
+.timeline-content p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.progress {
+    height: 25px;
+}
+
+.table th {
+    white-space: nowrap;
+}
+
+@media print {
+    .btn, .card-header, .alert {
+        display: none !important;
+    }
+}
+</style>
+
+<script>
+function contactarCliente() {
+    alert('🚨 Función para contactar cliente - Implementar integración con sistema de comunicaciones');
+}
+
+function extenderRenta() {
+    if (confirm('¿Desea extender la renta de este pedido?')) {
+        alert('⏳ Función para extender renta - Implementar lógica de extensión');
+    }
+}
+
+function programarRecogida() {
+    alert('📦 Función para programar recogida - Implementar sistema de logística');
+}
+
+function notificarCliente() {
+    alert('🔔 Función para notificar cliente - Implementar sistema de notificaciones');
+}
+
+function enviarRecordatorio() {
+    alert('📨 Función para enviar recordatorio - Implementar sistema de recordatorios');
+}
+</script>
+{% endblock %}

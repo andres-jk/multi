@@ -68,8 +68,8 @@
                         <tr>
                             <th>Producto</th>
                             <th class="text-center">Cantidad</th>
-                            <th class="text-center">Período (Meses)</th>
-                            <th class="text-end">Precio/Mes</th>
+                            <th class="text-center">Período (Días)</th>
+                            <th class="text-end">Precio/Día</th>
                             <th class="text-end">Subtotal</th>
                             <th class="text-end">Peso (kg)</th>
                         </tr>
@@ -79,9 +79,9 @@
                         <tr>
                             <td>{{ detalle.producto.nombre }}</td>
                             <td class="text-center">{{ detalle.cantidad }}</td>
-                            <td class="text-center">{{ detalle.meses_renta }}</td>
-                            <td class="text-end">L. {{ detalle.precio_unitario|floatformat:2 }}</td>
-                            <td class="text-end">L. {{ detalle.precio_unitario|multiply:detalle.cantidad|multiply:detalle.meses_renta|floatformat:2 }}</td>
+                            <td class="text-center">{{ detalle.dias_renta }}</td>
+                            <td class="text-end">L. {{ detalle.precio_diario|floatformat:2 }}</td>
+                            <td class="text-end">L. {{ detalle.subtotal|floatformat:2 }}</td>
                             <td class="text-end">{{ detalle.producto.peso|floatformat:2 }}</td>
                         </tr>
                         {% endfor %}
@@ -146,7 +146,7 @@
 
     <!-- Botones de acción -->
     <div class="mt-4 text-center">
-        <a href="{% url 'usuarios:detalle_pedido' pedido.id %}" class="btn btn-secondary">
+        <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left"></i> Volver al Pedido
         </a>
         {% if pedido.estado == 'pagado' %}

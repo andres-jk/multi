@@ -1,16 +1,209 @@
 {% extends 'base.html' %}
 {% block title %}Registro{% endblock %}
 {% block nav %}
-<a href="/login/">Iniciar Sesión</a>
-<a href="/">Inicio</a>
+<a href="{% url 'usuarios:login' %}">Iniciar Sesión</a>
+<a href="{% url 'usuarios:inicio_cliente' %}">Inicio</a>
 {% endblock %}
 {% block content %}
 <div class="card card-login" style="max-width:500px;margin:auto;">
     <h1 class="highlight">Registro de Usuario</h1>
+    
+    <!-- Mostrar mensajes de error generales -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    <!-- Mostrar errores no asociados a campos específicos -->
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+    
     <form method="post">
         {% csrf_token %}
-        {{ form.as_p }}
+        
+        <!-- Campo Username -->
+        <div class="form-group">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }}*</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+                <div class="field-error">
+                    {% for error in form.username.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo First Name -->
+        <div class="form-group">
+            <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}
+                <div class="field-error">
+                    {% for error in form.first_name.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo Last Name -->
+        <div class="form-group">
+            <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}
+                <div class="field-error">
+                    {% for error in form.last_name.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo Email -->
+        <div class="form-group">
+            <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+                <div class="field-error">
+                    {% for error in form.email.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo Teléfono -->
+        <div class="form-group">
+            <label for="{{ form.telefono.id_for_label }}">{{ form.telefono.label }}</label>
+            {{ form.telefono }}
+            {% if form.telefono.errors %}
+                <div class="field-error">
+                    {% for error in form.telefono.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo Dirección -->
+        <div class="form-group">
+            <label for="{{ form.direccion.id_for_label }}">{{ form.direccion.label }}</label>
+            {{ form.direccion }}
+            {% if form.direccion.errors %}
+                <div class="field-error">
+                    {% for error in form.direccion.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Campo Password1 -->
+        <div class="form-group">
+            <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}*</label>
+            {{ form.password1 }}
+            {% if form.password1.errors %}
+                <div class="field-error">
+                    {% for error in form.password1.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            <small class="help-text">
+                Tu contraseña debe tener al menos 8 caracteres y no puede ser demasiado común.
+            </small>
+        </div>
+        
+        <!-- Campo Password2 -->
+        <div class="form-group">
+            <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}*</label>
+            {{ form.password2 }}
+            {% if form.password2.errors %}
+                <div class="field-error">
+                    {% for error in form.password2.errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        
         <button class="btn" type="submit">Registrarse</button>
     </form>
+    
+    <div style="text-align: center; margin-top: 1rem;">
+        <p>¿Ya tienes cuenta? <a href="{% url 'usuarios:login' %}">Inicia sesión aquí</a></p>
+    </div>
 </div>
+
+<style>
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    border-color: #FFD600;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 214, 0, 0.2);
+}
+
+.field-error {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.field-error p {
+    margin: 0.25rem 0;
+}
+
+.help-text {
+    color: #666;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+</style>
 {% endblock %}

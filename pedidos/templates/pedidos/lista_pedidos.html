@@ -17,6 +17,15 @@
     </div>
     {% endif %}
 
+    <!-- Botones de acceso rápido a reportes de tiempo -->
+    <div class="mb-4">
+        <div class="btn-group" role="group">
+            <a href="{% url 'pedidos:dashboard_tiempo' %}" class="btn btn-primary">📊 Dashboard de Tiempo</a>
+            <a href="{% url 'pedidos:reporte_tiempo_global' %}" class="btn btn-info">📋 Reporte Global</a>
+            <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-warning">🔔 Notificaciones</a>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
@@ -49,8 +58,12 @@
                             <td>${{ pedido.total|floatformat:2|intcomma }}</td>
                             <td>{{ pedido.direccion_entrega }}</td>
                             <td>
-                                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" 
-                                   class="btn btn-info btn-sm">Ver Detalles</a>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" 
+                                       class="btn btn-info btn-sm">Ver Detalles</a>
+                                    <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" 
+                                       class="btn btn-outline-warning btn-sm">⏰ Tiempo</a>
+                                </div>
                             </td>
                         </tr>
                         {% empty %}

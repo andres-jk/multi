@@ -1,5 +1,6 @@
 from django import template
 from usuarios.models import CarritoItem
+from decimal import Decimal
 
 register = template.Library()
 
@@ -13,8 +14,8 @@ def get_carrito_total(context):
 
 @register.filter
 def calcular_subtotal(item):
-    """Calcula el subtotal para un item del carrito"""
-    return float(item.producto.precio) * float(item.cantidad) * float(item.meses_renta)
+    """Calcula el subtotal para un item del carrito usando el método del modelo"""
+    return float(item.subtotal)
 
 @register.simple_tag(takes_context=True)
 def get_carrito_monto_total(context):
@@ -22,6 +23,6 @@ def get_carrito_monto_total(context):
     request = context['request']
     if request.user.is_authenticated:
         items = CarritoItem.objects.filter(usuario=request.user)
-        total = sum(calcular_subtotal(item) for item in items)
+        total = sum(item.subtotal for item in items)
         return f"{total:.2f}"
     return "0.00"

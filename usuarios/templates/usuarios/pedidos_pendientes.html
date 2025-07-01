@@ -1,18 +1,30 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
+{% block title %}{{ titulo|default:"Pedidos Pendientes" }}{% endblock %}
+
 {% block content %}
 <div class="container my-4">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2>Pedidos Pendientes de Pago</h2>
-                <a href="{% url 'usuarios:mis_pedidos' %}" class="btn btn-outline-secondary">
+                <h2>{{ titulo|default:"Pedidos Pendientes de Pago" }}</h2>
+                <a href="{% url 'pedidos:mis_pedidos' %}" class="btn btn-outline-secondary">
                     <i class="fas fa-list"></i> Ver Todos Mis Pedidos
                 </a>
             </div>
         </div>
     </div>
+
+    {% if messages %}
+    <div class="messages mb-4">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
     {% if pedidos %}
         <div class="row">
@@ -27,17 +39,39 @@
                         </div>
                         <div class="card-body">
                             <h6 class="card-subtitle mb-2 text-muted">Total a Pagar: ${{ pedido.total|floatformat:2|intcomma }}</h6>
+                            
+                            <!-- Estado del pedido -->
+                            <div class="mb-2">
+                                <span class="badge {% if pedido.estado_pedido_general == 'pendiente_pago' %}bg-warning
+                                                 {% elif pedido.estado_pedido_general == 'procesando_pago' %}bg-info
+                                                 {% elif pedido.estado_pedido_general == 'pago_vencido' %}bg-danger
+                                                 {% elif pedido.estado_pedido_general == 'pago_rechazado' %}bg-danger
+                                                 {% else %}bg-secondary{% endif %}">
+                                    {% if pedido.estado_pedido_general == 'pendiente_pago' %}Pendiente de Pago
+                                    {% elif pedido.estado_pedido_general == 'procesando_pago' %}Procesando Pago
+                                    {% elif pedido.estado_pedido_general == 'pago_vencido' %}Pago Vencido
+                                    {% elif pedido.estado_pedido_general == 'pago_rechazado' %}Pago Rechazado
+                                    {% else %}{{ pedido.estado_pedido_general|title }}{% endif %}
+                                </span>
+                            </div>
+                            
                             {% if pedido.tiempo_restante_str %}
                                 <p class="card-text text-danger">
                                     <i class="fas fa-clock"></i> Tiempo restante: {{ pedido.tiempo_restante_str }}
                                 </p>
                             {% endif %}
                             <div class="mt-3">
-                                <a href="{% url 'usuarios:pago_recibo' pedido.id_pedido %}" 
-                                   class="btn btn-warning w-100 mb-2">
-                                    <i class="fas fa-money-bill-wave"></i> Pagar Ahora
-                                </a>
-                                <a href="{% url 'usuarios:detalle_pedido' pedido.id_pedido %}" 
+                                {% if pedido.estado_pedido_general == 'pendiente_pago' or pedido.estado_pedido_general == 'pago_vencido' or pedido.estado_pedido_general == 'pago_rechazado' %}
+                                    <a href="{% url 'usuarios:procesar_pago' pedido.id_pedido %}" 
+                                       class="btn btn-warning w-100 mb-2">
+                                        <i class="fas fa-money-bill-wave"></i> Pagar Ahora
+                                    </a>
+                                {% elif pedido.estado_pedido_general == 'procesando_pago' %}
+                                    <span class="btn btn-info w-100 mb-2 disabled">
+                                        <i class="fas fa-spinner fa-spin"></i> Procesando Pago
+                                    </span>
+                                {% endif %}
+                                <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" 
                                    class="btn btn-outline-secondary w-100">
                                     <i class="fas fa-eye"></i> Ver Detalles
                                 </a>

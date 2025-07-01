@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba CSS Admin - MultiAndamios</title>
+    <link rel="stylesheet" href="/static/admin/css/base.css">
+    <link rel="stylesheet" href="/static/admin/css/changelists.css">
+    <link rel="stylesheet" href="/static/admin/css/admin_clean.css">
+    <style>
+        /* CSS inline de prueba */
+        :root {
+            --admin-hover-bg: #2c3e50 !important;
+            --admin-hover-text: #ffffff !important;
+            --admin-hover-link: #f1c40f !important;
+        }
+        
+        .change-list tbody tr:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+        }
+        
+        .change-list tbody tr:hover td {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+        }
+        
+        .form-row:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            padding: 8px !important;
+            border-radius: 4px !important;
+        }
+        
+        input:hover, select:hover, textarea:hover {
+            background-color: #4a4a4a !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+        
+        .button:hover {
+            background-color: #f1c40f !important;
+            color: #2c3e50 !important;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .test-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.success { background-color: #d4edda; color: #155724; }
+        .status.warning { background-color: #fff3cd; color: #856404; }
+        .status.error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Prueba de CSS Admin - MultiAndamios</h1>
+    
+    <div class="test-container">
+        <h2>📊 Estado de Archivos CSS</h2>
+        <div class="status success">✅ CSS Base de Django cargado</div>
+        <div class="status success">✅ CSS Changelists cargado</div>
+        <div class="status success">✅ CSS Personalizado (admin_clean.css) cargado</div>
+        <div class="status success">✅ CSS Inline aplicado</div>
+    </div>
+    
+    <div class="test-container">
+        <h2>🎯 Prueba de Tabla (Hover en Filas)</h2>
+        <p><strong>Instrucciones:</strong> Haz hover sobre las filas de la tabla. Deberían volverse <span style="background-color: #2c3e50; color: #ffffff; padding: 2px 6px; border-radius: 3px;">AZUL OSCURO con texto BLANCO</span></p>
+        
+        <table class="change-list" style="width: 100%; border-collapse: collapse; border: 1px solid #ddd;">
+            <thead>
+                <tr style="background-color: #f8f9fa;">
+                    <th style="padding: 10px; border: 1px solid #ddd;">Producto</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Precio</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Estado</th>
+                    <th style="padding: 10px; border: 1px solid #ddd;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Andamio Tipo A</a></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">$50,000/día</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Activo</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Editar</a> | <a href="#">Eliminar</a></td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Andamio Tipo B</a></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">$75,000/día</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Activo</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Editar</a> | <a href="#">Eliminar</a></td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Plataforma de Trabajo</a></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">$30,000/día</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Inactivo</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><a href="#">Editar</a> | <a href="#">Eliminar</a></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="test-container">
+        <h2>📝 Prueba de Formulario (Hover en Campos)</h2>
+        <p><strong>Instrucciones:</strong> Haz hover sobre los campos. Deberían volverse <span style="background-color: #4a4a4a; color: #ffffff; padding: 2px 6px; border-radius: 3px;">GRIS OSCURO con texto BLANCO</span></p>
+        
+        <div class="form-row" style="margin: 15px 0; padding: 5px;">
+            <label for="nombre" style="display: block; margin-bottom: 5px; font-weight: bold;">Nombre del Producto:</label>
+            <input type="text" id="nombre" name="nombre" value="Andamio Certificado" style="width: 300px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+        
+        <div class="form-row" style="margin: 15px 0; padding: 5px;">
+            <label for="precio" style="display: block; margin-bottom: 5px; font-weight: bold;">Precio Diario:</label>
+            <input type="number" id="precio" name="precio" value="50000" style="width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+        
+        <div class="form-row" style="margin: 15px 0; padding: 5px;">
+            <label for="descripcion" style="display: block; margin-bottom: 5px; font-weight: bold;">Descripción:</label>
+            <textarea id="descripcion" name="descripcion" rows="3" style="width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">Andamio certificado para uso en construcción</textarea>
+        </div>
+        
+        <div class="form-row" style="margin: 15px 0; padding: 5px;">
+            <label for="estado" style="display: block; margin-bottom: 5px; font-weight: bold;">Estado:</label>
+            <select id="estado" name="estado" style="width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>🔘 Prueba de Botones (Hover)</h2>
+        <p><strong>Instrucciones:</strong> Haz hover sobre los botones. Deberían volverse <span style="background-color: #f1c40f; color: #2c3e50; padding: 2px 6px; border-radius: 3px;">AMARILLO con texto OSCURO</span></p>
+        
+        <button class="button" style="padding: 10px 20px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f9fa; cursor: pointer;">Guardar</button>
+        <input type="submit" value="Guardar y continuar" style="padding: 10px 20px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f9fa; cursor: pointer;">
+        <button style="padding: 10px 20px; margin: 5px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8f9fa; cursor: pointer;">Cancelar</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>📋 Resultados Esperados</h2>
+        <ul>
+            <li><strong>Filas de tabla:</strong> Fondo azul oscuro (#2c3e50) con texto blanco al hacer hover</li>
+            <li><strong>Enlaces en filas:</strong> Color amarillo dorado (#f1c40f) al hacer hover</li>
+            <li><strong>Campos de formulario:</strong> Fondo gris oscuro (#4a4a4a) con texto blanco al hacer hover</li>
+            <li><strong>Botones:</strong> Fondo amarillo (#f1c40f) con texto oscuro al hacer hover</li>
+        </ul>
+    </div>
+    
+    <div class="test-container">
+        <h2>🔧 Herramientas de Desarrollo</h2>
+        <p>Para diagnosticar problemas:</p>
+        <ol>
+            <li>Presiona <strong>F12</strong> para abrir DevTools</li>
+            <li>Ve a la pestaña <strong>Elements/Elementos</strong></li>
+            <li>Haz hover sobre un elemento de prueba</li>
+            <li>Revisa la pestaña <strong>Computed</strong> para ver los estilos aplicados</li>
+            <li>Verifica que <strong>background-color</strong> sea el color esperado</li>
+            <li>Ve a <strong>Network</strong> para verificar que se cargan los archivos CSS</li>
+        </ol>
+    </div>
+    
+    <div class="test-container">
+        <h2>🚀 Siguiente Paso</h2>
+        <p>Si esta página funciona correctamente (colores de hover como se esperan), entonces el problema podría estar en:</p>
+        <ul>
+            <li>Cache del navegador en el admin real</li>
+            <li>Otros archivos CSS cargándose después</li>
+            <li>JavaScript modificando estilos dinámicamente</li>
+            <li>Especificidad de selectores de Django admin</li>
+        </ul>
+        <p><strong>Prueba el admin real en:</strong> <a href="http://127.0.0.1:8000/admin/" target="_blank">http://127.0.0.1:8000/admin/</a></p>
+    </div>
+</body>
+</html>

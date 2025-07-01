@@ -180,116 +180,99 @@ def crear_pedido(request):
                 carrito = request.session.get('carrito', {})
                 if not carrito:
                     messages.error(request, 'El carrito está vacío')
-                    return redirect('carrito')
+                    return redirect('usuarios:carrito')  # Corregido: usar la URL correcta
                 
                 # Asegurar que el usuario tenga un cliente asociado
                 cliente, created = Cliente.objects.get_or_create(
                     usuario=request.user,
                     defaults={
-                        'telefono': request.user.telefono if hasattr(request.user, 'telefono') else '',
-                        'direccion': request.POST.get('direccion_entrega', request.user.direccion if hasattr(request.user, 'direccion') else '')
+                        'telefono': getattr(request.user, 'telefono', ''),
+                        'direccion': request.POST.get('direccion_entrega', getattr(request.user, 'direccion', ''))
                     }
                 )
                 
                 # Crear el pedido
                 pedido = Pedido.objects.create(
-                    cliente=cliente, # Usar el cliente obtenido o creado
+                    cliente=cliente,
                     direccion_entrega=request.POST.get('direccion_entrega'),
                     notas=request.POST.get('notas', '')
                 )
-                  # Crear los detalles del pedido
+                
+                # Crear los detalles del pedido
                 for key, item in carrito.items():
-                    producto = Producto.objects.get(id_producto=int(key)) # Convertir key a int
+                    producto = Producto.objects.get(id_producto=int(key))
                     detalle_pedido = DetallePedido.objects.create(
                         pedido=pedido,
                         producto=producto,
                         cantidad=item['cantidad'],
                         meses_renta=item['meses'],
                         precio_unitario=item['precio_unitario']
-                        # subtotal se calcula en el modelo DetallePedido
                     )
                     
                     # Mover productos de reservados a en renta
                     if not producto.confirmar_renta(item['cantidad']):
                         raise Exception(f'No hay suficiente stock para {producto.nombre}')
 
-                      # Crear recibo de obra automáticamente para cada producto
+                    # Crear recibo de obra automáticamente para cada producto
                     try:
                         from recibos.models import ReciboObra
                         
-                        # Verificar los valores antes de crear
-                        print(f"Creando recibo con: pedido={pedido}, cliente={cliente}, producto={producto}, detalle={detalle_pedido}")
-                        print(f"Cantidad={item['cantidad']}, Estado={producto.en_renta}")
-                        
-                        # Primero intentemos ver si este producto ya tiene un recibo para este pedido
-                        recibos_existentes = ReciboObra.objects.filter(
+                        recibo = ReciboObra.objects.create(
                             pedido=pedido,
+                            cliente=cliente,
                             producto=producto,
-                            detalle_pedido=detalle_pedido
+                            detalle_pedido=detalle_pedido,
+                            cantidad_solicitada=item['cantidad'],
+                            notas_entrega=f"Recibo generado automáticamente para el pedido #{pedido.id_pedido}",
+                            condicion_entrega="Equipo en buen estado al momento de la entrega",
+                            empleado=request.user if hasattr(request.user, 'rol') and request.user.rol in ['admin', 'empleado', 'recibos_obra'] else None,
+                            estado='EN_USO'
                         )
-                        
-                        if recibos_existentes.exists():
-                            recibo = recibos_existentes.first()
-                            print(f"Ya existe un recibo (#{recibo.id}) para este producto en este pedido")
-                            messages.info(request, f"Ya existe un recibo para {producto.nombre} en este pedido")
-                        else:
-                            # Crear nuevo recibo
-                            recibo = ReciboObra.objects.create(
-                                pedido=pedido,
-                                cliente=cliente,
-                                producto=producto,
-                                detalle_pedido=detalle_pedido,
-                                cantidad_solicitada=item['cantidad'],
-                                notas_entrega=f"Recibo generado automáticamente para el pedido #{pedido.id_pedido}",
-                                condicion_entrega="Equipo en buen estado al momento de la entrega",
-                                # Si el usuario tiene rol adecuado asignarlo como empleado, de lo contrario None
-                                empleado=request.user if hasattr(request.user, 'rol') and request.user.rol in ['admin', 'empleado', 'recibos_obra'] else None,
-                                estado='EN_USO'  # Actualizar estado a EN_USO directamente
-                            )
-                            print(f"Recibo de obra #{recibo.id} creado automáticamente para producto {producto.nombre}")
-                            messages.success(request, f"Recibo de obra #{recibo.id} creado automáticamente para {producto.nombre}")
-                    except ImportError as ie:
-                        print(f"Error de importación: {str(ie)}")
+                        messages.success(request, f"Recibo de obra #{recibo.id} creado automáticamente para {producto.nombre}")
+                    except ImportError:
                         messages.warning(request, f"No se pudo importar el modelo ReciboObra")
                     except Exception as e:
-                        print(f"Error al crear recibo de obra automático: {str(e)}")
-                        import traceback
-                        print(traceback.format_exc())
-                        messages.warning(request, f"No se pudo crear el recibo de obra para {producto.nombre}: {str(e)}")            # Limpiar el carrito
+                        messages.warning(request, f"No se pudo crear el recibo de obra para {producto.nombre}: {str(e)}")
+                
+                # Limpiar el carrito
                 del request.session['carrito']
-                request.session.modified = True # Asegurar que la sesión se guarde
+                request.session.modified = True
                 messages.success(request, f'Pedido #{pedido.id_pedido} creado exitosamente')
                 
-                # Redirigir a la página de confirmación de pago que incluye información sobre los recibos generados
                 return redirect('usuarios:confirmacion_pago', pedido_id=pedido.id_pedido)
                 
             except Producto.DoesNotExist:
                 messages.error(request, 'Error: Uno de los productos en el carrito no fue encontrado.')
-                return redirect('carrito')
+                return redirect('usuarios:carrito')
             except Exception as e:
                 messages.error(request, f'Error al crear el pedido: {str(e)}')
-                return redirect('carrito')
+                return redirect('usuarios:carrito')
+
 @login_required
 @user_passes_test(es_staff)
 def detalle_pedido(request, pedido_id):
+    """Vista para que empleados/admin vean el detalle de un pedido y gestionen pagos"""
     pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
-      # Ya verificamos que el usuario es staff con el decorador, no necesitamos verificar si es el dueño
     
     # Obtener recibos de obra asociados a este pedido
     from recibos.models import ReciboObra
     recibos = ReciboObra.objects.filter(pedido=pedido)
     
+    # Obtener información de pago
+    from usuarios.models import MetodoPago
+    pagos = MetodoPago.objects.filter(pedido=pedido).order_by('-fecha_creacion')
+    pago_pendiente = pagos.filter(estado='pendiente').first()
+    
     context = {
         'pedido': pedido,
         'detalles': pedido.detalles.all(),
-        'recibos': recibos
+        'recibos': recibos,
+        'pagos': pagos,
+        'pago_pendiente': pago_pendiente,
+        'puede_aprobar_pago': request.user.rol in ['admin', 'empleado'] or request.user.is_staff
     }
     
     return render(request, 'pedidos/detalle_pedido.html', context)
-# Verificar si el usuario es cliente, si es así, redirigir a inicio
-    if request.user.rol == 'cliente':
-        messages.error(request, "No tienes permisos para acceder a esta funcionalidad.")
-        return redirect('usuarios:inicio_cliente')
         
     
 @login_required
@@ -863,3 +846,414 @@ def cambiar_estado_producto(request, producto_id):
         producto.save()
         messages.success(request, f'El estado del producto {producto.nombre} ha sido actualizado.')
     return redirect('pedidos:admin_productos')
+        
+    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+
+@login_required
+@user_passes_test(es_staff)
+def cambiar_estado_cliente(request, usuario_id):
+    if request.method == 'POST':
+        usuario = get_object_or_404(Usuario, id=usuario_id)
+        usuario.is_active = not usuario.is_active
+        usuario.save()
+        messages.success(request, f'El estado del cliente {usuario.username} ha sido actualizado.')
+    return redirect('pedidos:lista_clientes')
+
+@login_required
+@user_passes_test(es_staff)
+def cambiar_estado_producto(request, producto_id):
+    if request.method == 'POST':
+        producto = get_object_or_404(Producto, id_producto=producto_id)
+        producto.activo = not producto.activo
+        producto.save()
+        messages.success(request, f'El estado del producto {producto.nombre} ha sido actualizado.')
+    return redirect('pedidos:admin_productos')
+
+@login_required
+@user_passes_test(lambda u: u.rol in ['admin', 'empleado'] or u.is_staff)
+def aprobar_pago(request, pedido_id):
+    """Vista para que empleados/admin aprueben o rechacen pagos"""
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
+    
+    if request.method == 'POST':
+        accion = request.POST.get('accion')  # 'aprobar' o 'rechazar'
+        notas_admin = request.POST.get('notas_admin', '')
+        
+        if not accion:
+            messages.error(request, 'Debe seleccionar una acción.')
+            return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+        
+        try:
+            with transaction.atomic():
+                # Buscar el pago pendiente asociado al pedido
+                from usuarios.models import MetodoPago
+                pago = MetodoPago.objects.filter(
+                    pedido=pedido, 
+                    estado='pendiente'
+                ).first()
+                
+                if not pago:
+                    messages.error(request, 'No se encontró un pago pendiente para este pedido.')
+                    return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+                
+                if accion == 'aprobar':
+                    # Aprobar el pago
+                    pago.estado = 'aprobado'
+                    pago.fecha_verificacion = timezone.now()
+                    pago.verificado_por = request.user
+                    pago.notas = f"{pago.notas}\n\nAprobado por {request.user.username}: {notas_admin}".strip()
+                    pago.save()
+                    
+                    # Actualizar estado del pedido directamente
+                    pedido.estado_pedido_general = 'pagado'
+                    pedido.fecha_pago = timezone.now()
+                    pedido.metodo_pago = pago.tipo
+                    pedido.save()
+                    
+                    # Confirmar la reserva de productos en los detalles
+                    for detalle in pedido.detalles.all():
+                        producto = detalle.producto
+                        # Mover de cantidad_disponible a cantidad_en_renta
+                        if producto.cantidad_disponible >= detalle.cantidad:
+                            producto.cantidad_disponible -= detalle.cantidad
+                            producto.cantidad_en_renta += detalle.cantidad
+                            producto.save()
+                    
+                    messages.success(request, f'Pago aprobado exitosamente. Pedido #{pedido.id_pedido} ahora está pagado.')
+                    
+                elif accion == 'rechazar':
+                    # Rechazar el pago
+                    pago.estado = 'rechazado'
+                    pago.fecha_verificacion = timezone.now()
+                    pago.verificado_por = request.user
+                    pago.notas = f"{pago.notas}\n\nRechazado por {request.user.username}: {notas_admin}".strip()
+                    pago.save()
+                    
+                    # Actualizar estado del pedido manualmente (no hay auto-procesamiento para rechazo)
+                    pedido.estado_pedido_general = 'pago_rechazado'
+                    pedido.save()
+                    
+                    # Liberar inventario (devolver productos al disponible)
+                    for detalle in pedido.detalles.all():
+                        producto = detalle.producto
+                        producto.cantidad_disponible += detalle.cantidad
+                        producto.save()
+                    
+                    messages.warning(request, f'Pago rechazado. Pedido #{pedido.id_pedido} marcado como pago rechazado.')
+                
+                return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+                
+        except Exception as e:
+            messages.error(request, f'Error al procesar la acción: {str(e)}')
+            return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+    
+    return redirect('pedidos:detalle_pedido', pedido_id=pedido_id)
+
+# =====================================
+# VISTAS PARA REPORTES DE TIEMPO
+# =====================================
+
+@login_required
+def mis_pedidos_tiempo(request):
+    """Vista para que los clientes vean el tiempo restante de sus pedidos"""
+    if not es_cliente(request.user):
+        messages.error(request, 'Acceso denegado. Solo clientes pueden ver esta información.')
+        return redirect('pedidos:lista_pedidos')
+    
+    try:
+        cliente = request.user.cliente
+    except:
+        messages.error(request, 'No se encontró información de cliente para este usuario.')
+        return redirect('pedidos:lista_pedidos')
+    
+    # Obtener pedidos activos (con renta en curso)
+    pedidos_activos = Pedido.objects.filter(
+        cliente=cliente,
+        estado_pedido_general__in=['pagado', 'en_preparacion', 'listo_entrega', 'entregado']
+    ).order_by('-fecha')
+    
+    # Separar por estado de tiempo
+    pedidos_normales = []
+    pedidos_pronto_vencer = []
+    pedidos_vencidos = []
+    pedidos_sin_iniciar = []
+    
+    for pedido in pedidos_activos:
+        estado_tiempo = pedido.get_estado_tiempo_renta()
+        if estado_tiempo == 'vencido':
+            pedidos_vencidos.append(pedido)
+        elif estado_tiempo in ['vence_hoy', 'vence_pronto']:
+            pedidos_pronto_vencer.append(pedido)
+        elif estado_tiempo == 'normal':
+            pedidos_normales.append(pedido)
+        else:
+            pedidos_sin_iniciar.append(pedido)
+    
+    context = {
+        'pedidos_normales': pedidos_normales,
+        'pedidos_pronto_vencer': pedidos_pronto_vencer,
+        'pedidos_vencidos': pedidos_vencidos,
+        'pedidos_sin_iniciar': pedidos_sin_iniciar,
+        'total_activos': len(pedidos_activos),
+    }
+    
+    return render(request, 'pedidos/mis_pedidos_tiempo.html', context)
+
+@login_required
+@user_passes_test(es_staff)
+def reporte_tiempo_global(request):
+    """Vista para admin/empleados con reporte global de tiempo de todos los pedidos"""
+    
+    # Filtros
+    estado_filtro = request.GET.get('estado', '')
+    cliente_filtro = request.GET.get('cliente', '')
+    tiempo_filtro = request.GET.get('tiempo', '')  # normal, vence_pronto, vencido
+    
+    # Obtener pedidos con renta activa
+    pedidos = Pedido.objects.filter(
+        estado_pedido_general__in=['pagado', 'en_preparacion', 'listo_entrega', 'entregado']
+    ).select_related('cliente__usuario').order_by('-fecha')
+    
+    # Aplicar filtros
+    if estado_filtro:
+        pedidos = pedidos.filter(estado_pedido_general=estado_filtro)
+    
+    if cliente_filtro:
+        pedidos = pedidos.filter(
+            Q(cliente__usuario__first_name__icontains=cliente_filtro) |
+            Q(cliente__usuario__last_name__icontains=cliente_filtro) |
+            Q(cliente__usuario__numero_identidad__icontains=cliente_filtro)
+        )
+    
+    # Separar por estado de tiempo y aplicar filtro de tiempo
+    pedidos_por_estado = {
+        'normal': [],
+        'vence_pronto': [],
+        'vence_hoy': [],
+        'vencido': [],
+        'sin_iniciar': []
+    }
+    
+    for pedido in pedidos:
+        estado_tiempo = pedido.get_estado_tiempo_renta()
+        if estado_tiempo == 'vencido':
+            pedidos_por_estado['vencido'].append(pedido)
+        elif estado_tiempo == 'vence_hoy':
+            pedidos_por_estado['vence_hoy'].append(pedido)
+        elif estado_tiempo == 'vence_pronto':
+            pedidos_por_estado['vence_pronto'].append(pedido)
+        elif estado_tiempo == 'normal':
+            pedidos_por_estado['normal'].append(pedido)
+        else:
+            pedidos_por_estado['sin_iniciar'].append(pedido)
+    
+    # Filtrar por estado de tiempo si se especifica
+    if tiempo_filtro:
+        if tiempo_filtro == 'criticos':
+            # Mostrar solo vencidos y que vencen hoy
+            pedidos_filtrados = pedidos_por_estado['vencido'] + pedidos_por_estado['vence_hoy']
+        elif tiempo_filtro == 'alerta':
+            # Mostrar próximos a vencer
+            pedidos_filtrados = pedidos_por_estado['vence_pronto']
+        elif tiempo_filtro in pedidos_por_estado:
+            pedidos_filtrados = pedidos_por_estado[tiempo_filtro]
+        else:
+            pedidos_filtrados = list(pedidos)
+    else:
+        pedidos_filtrados = list(pedidos)
+    
+    # Estadísticas
+    estadisticas = {
+        'total_activos': len(pedidos),
+        'total_vencidos': len(pedidos_por_estado['vencido']),
+        'total_vence_hoy': len(pedidos_por_estado['vence_hoy']),
+        'total_vence_pronto': len(pedidos_por_estado['vence_pronto']),
+        'total_normales': len(pedidos_por_estado['normal']),
+        'total_sin_iniciar': len(pedidos_por_estado['sin_iniciar']),
+        'porcentaje_criticos': round((len(pedidos_por_estado['vencido']) + len(pedidos_por_estado['vence_hoy'])) / max(len(pedidos), 1) * 100, 1),
+    }
+    
+    context = {
+        'pedidos': pedidos_filtrados,
+        'pedidos_por_estado': pedidos_por_estado,
+        'estadisticas': estadisticas,
+        'filtros': {
+            'estado': estado_filtro,
+            'cliente': cliente_filtro,
+            'tiempo': tiempo_filtro,
+        },
+        'estados_pedido': Pedido.ESTADO_CHOICES,
+    }
+    
+    return render(request, 'pedidos/reporte_tiempo_global.html', context)
+
+@login_required
+def detalle_tiempo_pedido(request, pedido_id):
+    """Vista detallada del tiempo de un pedido específico"""
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
+    
+    # Verificar permisos
+    if es_cliente(request.user):
+        if not hasattr(request.user, 'cliente') or pedido.cliente != request.user.cliente:
+            messages.error(request, 'No tienes permiso para ver este pedido.')
+            return redirect('pedidos:mis_pedidos_tiempo')
+    elif not es_staff(request.user):
+        messages.error(request, 'Acceso denegado.')
+        return redirect('pedidos:lista_pedidos')
+    
+    # Información del pedido
+    context = {
+        'pedido': pedido,
+        'detalles': pedido.detalles.all().order_by('producto__nombre'),
+        'tiempo_info': {
+            'fecha_inicio': pedido.get_fecha_inicio_renta(),
+            'fecha_fin': pedido.get_fecha_fin_renta(),
+            'tiempo_restante': pedido.get_tiempo_restante_renta(),
+            'tiempo_humanizado': pedido.get_tiempo_restante_renta_humanizado(),
+            'estado_tiempo': pedido.get_estado_tiempo_renta(),
+            'porcentaje_transcurrido': pedido.get_porcentaje_tiempo_transcurrido(),
+            'debe_notificar': pedido.debe_notificar_vencimiento(),
+        }
+    }
+    
+    return render(request, 'pedidos/detalle_tiempo_pedido.html', context)
+
+@login_required
+@user_passes_test(es_staff)
+def notificaciones_vencimiento(request):
+    """Vista para gestionar notificaciones de vencimiento"""
+    
+    # Pedidos que necesitan notificación
+    pedidos_criticos = []
+    pedidos_alerta = []
+    
+    pedidos_activos = Pedido.objects.filter(
+        estado_pedido_general__in=['pagado', 'en_preparacion', 'listo_entrega', 'entregado']
+    ).select_related('cliente__usuario')
+    
+    for pedido in pedidos_activos:
+        estado_tiempo = pedido.get_estado_tiempo_renta()
+        if estado_tiempo in ['vencido', 'vence_hoy']:
+            pedidos_criticos.append(pedido)
+        elif estado_tiempo == 'vence_pronto':
+            pedidos_alerta.append(pedido)
+    
+    # Procesar acciones
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        pedido_id = request.POST.get('pedido_id')
+        
+        if accion and pedido_id:
+            try:
+                pedido = Pedido.objects.get(id_pedido=pedido_id)
+                
+                if accion == 'marcar_notificado':
+                    # En un sistema real, aquí marcarías que ya se notificó al cliente
+                    messages.success(request, f'Pedido #{pedido_id} marcado como notificado.')
+                
+                elif accion == 'extender_renta':
+                    # Aquí podrías implementar lógica para extender la renta
+                    dias_extension = int(request.POST.get('dias_extension', 7))
+                    # Lógica para extender...
+                    messages.success(request, f'Renta del pedido #{pedido_id} extendida por {dias_extension} días.')
+                
+                elif accion == 'contactar_cliente':
+                    # Aquí podrías enviar email/SMS al cliente
+                    messages.info(request, f'Cliente del pedido #{pedido_id} contactado.')
+                
+            except Pedido.DoesNotExist:
+                messages.error(request, 'Pedido no encontrado.')
+    
+    context = {
+        'pedidos_criticos': pedidos_criticos,
+        'pedidos_alerta': pedidos_alerta,
+        'total_criticos': len(pedidos_criticos),
+        'total_alerta': len(pedidos_alerta),
+    }
+    
+    return render(request, 'pedidos/notificaciones_vencimiento.html', context)
+
+@login_required
+@user_passes_test(es_staff)
+def dashboard_tiempo(request):
+    """Dashboard principal para el manejo de tiempo de rentas"""
+    
+    # Estadísticas generales
+    pedidos_activos = Pedido.objects.filter(
+        estado_pedido_general__in=['pagado', 'en_preparacion', 'listo_entrega', 'entregado']
+    )
+    
+    total_activos = pedidos_activos.count()
+    
+    # Contar por estado de tiempo
+    contadores = {
+        'vencidos': 0,
+        'vence_hoy': 0,
+        'vence_pronto': 0,
+        'normales': 0,
+        'sin_iniciar': 0,
+    }
+    
+    pedidos_urgentes = []
+    
+    for pedido in pedidos_activos:
+        estado_tiempo = pedido.get_estado_tiempo_renta()
+        if estado_tiempo == 'vencido':
+            contadores['vencidos'] += 1
+            pedidos_urgentes.append(pedido)
+        elif estado_tiempo == 'vence_hoy':
+            contadores['vence_hoy'] += 1
+            pedidos_urgentes.append(pedido)
+        elif estado_tiempo == 'vence_pronto':
+            contadores['vence_pronto'] += 1
+        elif estado_tiempo == 'normal':
+            contadores['normales'] += 1
+        else:
+            contadores['sin_iniciar'] += 1
+    
+    # Productos más rentados
+    from django.db.models import Sum, Count
+    productos_populares = DetallePedido.objects.filter(
+        pedido__estado_pedido_general__in=['pagado', 'en_preparacion', 'listo_entrega', 'entregado']
+    ).values(
+        'producto__nombre'
+    ).annotate(
+        total_cantidad=Sum('cantidad'),
+        total_pedidos=Count('pedido', distinct=True)
+    ).order_by('-total_cantidad')[:5]
+    
+    # Ingresos por rentas activas
+    ingresos_activos = pedidos_activos.aggregate(
+        total=Sum('total')
+    )['total'] or 0
+    
+    # Calcular porcentajes para las barras de progreso
+    porcentajes = {}
+    if total_activos > 0:
+        porcentajes = {
+            'vencidos': round((contadores['vencidos'] / total_activos) * 100, 1),
+            'vence_hoy': round((contadores['vence_hoy'] / total_activos) * 100, 1),
+            'vence_pronto': round((contadores['vence_pronto'] / total_activos) * 100, 1),
+            'normales': round((contadores['normales'] / total_activos) * 100, 1),
+            'sin_iniciar': round((contadores['sin_iniciar'] / total_activos) * 100, 1),
+        }
+    else:
+        porcentajes = {
+            'vencidos': 0,
+            'vence_hoy': 0,
+            'vence_pronto': 0,
+            'normales': 0,
+            'sin_iniciar': 0,
+        }
+    
+    context = {
+        'contadores': contadores,
+        'porcentajes': porcentajes,
+        'total_activos': total_activos,
+        'pedidos_urgentes': pedidos_urgentes[:10],  # Solo los primeros 10
+        'productos_populares': productos_populares,
+        'ingresos_activos': ingresos_activos,
+        'porcentaje_urgentes': round((contadores['vencidos'] + contadores['vence_hoy']) / max(total_activos, 1) * 100, 1),
+    }
+    
+    return render(request, 'pedidos/dashboard_tiempo.html', context)

@@ -1,0 +1,101 @@
+{% extends "admin/change_list.html" %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <!-- CSS específico para listas de cambios -->
+    <style type="text/css">
+        /* Reglas específicas para change_list con máxima especificidad */
+        
+        /* FILAS DE TABLA - Máxima especificidad */
+        body.change-list #changelist #changelist-results table tbody tr:hover,
+        body.change-list #changelist #changelist-results table tbody tr:hover td,
+        body.change-list #changelist-results table tbody tr:hover,
+        body.change-list #changelist-results table tbody tr:hover td,
+        #changelist-results table tbody tr:hover,
+        #changelist-results table tbody tr:hover td,
+        .change-list #changelist-results table tbody tr:hover,
+        .change-list #changelist-results table tbody tr:hover td,
+        .change-list tbody tr:hover,
+        .change-list tbody tr:hover td,
+        .results tbody tr:hover,
+        .results tbody tr:hover td,
+        tbody tr:hover,
+        tbody tr:hover td {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        /* ENLACES EN FILAS - Máxima especificidad */
+        body.change-list #changelist #changelist-results table tbody tr:hover a,
+        body.change-list #changelist-results table tbody tr:hover a,
+        #changelist-results table tbody tr:hover a,
+        .change-list #changelist-results table tbody tr:hover a,
+        .change-list tbody tr:hover a,
+        .results tbody tr:hover a,
+        tbody tr:hover a {
+            color: #f1c40f !important;
+            text-decoration: none !important;
+            font-weight: bold !important;
+        }
+        
+        /* CHECKBOXES EN FILAS */
+        body.change-list #changelist #changelist-results table tbody tr:hover input[type="checkbox"],
+        body.change-list #changelist-results table tbody tr:hover input[type="checkbox"],
+        #changelist-results table tbody tr:hover input[type="checkbox"],
+        .change-list tbody tr:hover input[type="checkbox"],
+        tbody tr:hover input[type="checkbox"] {
+            background-color: #2c3e50 !important;
+            border-color: #f1c40f !important;
+            accent-color: #f1c40f !important;
+        }
+        
+        /* ACCIONES */
+        body.change-list .actions select:hover,
+        body.change-list .actions button:hover,
+        .change-list .actions select:hover,
+        .change-list .actions button:hover,
+        .actions select:hover,
+        .actions button:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+        
+        /* FILTROS */
+        body.change-list #changelist-filter li:hover,
+        body.change-list #changelist-filter li:hover a,
+        .change-list #changelist-filter li:hover,
+        .change-list #changelist-filter li:hover a,
+        #changelist-filter li:hover,
+        #changelist-filter li:hover a {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+        }
+        
+        /* PAGINACIÓN */
+        body.change-list .paginator a:hover,
+        body.change-list .paginator span:hover,
+        .change-list .paginator a:hover,
+        .change-list .paginator span:hover,
+        .paginator a:hover,
+        .paginator span:hover {
+            background-color: #2c3e50 !important;
+            color: #f1c40f !important;
+            border-color: #34495e !important;
+        }
+        
+        /* BÚSQUEDA */
+        body.change-list #toolbar form input[type="text"]:hover,
+        body.change-list #toolbar form input[type="submit"]:hover,
+        .change-list #toolbar form input[type="text"]:hover,
+        .change-list #toolbar form input[type="submit"]:hover,
+        #toolbar form input[type="text"]:hover,
+        #toolbar form input[type="submit"]:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+    </style>
+{% endblock %}

@@ -16,6 +16,11 @@ class DetalleReciboObraInline(admin.TabularInline):
     fields = ('producto', 'detalle_pedido', 'cantidad_solicitada', 'cantidad_vuelta', 'cantidad_buen_estado', 'cantidad_danados', 'cantidad_inservibles', 'estado', 'cantidad_pendiente')
 
 class ReciboObraAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
     list_display = ('id', 'pedido', 'cliente', 'producto_info', 'cantidad_info', 'estado_devolucion', 'fecha_entrega', 'acciones_devolucion')
     list_filter = ('fecha_entrega', 'firmado_cliente', 'firmado_empleado')
     search_fields = ('pedido__id_pedido', 'cliente__usuario__first_name', 'cliente__usuario__last_name')
@@ -30,7 +35,8 @@ class ReciboObraAdmin(admin.ModelAdmin):
     producto_info.short_description = 'Producto'
     
     def cantidad_info(self, obj):
-        if hasattr(obj, 'cantidad_solicitada'):
+        # Corregido: usar cantidad_solicitada en lugar de hasattr
+        if obj.cantidad_solicitada:
             pendiente = obj.cantidad_solicitada - obj.cantidad_vuelta
             if pendiente > 0:
                 return format_html(
@@ -46,7 +52,8 @@ class ReciboObraAdmin(admin.ModelAdmin):
     cantidad_info.short_description = 'Estado de Cantidad'
     
     def estado_devolucion(self, obj):
-        if hasattr(obj, 'cantidad_solicitada'):
+        # Corregido: usar cantidad_solicitada en lugar de hasattr
+        if obj.cantidad_solicitada:
             pendiente = obj.cantidad_solicitada - obj.cantidad_vuelta
             if pendiente > 0:
                 return format_html('<span style="color: red; font-weight: bold;">🔄 PENDIENTE</span>')
@@ -56,7 +63,8 @@ class ReciboObraAdmin(admin.ModelAdmin):
     estado_devolucion.short_description = 'Estado Devolución'
     
     def acciones_devolucion(self, obj):
-        if hasattr(obj, 'cantidad_solicitada'):
+        # Corregido: usar cantidad_solicitada en lugar de hasattr
+        if obj.cantidad_solicitada:
             pendiente = obj.cantidad_solicitada - obj.cantidad_vuelta
             if pendiente > 0:
                 url = reverse('recibos:registrar_devolucion', args=[obj.id])
@@ -87,6 +95,11 @@ class ReciboObraAdmin(admin.ModelAdmin):
     informacion_inventario.short_description = 'Información de Inventario'
 
 class DetalleReciboObraAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
     list_display = ('recibo_info', 'producto', 'cantidad_info', 'estado_devolucion', 'estado')
     list_filter = ('estado', 'producto')
     search_fields = ('recibo__pedido__id_pedido', 'producto__nombre')
@@ -138,6 +151,11 @@ class DetalleReciboObraAdmin(admin.ModelAdmin):
     informacion_inventario.short_description = 'Información de Inventario'
 
 class EstadoProductoIndividualAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
     list_display = ('detalle_recibo', 'numero_serie', 'estado', 'fecha_revision', 'revisado_por')
     list_filter = ('estado', 'fecha_revision')
     search_fields = ('numero_serie', 'detalle_recibo__producto__nombre', 'detalle_recibo__recibo__pedido__id_pedido')

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 
 app_name = 'pedidos'  # Agregar namespace
@@ -14,6 +14,7 @@ urlpatterns = [
     path('admin/productos/cambiar_estado/<int:producto_id>/', views.cambiar_estado_producto, name='cambiar_estado_producto'),
     path('', views.lista_pedidos, name='lista_pedidos'),  # Lista de pedidos (admin)
     path('<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),  # Detalle de pedido (admin)
+    path('<int:pedido_id>/aprobar-pago/', views.aprobar_pago, name='aprobar_pago'),  # Aprobar/rechazar pago
     path('<int:pedido_id>/remision/', views.generar_remision_pdf, name='generar_remision_pdf'),
     path('<int:pedido_id>/factura/', views.generar_factura_pdf, name='generar_factura_pdf'),
     
@@ -22,6 +23,16 @@ urlpatterns = [
     path('mis-pedidos/<int:pedido_id>/', views.detalle_mi_pedido, name='detalle_mi_pedido'),  # Detalle para el cliente
     path('crear/', views.crear_pedido, name='crear_pedido'),  # Crear pedido (disponible para clientes)
     path('<int:pedido_id>/programar-devolucion/', views.programar_devolucion, name='programar_devolucion'),  # Programar devolución
+    
+    # URLs para reportes de tiempo de renta
+    path('mis-pedidos/tiempo/', views.mis_pedidos_tiempo, name='mis_pedidos_tiempo'),  # Tiempo restante para clientes
+    path('admin/tiempo/reporte/', views.reporte_tiempo_global, name='reporte_tiempo_global'),  # Reporte global para admin
+    path('admin/tiempo/<int:pedido_id>/', views.detalle_tiempo_pedido, name='detalle_tiempo_pedido'),  # Detalle de tiempo
+    path('admin/tiempo/notificaciones/', views.notificaciones_vencimiento, name='notificaciones_vencimiento'),  # Notificaciones
+    path('admin/tiempo/dashboard/', views.dashboard_tiempo, name='dashboard_tiempo'),  # Dashboard de tiempo
+
+    # URLs de entregas
+    path('entregas/', include('pedidos.urls_entregas')),
 ]
 
 # Las rutas completas después de la configuración son:

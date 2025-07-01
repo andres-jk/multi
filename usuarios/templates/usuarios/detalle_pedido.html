@@ -18,6 +18,33 @@
                         </p>
                     {% endif %}
                 </div>
+            {% elif pedido.estado_pedido_general == 'procesando_pago' %}
+                <div class="alert alert-info mb-4">
+                    <h4 class="alert-heading">
+                        <i class="fas fa-hourglass-half"></i> Pago en Verificación
+                    </h4>
+                    <p class="mb-0">Su pago ha sido recibido y está siendo verificado por nuestro equipo. Le notificaremos cuando sea aprobado.</p>
+                </div>
+            {% elif pedido.estado_pedido_general == 'pagado' %}
+                <div class="alert alert-success mb-4">
+                    <h4 class="alert-heading">
+                        <i class="fas fa-check-circle"></i> ¡Pago Confirmado!
+                    </h4>
+                    <p class="mb-0">Su pago ha sido aprobado exitosamente. Su pedido está siendo preparado para la entrega.</p>
+                    {% if pedido.fecha_pago %}
+                        <hr>
+                        <p class="mb-0">
+                            <i class="fas fa-calendar-check"></i> Fecha de confirmación: {{ pedido.fecha_pago|date:"d/m/Y H:i" }}
+                        </p>
+                    {% endif %}
+                </div>
+            {% elif pedido.estado_pedido_general == 'pago_rechazado' %}
+                <div class="alert alert-danger mb-4">
+                    <h4 class="alert-heading">
+                        <i class="fas fa-times-circle"></i> Pago Rechazado
+                    </h4>
+                    <p class="mb-0">Su pago ha sido rechazado. Por favor, verifique la información e intente nuevamente.</p>
+                </div>
             {% endif %}
         </div>
     </div>
@@ -27,11 +54,23 @@
             <h2>
                 Pedido #{{ pedido.id_pedido }}
                 <span class="badge {% if pedido.estado_pedido_general == 'pendiente_pago' %}bg-warning
+                                 {% elif pedido.estado_pedido_general == 'procesando_pago' %}bg-info
                                  {% elif pedido.estado_pedido_general == 'pagado' %}bg-success
                                  {% elif pedido.estado_pedido_general == 'pago_vencido' %}bg-danger
+                                 {% elif pedido.estado_pedido_general == 'pago_rechazado' %}bg-danger
+                                 {% elif pedido.estado_pedido_general == 'en_preparacion' %}bg-primary
                                  {% elif pedido.estado_pedido_general == 'en_ruta' %}bg-info
+                                 {% elif pedido.estado_pedido_general == 'entregado' %}bg-success
                                  {% else %}bg-secondary{% endif %}">
-                    {{ pedido.get_estado_pedido_general_display }}
+                    {% if pedido.estado_pedido_general == 'pendiente_pago' %}Pendiente de Pago
+                    {% elif pedido.estado_pedido_general == 'procesando_pago' %}Verificando Pago
+                    {% elif pedido.estado_pedido_general == 'pagado' %}✅ Pagado
+                    {% elif pedido.estado_pedido_general == 'pago_vencido' %}Pago Vencido
+                    {% elif pedido.estado_pedido_general == 'pago_rechazado' %}Pago Rechazado
+                    {% elif pedido.estado_pedido_general == 'en_preparacion' %}En Preparación
+                    {% elif pedido.estado_pedido_general == 'en_ruta' %}En Ruta
+                    {% elif pedido.estado_pedido_general == 'entregado' %}✅ Entregado
+                    {% else %}{{ pedido.get_estado_pedido_general_display }}{% endif %}
                 </span>
             </h2>
         </div>
@@ -41,8 +80,17 @@
                    class="btn btn-warning btn-lg">
                     <i class="fas fa-money-bill-wave"></i> Realizar Pago
                 </a>
+            {% elif pedido.estado_pedido_general == 'procesando_pago' %}
+                <span class="btn btn-info btn-lg disabled">
+                    <i class="fas fa-hourglass-half"></i> Verificando Pago
+                </span>
+            {% elif pedido.estado_pedido_general == 'pagado' %}
+                <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id_pedido %}" 
+                   class="btn btn-success btn-lg" target="_blank">
+                    <i class="fas fa-file-pdf"></i> Descargar Recibo
+                </a>
             {% endif %}
-            <a href="{% url 'usuarios:mis_pedidos' %}" class="btn btn-outline-secondary">
+            <a href="{% url 'pedidos:mis_pedidos' %}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left"></i> Volver a Mis Pedidos
             </a>
         </div>
@@ -71,8 +119,8 @@
                                 <tr>
                                     <th>Producto</th>
                                     <th>Cantidad</th>
-                                    <th>Precio Unitario</th>
-                                    <th>Meses</th>
+                                    <th>Precio Diario</th>
+                                    <th>Días</th>
                                     <th>Subtotal</th>
                                 </tr>
                             </thead>
@@ -81,8 +129,8 @@
                                 <tr>
                                     <td>{{ detalle.producto.nombre }}</td>
                                     <td>{{ detalle.cantidad }}</td>
-                                    <td>${{ detalle.precio_unitario|floatformat:2|intcomma }}</td>
-                                    <td>{{ detalle.meses_renta }}</td>
+                                    <td>${{ detalle.precio_diario|floatformat:2|intcomma }}</td>
+                                    <td>{{ detalle.dias_renta }}</td>
                                     <td>${{ detalle.subtotal|floatformat:2|intcomma }}</td>
                                 </tr>
                                 {% endfor %}
@@ -109,13 +157,31 @@
                         <dt>Estado:</dt>
                         <dd>
                             <span class="badge {% if pedido.estado_pedido_general == 'pendiente_pago' %}bg-warning
+                                             {% elif pedido.estado_pedido_general == 'procesando_pago' %}bg-info
                                              {% elif pedido.estado_pedido_general == 'pagado' %}bg-success
+                                             {% elif pedido.estado_pedido_general == 'pago_vencido' %}bg-danger
+                                             {% elif pedido.estado_pedido_general == 'pago_rechazado' %}bg-danger
+                                             {% elif pedido.estado_pedido_general == 'en_preparacion' %}bg-primary
                                              {% elif pedido.estado_pedido_general == 'en_ruta' %}bg-info
-                                             {% elif pedido.estado_pedido_general == 'entregado' %}bg-primary
+                                             {% elif pedido.estado_pedido_general == 'entregado' %}bg-success
                                              {% elif pedido.estado_pedido_general == 'cancelado' %}bg-danger
                                              {% else %}bg-secondary{% endif %}">
-                                {{ pedido.get_estado_pedido_general_display }}
+                                {% if pedido.estado_pedido_general == 'pendiente_pago' %}Pendiente de Pago
+                                {% elif pedido.estado_pedido_general == 'procesando_pago' %}Verificando Pago
+                                {% elif pedido.estado_pedido_general == 'pagado' %}✅ Pagado
+                                {% elif pedido.estado_pedido_general == 'pago_vencido' %}Pago Vencido
+                                {% elif pedido.estado_pedido_general == 'pago_rechazado' %}Pago Rechazado
+                                {% elif pedido.estado_pedido_general == 'en_preparacion' %}En Preparación
+                                {% elif pedido.estado_pedido_general == 'en_ruta' %}En Ruta
+                                {% elif pedido.estado_pedido_general == 'entregado' %}✅ Entregado
+                                {% elif pedido.estado_pedido_general == 'cancelado' %}Cancelado
+                                {% else %}{{ pedido.get_estado_pedido_general_display }}{% endif %}
                             </span>
+                            {% if pedido.estado_pedido_general == 'pagado' and pedido.fecha_pago %}
+                                <br><small class="text-success">
+                                    <i class="fas fa-check-circle"></i> Confirmado el {{ pedido.fecha_pago|date:"d/m/Y H:i" }}
+                                </small>
+                            {% endif %}
                         </dd>
 
                         <dt>Fecha:</dt>
@@ -150,9 +216,50 @@
                             <i class="fas fa-money-bill-wave me-2"></i>
                             <strong>Realizar Pago Ahora</strong>
                         </a>
+                        {% elif pedido.estado_pedido_general == 'procesando_pago' %}
+                        <div class="alert alert-info">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-hourglass-half me-2"></i>
+                                Pago en Verificación
+                            </h5>
+                            <p class="mb-0">Su pago está siendo verificado por nuestro equipo. Le notificaremos cuando sea aprobado.</p>
+                        </div>
+                        {% elif pedido.estado_pedido_general == 'pagado' %}
+                        <div class="alert alert-success">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-check-circle me-2"></i>
+                                ¡Pago Confirmado!
+                            </h5>
+                            <p class="mb-0">Su pago ha sido aprobado. Su pedido está siendo preparado.</p>
+                            {% if pedido.fecha_pago %}
+                            <hr>
+                            <p class="mb-0">
+                                <small><i class="fas fa-calendar-check me-1"></i>
+                                Confirmado el {{ pedido.fecha_pago|date:"d/m/Y H:i" }}</small>
+                            </p>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id_pedido %}" 
+                           class="btn btn-success w-100 mb-2" 
+                           target="_blank">
+                            <i class="fas fa-file-pdf me-2"></i>Descargar Recibo
+                        </a>
+                        {% elif pedido.estado_pedido_general == 'pago_rechazado' %}
+                        <div class="alert alert-danger">
+                            <h5 class="alert-heading">
+                                <i class="fas fa-times-circle me-2"></i>
+                                Pago Rechazado
+                            </h5>
+                            <p class="mb-0">Su pago ha sido rechazado. Por favor, verifique la información e intente nuevamente.</p>
+                        </div>
+                        <a href="{% url 'usuarios:procesar_pago' pedido.id_pedido %}" 
+                           class="btn btn-warning w-100">
+                            <i class="fas fa-money-bill-wave me-2"></i>
+                            <strong>Intentar Pago Nuevamente</strong>
+                        </a>
                         {% endif %}
 
-                        {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'entregado' %}
+                        {% if pedido.estado_pedido_general == 'entregado' %}
                         <a href="{% url 'usuarios:generar_recibo_pdf' pedido.id_pedido %}" 
                            class="btn btn-outline-secondary w-100 mb-2" 
                            target="_blank">

@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block title %}Tiempo de Mis Pedidos{% endblock %}
+{% block content %}
+<div class="card card-pedidos">
+    <h1 class="highlight">⏰ Tiempo Restante de Mis Pedidos</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Resumen general -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <strong>Resumen:</strong> Tienes {{ total_activos }} pedido{{ total_activos|pluralize }} con renta activa.
+                {% if pedidos_vencidos %}
+                    <span class="text-danger">⚠️ {{ pedidos_vencidos|length }} vencido{{ pedidos_vencidos|length|pluralize }}</span>
+                {% endif %}
+                {% if pedidos_pronto_vencer %}
+                    <span class="text-warning">⏳ {{ pedidos_pronto_vencer|length }} próximo{{ pedidos_pronto_vencer|length|pluralize }} a vencer</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegación rápida -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav>
+                <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <button class="nav-link active" id="nav-vencidos-tab" data-bs-toggle="tab" data-bs-target="#nav-vencidos" type="button" role="tab">
+                        🚨 Vencidos ({{ pedidos_vencidos|length }})
+                    </button>
+                    <button class="nav-link" id="nav-alerta-tab" data-bs-toggle="tab" data-bs-target="#nav-alerta" type="button" role="tab">
+                        ⚠️ Próximos a Vencer ({{ pedidos_pronto_vencer|length }})
+                    </button>
+                    <button class="nav-link" id="nav-normales-tab" data-bs-toggle="tab" data-bs-target="#nav-normales" type="button" role="tab">
+                        ✅ Normales ({{ pedidos_normales|length }})
+                    </button>
+                    <button class="nav-link" id="nav-pendientes-tab" data-bs-toggle="tab" data-bs-target="#nav-pendientes" type="button" role="tab">
+                        ⏸️ Sin Iniciar ({{ pedidos_sin_iniciar|length }})
+                    </button>
+                </div>
+            </nav>
+        </div>
+    </div>
+
+    <div class="tab-content" id="nav-tabContent">
+        <!-- Pedidos Vencidos -->
+        <div class="tab-pane fade show active" id="nav-vencidos" role="tabpanel">
+            {% if pedidos_vencidos %}
+                <div class="alert alert-danger">
+                    <strong>🚨 Atención:</strong> Los siguientes pedidos están vencidos. Contacta con nosotros para resolver la situación.
+                </div>
+                {% for pedido in pedidos_vencidos %}
+                    <div class="card mb-3 border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">Pedido #{{ pedido.id_pedido }} - VENCIDO</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Fecha del pedido:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                                    <p><strong>Tiempo vencido:</strong> <span class="text-danger">{{ pedido.get_tiempo_restante_renta_humanizado }}</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:0 }}</p>
+                                    <p><strong>Inicio de renta:</strong> {{ pedido.get_fecha_inicio_renta|date:"d/m/Y" }}</p>
+                                    <p><strong>Debía finalizar:</strong> {{ pedido.get_fecha_fin_renta|date:"d/m/Y" }}</p>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-sm">Ver Detalles</a>
+                                <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-sm">Ver Pedido</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-success">
+                    ✅ No tienes pedidos vencidos.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Pedidos Próximos a Vencer -->
+        <div class="tab-pane fade" id="nav-alerta" role="tabpanel">
+            {% if pedidos_pronto_vencer %}
+                <div class="alert alert-warning">
+                    <strong>⚠️ Atención:</strong> Los siguientes pedidos están próximos a vencer.
+                </div>
+                {% for pedido in pedidos_pronto_vencer %}
+                    <div class="card mb-3 border-warning">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0">Pedido #{{ pedido.id_pedido }} - Próximo a vencer</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Fecha del pedido:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                                    <p><strong>Tiempo restante:</strong> <span class="text-warning">{{ pedido.get_tiempo_restante_renta_humanizado }}</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:0 }}</p>
+                                    <p><strong>Inicio de renta:</strong> {{ pedido.get_fecha_inicio_renta|date:"d/m/Y" }}</p>
+                                    <p><strong>Finaliza:</strong> {{ pedido.get_fecha_fin_renta|date:"d/m/Y" }}</p>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-warning" role="progressbar" style="width: {{ pedido.get_porcentaje_tiempo_transcurrido }}%">
+                                            {{ pedido.get_porcentaje_tiempo_transcurrido|floatformat:0 }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-sm">Ver Detalles</a>
+                                <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-sm">Ver Pedido</a>
+                                <a href="{% url 'pedidos:programar_devolucion' pedido.id_pedido %}" class="btn btn-outline-success btn-sm">Programar Devolución</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    ℹ️ No tienes pedidos próximos a vencer.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Pedidos Normales -->
+        <div class="tab-pane fade" id="nav-normales" role="tabpanel">
+            {% if pedidos_normales %}
+                {% for pedido in pedidos_normales %}
+                    <div class="card mb-3 border-success">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Pedido #{{ pedido.id_pedido }} - Normal</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Fecha del pedido:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                                    <p><strong>Tiempo restante:</strong> <span class="text-success">{{ pedido.get_tiempo_restante_renta_humanizado }}</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:0 }}</p>
+                                    <p><strong>Inicio de renta:</strong> {{ pedido.get_fecha_inicio_renta|date:"d/m/Y" }}</p>
+                                    <p><strong>Finaliza:</strong> {{ pedido.get_fecha_fin_renta|date:"d/m/Y" }}</p>
+                                    <div class="progress mt-2">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ pedido.get_porcentaje_tiempo_transcurrido }}%">
+                                            {{ pedido.get_porcentaje_tiempo_transcurrido|floatformat:0 }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-sm">Ver Detalles</a>
+                                <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-sm">Ver Pedido</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    ℹ️ No tienes pedidos en estado normal.
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Pedidos Sin Iniciar -->
+        <div class="tab-pane fade" id="nav-pendientes" role="tabpanel">
+            {% if pedidos_sin_iniciar %}
+                {% for pedido in pedidos_sin_iniciar %}
+                    <div class="card mb-3 border-secondary">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Pedido #{{ pedido.id_pedido }} - Sin Iniciar</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Fecha del pedido:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                                    <p><strong>Estado de renta:</strong> <span class="text-muted">No iniciado</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:0 }}</p>
+                                    {% if pedido.fecha_pago %}
+                                        <p><strong>Fecha de pago:</strong> {{ pedido.fecha_pago|date:"d/m/Y" }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-sm">Ver Pedido</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-info">
+                    ℹ️ No tienes pedidos sin iniciar.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'pedidos:mis_pedidos' %}" class="btn btn-secondary">⬅️ Volver a Mis Pedidos</a>
+    </div>
+</div>
+
+<style>
+.card-pedidos {
+    margin: 20px auto;
+    max-width: 1200px;
+}
+
+.progress {
+    height: 20px;
+}
+
+.nav-tabs .nav-link {
+    font-weight: 500;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header h5 {
+    margin: 0;
+}
+
+.alert {
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

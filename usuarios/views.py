@@ -1,3 +1,4 @@
+import json
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib import messages
@@ -10,6 +11,7 @@ from django.conf import settings
 from django.http import HttpResponse, JsonResponse
 from django import forms
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
@@ -49,22 +51,36 @@ def registro(request):
     if request.method == 'POST':
         form = RegistroForm(request.POST)
         if form.is_valid():
-            usuario = form.save()
-            # Si el usuario es cliente, crea el objeto Cliente relacionado
-            # Asumiendo que el campo 'rol' está en tu modelo Usuario y se establece en el formulario
-            if usuario.rol == 'cliente': # Asegúrate de que `usuario.rol` se asigne en tu RegistroForm o en el modelo Usuario por defecto.
-                Cliente.objects.create(
-                    usuario=usuario,
-                    telefono=form.cleaned_data.get('telefono', ''),
-                    direccion=form.cleaned_data.get('direccion', '') # Asumiendo que 'direccion' es parte de tu modelo Usuario
-                )
-            login(request, usuario)
-            messages.success(request, '¡Registro exitoso! Bienvenido a MultiAndamios.')
-            return redirect('usuarios:inicio_cliente')
+            try:
+                usuario = form.save()
+                # Si el usuario es cliente, crea el objeto Cliente relacionado solo si no existe
+                if usuario.rol == 'cliente':
+                    # Verificar si ya existe un cliente para este usuario
+                    cliente, created = Cliente.objects.get_or_create(
+                        usuario=usuario,
+                        defaults={
+                            'telefono': form.cleaned_data.get('telefono', ''),
+                            'direccion': form.cleaned_data.get('direccion', '')
+                        }
+                    )
+                    if not created:
+                        # Si el cliente ya existía, actualizamos los datos
+                        cliente.telefono = form.cleaned_data.get('telefono', cliente.telefono)
+                        cliente.direccion = form.cleaned_data.get('direccion', cliente.direccion)
+                        cliente.save()
+                
+                login(request, usuario)
+                messages.success(request, '¡Registro exitoso! Bienvenido a MultiAndamios.')
+                return redirect('usuarios:inicio_cliente')
+                
+            except Exception as e:
+                messages.error(request, f'Error al crear el usuario: {str(e)}')
+                # No redirigir, mostrar el formulario con errores
         else:
             messages.error(request, 'Hubo errores en el formulario de registro. Por favor, corrígelos.')
     else:
         form = RegistroForm()
+    
     return render(request, 'usuarios/registro.html', {'form': form})
 
 def iniciar_sesion(request):
@@ -109,19 +125,19 @@ def agregar_al_carrito(request, producto_id):
     try:
         producto = Producto.objects.get(id_producto=producto_id)
         cantidad = int(request.POST.get('cantidad', 1))
-        tipo_renta = request.POST.get('tipo_renta', 'mensual')
-        periodo_renta = int(request.POST.get('periodo_renta', 1))
+        dias_renta = int(request.POST.get('dias_renta', producto.dias_minimos_renta))
         
-        if tipo_renta not in ['mensual', 'semanal']:
-            messages.error(request, 'Tipo de renta inválido. Se estableció a mensual por defecto.')
-            tipo_renta = 'mensual'
-        
-        if cantidad <= 0 or periodo_renta <= 0:
-            messages.error(request, 'La cantidad y el período de renta deben ser valores positivos.')
+        if cantidad <= 0 or dias_renta <= 0:
+            messages.error(request, 'La cantidad y los días de renta deben ser valores positivos.')
             return redirect('productos:detalle_producto', producto_id=producto_id)
 
         if producto.cantidad_disponible < cantidad:
             messages.error(request, f'Solo hay {producto.cantidad_disponible} unidades disponibles de {producto.nombre}.')
+            return redirect('productos:detalle_producto', producto_id=producto_id)
+        
+        # Verificar que los días sean válidos para este producto
+        if not producto.es_dias_valido(dias_renta):
+            messages.error(request, f'Los días de renta deben ser múltiplos de {producto.dias_minimos_renta}.')
             return redirect('productos:detalle_producto', producto_id=producto_id)
         
         carrito_item, created = CarritoItem.objects.get_or_create(
@@ -129,29 +145,24 @@ def agregar_al_carrito(request, producto_id):
             producto=producto,
             defaults={
                 'cantidad': cantidad,
-                'tipo_renta': tipo_renta,
-                'periodo_renta': periodo_renta,
-                'meses_renta': periodo_renta # Mantener compatibilidad legacy si es necesario
+                'dias_renta': dias_renta
             }
         )
         
         if not created:
             # Si el item ya existía, actualizar los valores
-            # Es importante decidir si se SUMA la cantidad o se REEMPLAZA. Aquí se REEMPLAZA.
             carrito_item.cantidad = cantidad
-            carrito_item.tipo_renta = tipo_renta
-            carrito_item.periodo_renta = periodo_renta
-            carrito_item.meses_renta = periodo_renta # Mantener compatibilidad legacy
+            carrito_item.dias_renta = dias_renta
             carrito_item.save()
         
-        messages.success(request, 'Producto agregado al carrito exitosamente.')
+        messages.success(request, f'{producto.nombre} agregado al carrito para renta por {dias_renta} día{"s" if dias_renta > 1 else ""}.')
         
     except Producto.DoesNotExist:
         messages.error(request, 'El producto seleccionado no existe.')
     except ValueError:
-        messages.error(f'Cantidad o período de renta inválidos. Asegúrate de ingresar números enteros.')
+        messages.error(request, 'Cantidad o días de renta inválidos. Asegúrate de ingresar números enteros.')
     except Exception as e:
-        messages.error(f'Ocurrió un error inesperado al agregar al carrito: {str(e)}')
+        messages.error(request, f'Ocurrió un error inesperado al agregar al carrito: {str(e)}')
     
     return redirect('usuarios:ver_carrito')
 
@@ -194,6 +205,105 @@ def limpiar_carrito(request):
     
     messages.success(request, "Se ha limpiado el carrito exitosamente.")
     return redirect('usuarios:ver_carrito')
+
+@csrf_exempt # Considera cuidadosamente el uso en producción; idealmente, usa tokens CSRF.
+def actualizar_carrito(request):
+    """
+    Esta vista maneja la lógica para actualizar la cantidad o meses de renta
+    de un ítem en el carrito de compras (DetallePedido).
+    Espera una solicitud POST con datos JSON:
+    {
+        "detalle_pedido_id": <int>,
+        "cantidad": <int, opcional>,
+        "meses_renta": <int, opcional>
+    }
+    Si la cantidad es 0, el DetallePedido será eliminado.
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            detalle_pedido_id = data.get('detalle_pedido_id')
+            nueva_cantidad = data.get('cantidad')
+            nuevos_meses_renta = data.get('meses_renta')
+
+            if not detalle_pedido_id:
+                return JsonResponse({'success': False, 'message': 'Se requiere el ID del detalle del pedido.'}, status=400)
+
+            try:
+                detalle_pedido = DetallePedido.objects.select_related('pedido').get(id=detalle_pedido_id)
+            except DetallePedido.DoesNotExist:
+                return JsonResponse({'success': False, 'message': 'Ítem del carrito no encontrado.'}, status=404)
+
+            # Usamos una transacción para asegurar que todas las operaciones se completen
+            # o se reviertan si algo falla.
+            with transaction.atomic():
+                # 1. Actualizar la cantidad si se proporciona y es válida
+                if nueva_cantidad is not None:
+                    if not isinstance(nueva_cantidad, int) or nueva_cantidad < 0:
+                        return JsonResponse({'success': False, 'message': 'Cantidad inválida. Debe ser un número entero no negativo.'}, status=400)
+                    detalle_pedido.cantidad = nueva_cantidad
+
+                # 2. Actualizar los meses de renta si se proporcionan y son válidos
+                if nuevos_meses_renta is not None:
+                    if not isinstance(nuevos_meses_renta, int) or nuevos_meses_renta < 1:
+                        return JsonResponse({'success': False, 'message': 'Meses de renta inválidos. Debe ser un número entero positivo.'}, status=400)
+                    detalle_pedido.meses_renta = nuevos_meses_renta
+
+                # Validar la cantidad contra el stock disponible ANTES de guardar
+                # Esto es importante si el modelo DetallePedido.clean() no lo maneja completamente antes del save.
+                # Tu modelo ya lo tiene en clean(), lo cual es genial, pero una verificación temprana no hace daño.
+                # if detalle_pedido.producto.cantidad_disponible < detalle_pedido.cantidad:
+                #     return JsonResponse({'success': False, 'message': f'No hay suficiente stock para {detalle_pedido.producto.nombre}. Disponible: {detalle_pedido.producto.cantidad_disponible}'}, status=400)
+
+                # 3. Eliminar el ítem si la cantidad es 0
+                if detalle_pedido.cantidad == 0:
+                    detalle_pedido.delete()
+                    # Recalcular el total del Pedido después de la eliminación
+                    pedido_afectado = detalle_pedido.pedido
+                    # Asegurarse de que el subtotal del pedido refleje los cambios
+                    pedido_afectado.subtotal = sum(dp.subtotal for dp in pedido_afectado.detalles.all())
+                    pedido_afectado.save() # Esto llamará a update_total() y full_clean() en el Pedido
+                    return JsonResponse({'success': True, 'message': 'Ítem eliminado del carrito.',
+                                         'pedido_id': pedido_afectado.id_pedido,
+                                         'nuevo_subtotal_pedido': str(pedido_afectado.subtotal),
+                                         'nuevo_iva_pedido': str(pedido_afectado.iva),
+                                         'nuevo_total_pedido': str(pedido_afectado.total)
+                                         })
+
+                # 4. Guardar los cambios en el DetallePedido (recalculará su subtotal automáticamente)
+                try:
+                    detalle_pedido.save() # La validación .clean() y el cálculo de subtotal ocurrirán aquí
+                except ValidationError as e:
+                    return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+                # 5. Actualizar el subtotal y total del Pedido principal (carrito)
+                # Tu modelo Pedido.save() ya llama a update_total(), así que solo necesitamos guardar el pedido
+                pedido_afectado = detalle_pedido.pedido
+                # Recalcular el subtotal del pedido sumando los subtotales de sus detalles
+                # (excluyendo el propio detalle_pedido si no se actualizó su subtotal antes de sumarlo)
+                # Para mayor seguridad, volvemos a calcular el subtotal del pedido
+                pedido_afectado.subtotal = sum(dp.subtotal for dp in pedido_afectado.detalles.all())
+                pedido_afectado.save() # Esto llamará a update_total() y full_clean() en el Pedido
+
+                return JsonResponse({'success': True, 'message': 'Carrito actualizado exitosamente.',
+                                     'detalle_pedido_id': detalle_pedido.id,
+                                     'nueva_cantidad': detalle_pedido.cantidad,
+                                     'nuevos_meses_renta': detalle_pedido.meses_renta,
+                                     'nuevo_subtotal_item': str(detalle_pedido.subtotal), # Convertir Decimal a str
+                                     'pedido_id': pedido_afectado.id_pedido,
+                                     'nuevo_subtotal_pedido': str(pedido_afectado.subtotal), # Convertir Decimal a str
+                                     'nuevo_iva_pedido': str(pedido_afectado.iva),
+                                     'nuevo_total_pedido': str(pedido_afectado.total)
+                                     })
+
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Formato JSON inválido.'}, status=400)
+        except Exception as e:
+            # Captura cualquier otra excepción inesperada
+            return JsonResponse({'success': False, 'message': f'Error interno del servidor: {str(e)}'}, status=500)
+    else:
+        return JsonResponse({'success': False, 'message': 'Método no permitido. Use POST.'}, status=405)
+
 
 # --- Generación de PDFs (Refactorizado) ---
 
@@ -325,7 +435,7 @@ def _generate_common_pdf(request, document_type, items_to_include):
 
         subtotal = item.subtotal
         total_sin_iva += subtotal
-        peso_total += item.peso_total # Acumular peso total
+        peso_total += item.peso_total  # Now both are Decimal types
         
         # Dibujar fondo de la fila
         p.setFillColor(colors.white)
@@ -334,8 +444,8 @@ def _generate_common_pdf(request, document_type, items_to_include):
         
         # Datos de la fila
         x = 40
-        precio_unitario = item.producto.get_precio_por_tipo(item.tipo_renta)
-        duracion_texto = item.get_descripcion_periodo()
+        precio_unitario = item.producto.precio_diario
+        duracion_texto = item.get_descripcion_dias()
         
         row_data = [
             item.producto.nombre[:40],
@@ -450,7 +560,7 @@ def perfil(request):
         }
     )
     
-    direcciones = Direccion.objects.filter(cliente=cliente)
+    direcciones = Direccion.objects.filter(usuario=request.user)
     pedidos = Pedido.objects.filter(cliente=cliente).order_by('-fecha')
     
     context = {
@@ -463,7 +573,17 @@ def perfil(request):
 @login_required
 def actualizar_perfil(request):
     """Vista para actualizar la información del perfil"""
-    cliente = get_object_or_404(Cliente, usuario=request.user)
+    # Obtener o crear el cliente asociado al usuario
+    cliente, created = Cliente.objects.get_or_create(
+        usuario=request.user,
+        defaults={
+            'telefono': getattr(request.user, 'telefono', ''),
+            'direccion': getattr(request.user, 'direccion', '')
+        }
+    )
+    
+    if created:
+        messages.info(request, 'Se ha creado tu perfil de cliente automáticamente.')
     
     if request.method == 'POST':
         # Instanciar formularios con los datos del POST y las instancias existentes
@@ -520,20 +640,26 @@ def cambiar_contrasena(request):
 @login_required
 def agregar_direccion(request):
     """Vista para agregar una nueva dirección"""
-    cliente = get_object_or_404(Cliente, usuario=request.user)
+    # Ensure cliente exists
+    cliente, created = Cliente.objects.get_or_create(
+        usuario=request.user,
+        defaults={
+            'telefono': getattr(request.user, 'telefono', ''),
+            'direccion': getattr(request.user, 'direccion', '')
+        }
+    )
     departamentos = Departamento.objects.all().order_by('nombre')
 
     if request.method == 'POST':
         form = DireccionForm(request.POST)
         if form.is_valid():
             direccion = form.save(commit=False)
-            direccion.cliente = cliente
-            direccion.usuario = request.user # Asigna el usuario directamente al modelo Direccion si tiene ese campo
+            direccion.usuario = request.user  # Use usuario field instead of cliente
             direccion.save()
             
             # Si esta dirección es marcada como principal, actualizar las demás
-            if direccion.es_principal:
-                Direccion.objects.filter(cliente=cliente).exclude(id=direccion.id).update(es_principal=False)
+            if direccion.principal:  # Use 'principal' instead of 'es_principal'
+                Direccion.objects.filter(usuario=request.user).exclude(id=direccion.id).update(principal=False)
             
             messages.success(request, 'Dirección agregada exitosamente.')
             return redirect('usuarios:perfil')
@@ -550,7 +676,7 @@ def agregar_direccion(request):
 @login_required
 def editar_direccion(request, direccion_id):
     """Vista para editar una dirección existente"""
-    direccion = get_object_or_404(Direccion, id=direccion_id, cliente__usuario=request.user)
+    direccion = get_object_or_404(Direccion, id=direccion_id, usuario=request.user)
     departamentos = Departamento.objects.all().order_by('nombre')
     municipios = Municipio.objects.filter(departamento=direccion.departamento).order_by('nombre')
 
@@ -558,12 +684,12 @@ def editar_direccion(request, direccion_id):
         form = DireccionForm(request.POST, instance=direccion)
         if form.is_valid():
             direccion = form.save(commit=False)
-            es_principal_nueva = form.cleaned_data.get('es_principal')
+            principal_nueva = form.cleaned_data.get('principal')
             
             # Si se marca como principal y no lo era, o si se desmarca
-            if es_principal_nueva and not direccion.es_principal:
-                Direccion.objects.filter(cliente=direccion.cliente).update(es_principal=False)
-            direccion.es_principal = es_principal_nueva
+            if principal_nueva and not direccion.principal:
+                Direccion.objects.filter(usuario=direccion.usuario).update(principal=False)
+            direccion.principal = principal_nueva
             
             direccion.save()
             messages.success(request, 'Dirección actualizada exitosamente.')
@@ -583,20 +709,20 @@ def editar_direccion(request, direccion_id):
 @login_required
 def eliminar_direccion(request, direccion_id):
     """Vista para eliminar una dirección"""
-    direccion = get_object_or_404(Direccion, id=direccion_id, cliente__usuario=request.user)
+    direccion = get_object_or_404(Direccion, id=direccion_id, usuario=request.user)
     
     # No permitir eliminar la única dirección principal
-    if direccion.es_principal and Direccion.objects.filter(cliente=direccion.cliente).count() == 1:
+    if direccion.principal and Direccion.objects.filter(usuario=direccion.usuario).count() == 1:
         messages.error(request, 'No puedes eliminar tu única dirección principal. Debes tener al menos una dirección principal.')
         return redirect('usuarios:perfil')
     
     with transaction.atomic():
         # Si se elimina la dirección principal, establecer otra como principal
-        if direccion.es_principal:
+        if direccion.principal:
             # Encuentra la primera dirección NO eliminada que no sea la actual
-            nueva_principal = Direccion.objects.filter(cliente=direccion.cliente).exclude(id=direccion.id).first()
+            nueva_principal = Direccion.objects.filter(usuario=direccion.usuario).exclude(id=direccion.id).first()
             if nueva_principal:
-                nueva_principal.es_principal = True
+                nueva_principal.principal = True
                 nueva_principal.save()
         
         direccion.delete()
@@ -616,13 +742,21 @@ def checkout(request):
 
     subtotal = sum(item.subtotal for item in carrito_items)
     iva = (subtotal * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    total_pedido = subtotal + iva # Este es el total del pedido sin el costo de transporte inicial
+    
+    # Get transport cost from first item's municipality (assuming all items to same location)
+    costo_transporte = Decimal('0.00')
+    if carrito_items.first() and hasattr(carrito_items.first().producto, 'categoria'):
+        # Default transport cost if not specified
+        costo_transporte = Decimal('10000.00')  # Default 10,000 COP
+    
+    total_pedido = subtotal + iva + costo_transporte
 
     context = {
         'items': carrito_items,
         'departamentos': departamentos,
         'subtotal': subtotal,
         'iva': iva,
+        'costo_transporte': costo_transporte,
         'total': total_pedido,
     }
 
@@ -649,10 +783,22 @@ def checkout(request):
                 municipio = get_object_or_404(Municipio, id=municipio_id)
                 
                 # 2. Determinar la dirección de envío (se puede crear o usar una existente)
-                # Aquí se está creando una nueva dirección, lo cual es válido si se quiere registrar la dirección exacta de cada pedido.
-                # Si prefieres usar una dirección existente del cliente, la lógica debería ser diferente (ej. obtener por id o crear si no existe)
+                # Si prefieres usar una dirección existente del cliente, la lógica debería ser diferente
+                
+                # Asegurar que el cliente existe, crear si no existe
+                cliente, created_cliente = Cliente.objects.get_or_create(
+                    usuario=request.user,
+                    defaults={
+                        'telefono': getattr(request.user, 'telefono', ''),
+                        'direccion': getattr(request.user, 'direccion', '')
+                    }
+                )
+                
+                if created_cliente:
+                    messages.info(request, 'Se ha creado tu perfil de cliente automáticamente.')
+                
                 direccion_envio, created_direccion = Direccion.objects.get_or_create(
-                    cliente=get_object_or_404(Cliente, usuario=request.user), # Asegurarse de que el cliente exista
+                    usuario=request.user,  # Use usuario instead of cliente
                     calle=calle,
                     numero=numero,
                     complemento=complemento,
@@ -660,17 +806,19 @@ def checkout(request):
                     municipio=municipio,
                     codigo_divipola=codigo_divipola,
                     codigo_postal=codigo_postal,
-                    defaults={'es_principal': False} # Por defecto no es principal si se crea aquí
+                    defaults={'principal': False} # Use 'principal' instead of 'es_principal'
                 )
                 
-                # 3. Crear el Pedido
+                # 3. Crear el Pedido con totales calculados
                 pedido = Pedido.objects.create(
-                    cliente=get_object_or_404(Cliente, usuario=request.user),
-                    fecha=timezone.now(),
-                    total=total_pedido, # Total sin costo de transporte aún
-                    estado='pendiente', # O 'procesando', 'confirmado'
+                    cliente=cliente,
+                    subtotal=subtotal,
+                    iva=iva,
+                    costo_transporte=costo_transporte,
+                    total=total_pedido,
+                    estado_pedido_general='pendiente_pago',
                     notas=notas,
-                    direccion_envio=direccion_envio # Asignar la dirección al pedido
+                    direccion_entrega=f"{calle} #{numero} {complemento}, {municipio.nombre}, {departamento.nombre}".strip()
                 )
 
                 # 4. Procesar los items del carrito para crear DetallePedido y actualizar inventario
@@ -688,9 +836,8 @@ def checkout(request):
                         pedido=pedido,
                         producto=item.producto,
                         cantidad=item.cantidad,
-                        precio_unitario=item.producto.get_precio_por_tipo(item.tipo_renta),
-                        tipo_renta=item.tipo_renta,
-                        periodo_renta=item.periodo_renta,
+                        precio_diario=item.producto.precio_diario,
+                        dias_renta=item.dias_renta,
                         subtotal=item.subtotal
                     )
                     # Marcar el item del carrito como 'reservado' o 'procesado' si no se elimina inmediatamente
@@ -698,8 +845,10 @@ def checkout(request):
                     # Asumo que 'reservado' es para la remisión, pero en un checkout exitoso se borrarían.
                     item.delete() # Eliminar el item del carrito después de procesarlo
                 
-                messages.success(request, f'Tu pedido #{pedido.id_pedido} ha sido realizado exitosamente.')
-                return redirect('usuarios:perfil') # O a una página de confirmación de pedido
+                messages.success(request, f'Tu pedido #{pedido.id_pedido} ha sido creado exitosamente.')
+                
+                # Redirect to payment processing
+                return redirect('usuarios:procesar_pago', pedido_id=pedido.id_pedido)
 
         except ValidationError as e:
             messages.error(request, f'Error en el pedido: {e.message}')
@@ -760,3 +909,305 @@ def obtener_codigo_divipola(request):
         except Municipio.DoesNotExist:
             return JsonResponse({'error': 'Municipio no encontrado'}, status=404)
     return JsonResponse({'codigo_divipola': codigo_divipola})
+
+@login_required
+def pedidos_pendientes(request):
+    """Vista para mostrar pedidos pendientes de pago del usuario"""
+    from pedidos.models import Pedido
+    
+    # Get pending orders for the current user
+    pedidos_pendientes = Pedido.objects.filter(
+        cliente__usuario=request.user,
+        estado_pedido_general__in=['pendiente_pago', 'procesando_pago', 'pago_vencido', 'pago_rechazado']
+    ).order_by('-fecha')
+    
+    context = {
+        'pedidos': pedidos_pendientes,
+        'titulo': 'Pedidos Pendientes'
+    }
+    
+    return render(request, 'usuarios/pedidos_pendientes.html', context)
+
+def lista_clientes(request):
+    """
+    Esta es la vista para mostrar la lista de clientes.
+    Aquí podrías obtener los datos de tus clientes de la base de datos
+    y pasarlos a una plantilla.
+    """
+    # Por ahora, solo devolveremos una respuesta simple para verificar que funciona
+    return HttpResponse("<h1>¡Página de Lista de Clientes!</h1>")
+
+def crear_cliente(request):
+    """
+    Esta es la vista para crear un nuevo cliente.
+    Aquí iría la lógica para manejar el formulario de creación de clientes.
+    """
+    # Por ahora, solo devolveremos una respuesta simple
+    return HttpResponse("<h1>¡Formulario para Crear un Nuevo Cliente!</h1>")
+
+@login_required
+def actualizar_carrito(request):
+    """
+    Vista para actualizar el carrito de compras vía formulario.
+    Actualiza cantidades, períodos de renta y tipos de renta sin redireccionar.
+    """
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                # Obtener todos los items del carrito del usuario
+                items_carrito = CarritoItem.objects.filter(usuario=request.user)
+                
+                items_actualizados = 0
+                errores = []
+                
+                for item in items_carrito:
+                    item_id = str(item.id)
+                    
+                    # Verificar si hay datos para este item
+                    cantidad_key = f'cantidad_{item_id}'
+                    dias_key = f'dias_{item_id}'
+                    
+                    # Actualizar cantidad si está presente
+                    if cantidad_key in request.POST:
+                        try:
+                            nueva_cantidad = int(request.POST[cantidad_key])
+                            if nueva_cantidad > 0:
+                                if nueva_cantidad <= item.producto.cantidad_disponible:
+                                    item.cantidad = nueva_cantidad
+                                    items_actualizados += 1
+                                else:
+                                    errores.append(f'Solo hay {item.producto.cantidad_disponible} unidades disponibles de {item.producto.nombre}')
+                                    continue
+                            else:
+                                errores.append(f'La cantidad debe ser mayor a 0 para {item.producto.nombre}')
+                                continue
+                        except (ValueError, TypeError):
+                            errores.append(f'Cantidad inválida para {item.producto.nombre}')
+                            continue
+                    
+                    # Actualizar días de renta si está presente
+                    if dias_key in request.POST:
+                        try:
+                            nuevos_dias = int(request.POST[dias_key])
+                            if nuevos_dias > 0:
+                                if item.producto.es_dias_valido(nuevos_dias):
+                                    item.dias_renta = nuevos_dias
+                                    items_actualizados += 1
+                                else:
+                                    errores.append(f'Los días deben ser múltiplos de {item.producto.dias_minimos_renta} para {item.producto.nombre}')
+                                    continue
+                            else:
+                                errores.append(f'Los días de renta deben ser mayor a 0 para {item.producto.nombre}')
+                                continue
+                        except (ValueError, TypeError):
+                            errores.append(f'Días de renta inválidos para {item.producto.nombre}')
+                            continue
+                    
+                    # Guardar el item actualizado
+                    item.save()
+                
+                # Si es una petición AJAX, devolver JSON
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    if errores:
+                        return JsonResponse({
+                            'success': False,
+                            'message': 'Se encontraron errores al actualizar el carrito',
+                            'errors': errores
+                        })
+                    else:
+                        return JsonResponse({
+                            'success': True,
+                            'message': f'Carrito actualizado exitosamente. {items_actualizados} elementos modificados.',
+                            'items_updated': items_actualizados
+                        })
+                
+                # Para peticiones normales, mostrar mensajes y redireccionar
+                if errores:
+                    for error in errores:
+                        messages.error(request, error)
+                else:
+                    if items_actualizados > 0:
+                        messages.success(request, f'Carrito actualizado exitosamente. {items_actualizados} elementos modificados.')
+                    else:
+                        messages.info(request, 'No se realizaron cambios en el carrito.')
+                
+        except Exception as e:
+            error_msg = f'Error al actualizar el carrito: {str(e)}'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'success': False, 'message': error_msg})
+            else:
+                messages.error(request, error_msg)
+    
+    # Redireccionar de vuelta al carrito
+    return redirect('usuarios:ver_carrito')
+
+def generar_recibo_pdf(request, pedido_id):
+    """
+    Esta vista genera un recibo en formato PDF para un pedido específico.
+    """
+    # Aquí es donde iría la lógica para obtener los datos del pedido
+    # y luego usar una librería como ReportLab o WeasyPrint para generar el PDF.
+
+    # Ejemplo muy básico de cómo empezarías a generar un PDF (requiere ReportLab):
+    # response = HttpResponse(content_type='application/pdf')
+    # response['Content-Disposition'] = f'attachment; filename="recibo_pedido_{pedido_id}.pdf"'
+    #
+    # p = canvas.Canvas(response, pagesize=letter)
+    # p.drawString(100, 750, f"Recibo para Pedido #{pedido_id}")
+    # p.showPage()
+    # p.save()
+    # return response
+
+    # Por ahora, solo devolveremos una respuesta simple de texto para que el servidor se inicie.
+    return HttpResponse(f"<h1>Simulando la generación de PDF para Pedido #{pedido_id}</h1>"
+                        "<p>Aquí se generaría el recibo PDF.</p>")
+
+def pago_recibo(request, pedido_id):
+    """
+    Esta vista manejará el proceso de pago para un recibo o pedido específico.
+    """
+    # Aquí iría la lógica para procesar el pago, interactuar con pasarelas de pago,
+    # actualizar el estado del pedido, etc.
+    if request.method == 'POST':
+        # Lógica para procesar el pago enviado por formulario
+        return HttpResponse(f"Procesando pago para Pedido #{pedido_id} (POST)")
+    else:
+        # Lógica para mostrar la página de pago o confirmación
+        return HttpResponse(f"<h1>Página de Pago para Pedido #{pedido_id}</h1>"
+                            "<p>Aquí iría el formulario de pago.</p>")
+    
+def confirmacion_pago(request, pedido_id):
+    """
+    Esta vista muestra una página de confirmación después de un pago exitoso.
+    """
+    # Aquí puedes recuperar información del pedido o del pago para mostrarla al usuario.
+    return HttpResponse(f"<h1>¡Pago Confirmado para Pedido #{pedido_id}!</h1>"
+                        "<p>Gracias por tu compra.</p>")
+
+def ver_remision(request, pedido_id):
+    """
+    Esta vista mostrará o generará una remisión para un pedido específico.
+    Similar a un recibo, pero quizás con información diferente para propósitos de entrega/envío.
+    """
+    # Aquí iría la lógica para obtener los datos del pedido y de la remisión.
+    # Podrías renderizar una plantilla HTML o incluso generar un PDF aquí mismo,
+    # similar a generar_recibo_pdf.
+    return HttpResponse(f"<h1>Remisión para Pedido #{pedido_id}</h1>"
+                        "<p>Detalles de la remisión y entrega.</p>")
+
+def generar_remision_admin(request, pedido_id):
+    """
+    Esta vista permite a los administradores o personal autorizado generar una remisión PDF.
+    Podría requerir autenticación y permisos especiales.
+    """
+    # Aquí la lógica para obtener los datos del pedido y generar un PDF de remisión.
+    # Es similar a generar_recibo_pdf, pero quizás con un formato diferente
+    # y datos específicos para una remisión administrativa.
+    return HttpResponse(f"<h1>Generando Remisión Admin para Pedido #{pedido_id}</h1>"
+                        "<p>Esta es una función administrativa para generar remisiones.</p>")
+
+@login_required
+def get_precio_carrito_item(request, item_id):
+    """
+    Vista AJAX que devuelve el precio actualizado de un ítem del carrito
+    cuando cambian los días de renta.
+    """
+    try:
+        # Buscar el item del carrito
+        item = get_object_or_404(CarritoItem, id=item_id, usuario=request.user)
+        
+        # Obtener los días de renta de la query string
+        dias_renta = int(request.GET.get('dias_renta', item.dias_renta))
+        
+        # Validar los días de renta
+        if not item.producto.es_dias_valido(dias_renta):
+            return JsonResponse({
+                'success': False,
+                'error': f'Los días deben ser múltiplos de {item.producto.dias_minimos_renta}'
+            }, status=400)
+        
+        # Calcular el precio total
+        precio_total = item.producto.get_precio_total(dias_renta, item.cantidad)
+        
+        return JsonResponse({
+            'success': True,
+            'item_id': item_id,
+            'precio_diario': float(item.producto.precio_diario),
+            'dias_renta': dias_renta,
+            'precio_total': float(precio_total),
+            'nombre_producto': item.producto.nombre
+        })
+        
+    except CarritoItem.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Item del carrito no encontrado'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error interno: {str(e)}'
+        }, status=500)
+
+@login_required
+def procesar_pago(request, pedido_id):
+    """Vista para procesar el pago de un pedido"""
+    from pedidos.models import Pedido
+    
+    # Get the order and verify it belongs to the user
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id, cliente__usuario=request.user)
+    
+    # Verify order is in a payable state
+    if pedido.estado_pedido_general not in ['pendiente_pago', 'pago_vencido', 'pago_rechazado']:
+        messages.error(request, 'Este pedido no está disponible para pago.')
+        return redirect('pedidos:mis_pedidos')
+    
+    if request.method == 'POST':
+        metodo_pago = request.POST.get('metodo_pago')
+        numero_referencia = request.POST.get('numero_referencia', '')
+        comprobante = request.FILES.get('comprobante')
+        
+        if not metodo_pago:
+            messages.error(request, 'Por favor selecciona un método de pago.')
+            return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})
+        
+        # Additional validation for non-cash payments
+        if metodo_pago in ['transferencia', 'tarjeta']:
+            if not numero_referencia:
+                messages.error(request, 'Por favor ingresa el número de referencia para este tipo de pago.')
+                return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})
+        
+        try:
+            with transaction.atomic():
+                # Create payment method record
+                metodo_pago_obj = MetodoPago.objects.create(
+                    pedido=pedido,  # Associate payment with the order
+                    usuario=request.user,
+                    tipo=metodo_pago,
+                    monto=pedido.total,
+                    numero_referencia=numero_referencia,
+                    comprobante=comprobante,
+                    estado='pendiente'  # Will be approved by admin
+                )
+                
+                # Update order with payment info
+                pedido.metodo_pago = metodo_pago
+                pedido.ref_pago = numero_referencia
+                if metodo_pago == 'efectivo':
+                    # Cash payments need admin approval
+                    pedido.estado_pedido_general = 'procesando_pago'
+                    messages.success(request, f'Tu pago en efectivo ha sido registrado. El pedido #{pedido.id_pedido} está siendo procesado.')
+                else:
+                    # Other payments also need approval
+                    pedido.estado_pedido_general = 'procesando_pago'
+                    messages.success(request, f'Tu pago ha sido registrado. El pedido #{pedido.id_pedido} está siendo procesado.')
+                
+                pedido.save()
+                
+                return redirect('pedidos:mis_pedidos')
+                
+        except Exception as e:
+            messages.error(request, f'Error al procesar el pago: {str(e)}')
+            return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})
+    
+    return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})

@@ -1,0 +1,578 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Iniciar Recorrido - Entrega #{{ entrega.pedido.id_pedido }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.start-journey-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.checklist-item {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-left: 5px solid #28a745;
+    display: flex;
+    align-items: center;
+    transition: all 0.3s ease;
+    color: #212529; /* Asegurar texto negro */
+}
+
+.checklist-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.checklist-item strong {
+    color: #212529; /* Texto negro para títulos */
+    font-weight: 600;
+}
+
+.checklist-item .text-muted {
+    color: #495057 !important; /* Gris más oscuro para mejor legibilidad */
+}
+
+.checklist-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-right: 15px;
+    accent-color: #28a745;
+}
+
+.vehicle-info-card {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    color: #212529; /* Texto negro */
+}
+
+.vehicle-info-card strong {
+    color: #343a40; /* Gris oscuro para labels */
+    font-weight: 600;
+}
+
+.gps-section {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border: 2px solid #2196f3;
+    color: #212529; /* Texto negro */
+}
+
+.gps-section strong {
+    color: #1976d2; /* Azul oscuro para labels GPS */
+    font-weight: 600;
+}
+
+.btn-start-journey {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    border: none;
+    color: white;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+}
+
+.btn-start-journey:hover {
+    background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.4);
+}
+
+.btn-start-journey:disabled {
+    background: #6c757d;
+    transform: none;
+    box-shadow: none;
+}
+
+.gps-coords {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    border: 2px solid #28a745;
+}
+
+.location-status {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.location-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.location-inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.countdown {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ffc107;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Encabezado -->
+    <div class="start-journey-card">
+        <h1 class="h2 mb-3">
+            <i class="fas fa-rocket"></i>
+            Iniciar Recorrido de Entrega
+        </h1>
+        <p class="h4 mb-4">Pedido #{{ entrega.pedido.id_pedido }}</p>
+        <div class="row">
+            <div class="col-md-4">
+                <i class="fas fa-user fa-2x mb-2"></i>
+                <h5>Cliente</h5>
+                <p>{{ entrega.pedido.cliente.usuario.get_full_name|default:entrega.pedido.cliente.usuario.username }}</p>
+            </div>
+            <div class="col-md-4">
+                <i class="fas fa-map-marker-alt fa-2x mb-2"></i>
+                <h5>Destino</h5>
+                <p>{{ entrega.direccion_destino|truncatechars:30 }}</p>
+            </div>
+            <div class="col-md-4">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <h5>Programada</h5>
+                <p>{{ entrega.fecha_programada|date:"d/m/Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información del Vehículo -->
+        <div class="col-md-6">
+            <div class="vehicle-info-card">
+                <h4><i class="fas fa-truck text-primary"></i> Información del Vehículo</h4>
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Placa:</strong><br>
+                        <span class="h5 text-primary">{{ entrega.vehiculo_placa }}</span>
+                    </div>
+                    <div class="col-6">
+                        <strong>Conductor:</strong><br>
+                        {{ entrega.conductor_nombre }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-6">
+                        <strong>Teléfono:</strong><br>
+                        <a href="tel:{{ entrega.conductor_telefono }}" class="text-decoration-none">
+                            {{ entrega.conductor_telefono }}
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <strong>Salida desde:</strong><br>
+                        {{ entrega.direccion_salida|truncatechars:20 }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ubicación GPS -->
+        <div class="col-md-6">
+            <div class="gps-section">
+                <h4><i class="fas fa-satellite-dish text-info"></i> Ubicación GPS</h4>
+                <div class="mb-3">
+                    <span class="location-status" id="gps-status">
+                        <i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...
+                    </span>
+                </div>
+                
+                <div class="gps-coords" id="gps-coords" style="display: none;">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Latitud:</strong><br>
+                            <span id="latitud-display">-</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Longitud:</strong><br>
+                            <span id="longitud-display">-</span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Precisión: <span id="precision-display">-</span> metros</small>
+                    </div>
+                </div>
+                
+                <button class="btn btn-outline-info btn-sm mt-2" onclick="obtenerUbicacion()">
+                    <i class="fas fa-crosshairs"></i> Actualizar Ubicación
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Verificación -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4><i class="fas fa-clipboard-check text-success"></i> Lista de Verificación Pre-Recorrido</h4>
+                </div>
+                <div class="card-body">
+                    <form id="checklistForm">
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check1" required>
+                            <div>
+                                <strong>Vehículo en condiciones óptimas</strong>
+                                <p class="mb-0 text-muted">Verificar combustible, aceite, frenos y neumáticos</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check2" required>
+                            <div>
+                                <strong>Documentos del vehículo</strong>
+                                <p class="mb-0 text-muted">SOAT, licencia de conducción y documentos de identidad</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check3" required>
+                            <div>
+                                <strong>Carga del pedido verificada</strong>
+                                <p class="mb-0 text-muted">Todos los productos del pedido están cargados y asegurados</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check4" required>
+                            <div>
+                                <strong>Información de contacto del cliente</strong>
+                                <p class="mb-0 text-muted">Teléfono y dirección exacta del cliente confirmados</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check5" required>
+                            <div>
+                                <strong>Dispositivo móvil cargado</strong>
+                                <p class="mb-0 text-muted">Batería suficiente y datos móviles para seguimiento GPS</p>
+                            </div>
+                        </div>
+                        
+                        <div class="checklist-item">
+                            <input type="checkbox" id="check6" required>
+                            <div>
+                                <strong>Ruta planificada</strong>
+                                <p class="mb-0 text-muted">Ruta óptima al destino revisada y alternativas identificadas</p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón de Inicio -->
+    <div class="row mt-4 mb-5">
+        <div class="col-12 text-center">
+            <form method="POST" id="startJourneyForm">
+                {% csrf_token %}
+                <input type="hidden" name="latitud" id="latitud-input">
+                <input type="hidden" name="longitud" id="longitud-input">
+                
+                <button type="button" class="btn btn-start-journey btn-lg pulse" id="startButton" disabled onclick="iniciarRecorrido()">
+                    <i class="fas fa-play me-2"></i>
+                    <span id="button-text">Complete la verificación para iniciar</span>
+                </button>
+                
+                <div class="mt-3">
+                    <a href="{% url 'pedidos:panel_entregas' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Cancelar y Volver
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Confirmar Inicio de Recorrido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>¿Está seguro de que desea iniciar el recorrido?</strong></p>
+                    <p>Una vez iniciado, el cliente podrá seguir la ubicación del vehículo en tiempo real.</p>
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Información del recorrido:</h6>
+                        <ul class="mb-0">
+                            <li><strong>Destino:</strong> {{ entrega.direccion_destino }}</li>
+                            <li><strong>Cliente:</strong> {{ entrega.pedido.cliente.usuario.get_full_name|default:entrega.pedido.cliente.usuario.username }}</li>
+                            <li><strong>Vehículo:</strong> {{ entrega.vehiculo_placa }}</li>
+                            <li><strong>Hora de inicio:</strong> <span id="hora-inicio"></span></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Debug info -->
+                    <div class="alert alert-warning" style="display: none;" id="debug-info">
+                        <small>Debug: <span id="debug-text"></span></small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="confirmarInicio()">
+                        <i class="fas fa-check"></i> Sí, Iniciar Recorrido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let ubicacionObtenida = false;
+
+// Obtener ubicación GPS automáticamente al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    obtenerUbicacion();
+    verificarFormulario();
+    
+    // Actualizar hora cada segundo
+    setInterval(actualizarHora, 1000);
+    actualizarHora();
+    
+    // Verificar formulario cuando cambien los checkboxes
+    document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', verificarFormulario);
+    });
+});
+
+function obtenerUbicacion() {
+    const statusElement = document.getElementById('gps-status');
+    statusElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Obteniendo ubicación...';
+    statusElement.className = 'location-status location-inactive';
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const precision = position.coords.accuracy;
+                
+                // Mostrar coordenadas
+                document.getElementById('latitud-display').textContent = lat.toFixed(6);
+                document.getElementById('longitud-display').textContent = lng.toFixed(6);
+                document.getElementById('precision-display').textContent = Math.round(precision);
+                
+                // Actualizar inputs ocultos
+                document.getElementById('latitud-input').value = lat;
+                document.getElementById('longitud-input').value = lng;
+                
+                // Mostrar coordenadas
+                document.getElementById('gps-coords').style.display = 'block';
+                
+                // Actualizar status
+                statusElement.innerHTML = '<i class="fas fa-check-circle"></i> Ubicación obtenida';
+                statusElement.className = 'location-status location-active';
+                
+                ubicacionObtenida = true;
+                verificarFormulario();
+            },
+            function(error) {
+                let mensaje = 'Error obteniendo ubicación';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        mensaje = 'Permisos de ubicación denegados';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        mensaje = 'Ubicación no disponible';
+                        break;
+                    case error.TIMEOUT:
+                        mensaje = 'Tiempo de espera agotado';
+                        break;
+                }
+                
+                statusElement.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + mensaje;
+                statusElement.className = 'location-status location-inactive';
+                
+                // Permitir continuar sin GPS
+                document.getElementById('gps-coords').style.display = 'none';
+                ubicacionObtenida = false;
+                verificarFormulario();
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
+            }
+        );
+    } else {
+        statusElement.innerHTML = '<i class="fas fa-times-circle"></i> GPS no soportado';
+        statusElement.className = 'location-status location-inactive';
+    }
+}
+
+function verificarFormulario() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const todosChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    const startButton = document.getElementById('startButton');
+    const buttonText = document.getElementById('button-text');
+    
+    if (todosChecked) {
+        startButton.disabled = false;
+        startButton.classList.add('pulse');
+        buttonText.textContent = 'INICIAR RECORRIDO';
+    } else {
+        startButton.disabled = true;
+        startButton.classList.remove('pulse');
+        buttonText.textContent = 'Complete la verificación para iniciar';
+    }
+}
+
+function iniciarRecorrido() {
+    console.log('iniciarRecorrido() llamado');
+    
+    try {
+        // Verificar que todos los checkboxes estén marcados
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        const todosChecked = Array.from(checkboxes).every(cb => cb.checked);
+        
+        if (!todosChecked) {
+            alert('Por favor, complete todos los elementos del checklist antes de continuar.');
+            return;
+        }
+        
+        console.log('Todos los checkboxes están marcados');
+        
+        // Mostrar modal de confirmación
+        const modalElement = document.getElementById('confirmModal');
+        if (modalElement) {
+            // Usar Bootstrap 5 API
+            const modal = new bootstrap.Modal(modalElement, {
+                backdrop: 'static',
+                keyboard: false
+            });
+            modal.show();
+            console.log('Modal mostrado');
+        } else {
+            console.error('No se encontró el modal confirmModal');
+            alert('Error: No se pudo mostrar el modal de confirmación.');
+        }
+        
+    } catch (error) {
+        console.error('Error en iniciarRecorrido:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+function confirmarInicio() {
+    console.log('confirmarInicio() llamado');
+    
+    try {
+        // Mostrar debug info
+        document.getElementById('debug-text').textContent = 'Iniciando proceso...';
+        document.getElementById('debug-info').style.display = 'block';
+        
+        // Cerrar modal usando Bootstrap 5 API
+        const modalElement = document.getElementById('confirmModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
+            console.log('Modal cerrado');
+        } else {
+            console.log('No se pudo obtener instancia del modal, cerrando manualmente');
+            modalElement.style.display = 'none';
+            modalElement.classList.remove('show');
+            document.body.classList.remove('modal-open');
+            // Remover backdrop si existe
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+        }
+        
+        // Mostrar loading en el botón
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando recorrido...';
+            startButton.disabled = true;
+            console.log('Botón actualizado');
+        } else {
+            console.log('No se encontró el botón startButton');
+        }
+        
+        // Verificar que el formulario existe
+        const form = document.getElementById('startJourneyForm');
+        if (form) {
+            console.log('Formulario encontrado, enviando...');
+            
+            // Debug: mostrar datos del formulario
+            const formData = new FormData(form);
+            console.log('Datos del formulario:');
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}: ${value}`);
+            }
+            
+            // Enviar formulario después de un breve delay
+            setTimeout(() => {
+                console.log('Enviando formulario...');
+                form.submit();
+            }, 500);
+        } else {
+            console.error('No se encontró el formulario startJourneyForm');
+            alert('Error: No se pudo encontrar el formulario. Por favor, recarga la página.');
+        }
+        
+    } catch (error) {
+        console.error('Error en confirmarInicio:', error);
+        alert('Error: ' + error.message);
+    }
+}
+
+function actualizarHora() {
+    const ahora = new Date();
+    document.getElementById('hora-inicio').textContent = ahora.toLocaleTimeString();
+}
+
+// Prevenir salida accidental
+window.addEventListener('beforeunload', function(e) {
+    if (!document.getElementById('startButton').disabled) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+</script>
+
+{% endblock %}

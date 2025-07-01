@@ -4,12 +4,99 @@ from .models import Usuario, MetodoPago, Cliente, Direccion
 from .models_divipola import Departamento, Municipio
 
 class RegistroForm(UserCreationForm):
-    telefono = forms.CharField(label='Teléfono', max_length=50)
-    direccion = forms.CharField(label='Dirección', max_length=255)
+    telefono = forms.CharField(
+        label='Teléfono', 
+        max_length=50, 
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: 3001234567'
+        })
+    )
+    direccion = forms.CharField(
+        label='Dirección', 
+        max_length=255, 
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ej: Carrera 7 # 123-45'
+        })
+    )
 
     class Meta:
         model = Usuario
-        fields = ('username', 'first_name', 'last_name', 'email', 'direccion', 'telefono', 'password1', 'password2')
+        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+        widgets = {
+            'username': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Nombre de usuario único'
+            }),
+            'first_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Tu nombre'
+            }),
+            'last_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Tu apellido'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'tu@email.com'
+            }),
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Personalizar widgets para campos de contraseña
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Contraseña segura'
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Confirma tu contraseña'
+        })
+        
+        # Personalizar labels
+        self.fields['username'].label = 'Nombre de usuario'
+        self.fields['first_name'].label = 'Nombre'
+        self.fields['last_name'].label = 'Apellido'
+        self.fields['email'].label = 'Correo electrónico'
+        self.fields['password1'].label = 'Contraseña'
+        self.fields['password2'].label = 'Confirmar contraseña'
+        
+    def clean_email(self):
+        """Validar que el email no esté ya registrado"""
+        email = self.cleaned_data.get('email')
+        if email and Usuario.objects.filter(email=email).exists():
+            raise forms.ValidationError("Ya existe un usuario registrado con este email.")
+        return email
+        
+    def clean_username(self):
+        """Validar que el username no esté ya registrado"""
+        username = self.cleaned_data.get('username')
+        if username and Usuario.objects.filter(username=username).exists():
+            raise forms.ValidationError("Ya existe un usuario registrado con este nombre de usuario.")
+        return username
+        
+    def clean_password1(self):
+        """Validar que la contraseña sea segura"""
+        password1 = self.cleaned_data.get('password1')
+        if password1:
+            if len(password1) < 8:
+                raise forms.ValidationError("La contraseña debe tener al menos 8 caracteres.")
+            if password1.isdigit():
+                raise forms.ValidationError("La contraseña no puede ser solo números.")
+            if password1.lower() in ['password', 'contraseña', '12345678', 'qwerty']:
+                raise forms.ValidationError("Esta contraseña es demasiado común.")
+        return password1
+        
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.rol = 'cliente'  # Establecer rol por defecto
+        if commit:
+            user.save()
+        return user
 
 class UsuarioForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), label="Contraseña")

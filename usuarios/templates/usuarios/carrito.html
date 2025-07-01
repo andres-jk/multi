@@ -28,11 +28,10 @@
                 <thead>
                     <tr>
                         <th>Producto</th>
-                        <th>Precio Unitario</th>
+                        <th>Precio Diario</th>
                         <th>Cantidad</th>
                         <th>Peso (kg)</th>
-                        <th>Tipo de Renta</th>
-                        <th>Período</th>
+                        <th>Días de Renta</th>
                         <th>Subtotal</th>
                         <th>Acciones</th>
                     </tr>
@@ -42,10 +41,8 @@
                     <tr>
                         <td>{{ item.producto.nombre }}</td>
                         <td id="precio_{{ item.id }}">
-                            ${{ item.precio_unitario|floatformat:2 }}
-                            <small class="text-muted d-block">
-                                {% if item.tipo_renta == 'semanal' %}por semana{% else %}por mes{% endif %}
-                            </small>
+                            ${{ item.producto.precio_diario|floatformat:2 }}
+                            <small class="text-muted d-block">por día</small>
                         </td>
                         <td>
                             <input type="number" 
@@ -58,28 +55,16 @@
                         </td>
                         <td>{{ item.producto.peso|floatformat:2 }}</td>
                         <td>
-                            <select name="tipo_renta_{{ item.id }}" 
-                                    class="form-control tipo-renta-select" 
-                                    data-item-id="{{ item.id }}"
-                                    style="width: 120px;">
-                                <option value="mensual" {% if item.tipo_renta == 'mensual' %}selected{% endif %}>
-                                    Mensual
-                                </option>
-                                <option value="semanal" {% if item.tipo_renta == 'semanal' %}selected{% endif %}>
-                                    Semanal
-                                </option>
-                            </select>
-                        </td>
-                        <td>
                             <input type="number"
-                                   name="periodo_{{ item.id }}"
-                                   value="{{ item.periodo_renta|default:item.meses_renta }}"
-                                   min="1"
-                                   max="12"
-                                   class="form-control periodo-input"
-                                   style="width: 70px;">
+                                   name="dias_{{ item.id }}"
+                                   value="{{ item.dias_renta }}"
+                                   min="{{ item.producto.dias_minimos_renta }}"
+                                   step="{{ item.producto.dias_minimos_renta }}"
+                                   class="form-control dias-input"
+                                   data-item-id="{{ item.id }}"
+                                   style="width: 80px;">
                             <small class="text-muted d-block">
-                                {{ item.get_descripcion_periodo }}
+                                mín. {{ item.producto.dias_minimos_renta }} día{{ item.producto.dias_minimos_renta|pluralize }}
                             </small>
                         </td>
                         <td>${{ item.subtotal|floatformat:2 }}</td>
@@ -101,7 +86,7 @@
         </div>
 
         <div class="cart-actions">
-            <button type="submit" class="btn btn-primary">
+            <button type="button" id="actualizar-carrito-btn" class="btn btn-primary">
                 <i class="fas fa-sync"></i> Actualizar carrito
             </button>
             <a href="{% url 'usuarios:checkout' %}" class="btn btn-success">
@@ -177,9 +162,10 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const cantidadInputs = document.querySelectorAll('.cantidad-input, .periodo-input');
-    const tipoRentaSelects = document.querySelectorAll('.tipo-renta-select');
+    const cantidadInputs = document.querySelectorAll('.cantidad-input');
+    const diasInputs = document.querySelectorAll('.dias-input');
     
+    // Manejar cambios en cantidad
     cantidadInputs.forEach(input => {
         input.addEventListener('change', function() {
             if (this.value < 1) {
@@ -187,119 +173,148 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('La cantidad debe ser mayor a 0', 'error');
             }
             
-            // Obtener el item ID del nombre del input
             const itemId = this.name.split('_')[1];
             updateSubtotal(itemId);
         });
     });
     
-    // Agregar event listeners para inputs de período
-    const periodoInputs = document.querySelectorAll('.periodo-input');
-    periodoInputs.forEach(input => {
+    // Manejar cambios en los días de renta
+    diasInputs.forEach(input => {
         input.addEventListener('change', function() {
-            const itemId = this.name.split('_')[1];
-            updateSubtotal(itemId);
-            
-            // Actualizar descripción del período
-            const tipoRentaSelect = document.querySelector(`select[name="tipo_renta_${itemId}"]`);
-            if (tipoRentaSelect) {
-                updateDescripcionPeriodo(itemId, tipoRentaSelect.value);
-            }
-        });
-    });
-    
-    // Manejar cambios en el tipo de renta
-    tipoRentaSelects.forEach(select => {
-        select.addEventListener('change', function() {
             const itemId = this.dataset.itemId;
-            const tipoRenta = this.value;
+            const diasRenta = parseInt(this.value);
             
-            // Actualizar precio unitario vía AJAX
-            updatePrecioUnitario(itemId, tipoRenta);
+            // Validar que sea múltiplo del mínimo
+            const minDias = parseInt(this.min);
+            if (diasRenta % minDias !== 0) {
+                alert(`Los días deben ser múltiplos de ${minDias}`);
+                this.value = Math.ceil(diasRenta / minDias) * minDias;
+                return;
+            }
             
-            // Actualizar descripción del período
-            updateDescripcionPeriodo(itemId, tipoRenta);
+            updateSubtotal(itemId);
         });
     });
-    
-    function updatePrecioUnitario(itemId, tipoRenta) {
-        fetch(`/carrito/precio/${itemId}/?tipo_renta=${tipoRenta}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const precioElement = document.getElementById('precio_' + itemId);
-                    const smallElement = precioElement.querySelector('small');
-                    
-                    // Actualizar precio
-                    const precioText = precioElement.firstChild;
-                    if (precioText && precioText.nodeType === Node.TEXT_NODE) {
-                        precioText.textContent = `$${data.precio_unitario.toFixed(2)}`;
-                    }
-                    
-                    // Actualizar etiqueta
-                    if (smallElement) {
-                        smallElement.textContent = tipoRenta === 'semanal' ? 'por semana' : 'por mes';
-                    }
-                    
-                    // Recalcular subtotal
-                    updateSubtotal(itemId);
-                } else {
-                    console.error('Error al obtener precio:', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error en la petición:', error);
-            });
-    }
     
     function updateSubtotal(itemId) {
-        const precioElement = document.getElementById('precio_' + itemId);
+        const precioDiarioElement = document.getElementById('precio_' + itemId);
         const cantidadInput = document.querySelector(`input[name="cantidad_${itemId}"]`);
-        const periodoInput = document.querySelector(`input[name="periodo_${itemId}"]`);
-        const subtotalElement = document.getElementById('subtotal_' + itemId);
+        const diasInput = document.querySelector(`input[name="dias_${itemId}"]`);
+        const subtotalElement = document.querySelector(`tr:nth-child(${getRowIndex(itemId)}) td:nth-child(6)`);
         
-        if (precioElement && cantidadInput && periodoInput && subtotalElement) {
-            const precioText = precioElement.firstChild.textContent.replace('$', '');
-            const precio = parseFloat(precioText);
-            const cantidad = parseInt(cantidadInput.value) || 1;
-            const periodo = parseInt(periodoInput.value) || 1;
+        if (precioDiarioElement && cantidadInput && diasInput && subtotalElement) {
+            // Extraer precio diario del texto
+            const precioTexto = precioDiarioElement.firstChild.textContent;
+            const precioDiario = parseFloat(precioTexto.replace('$', '').replace(',', ''));
             
-            const subtotal = precio * cantidad * periodo;
+            const cantidad = parseInt(cantidadInput.value) || 1;
+            const dias = parseInt(diasInput.value) || 1;
+            
+            const subtotal = precioDiario * cantidad * dias;
             subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
+            
+            updateGlobalTotal();
         }
     }
     
-    function updateDescripcionPeriodo(itemId, tipoRenta) {
-        const periodoInput = document.querySelector(`input[name="periodo_${itemId}"]`);
-        const currentValue = periodoInput.value;
-        const descripcion = periodoInput.parentElement.querySelector('small');
-        
-        if (descripcion) {
-            const periodo = parseInt(currentValue);
-            if (tipoRenta === 'semanal') {
-                descripcion.textContent = `${periodo} semana${periodo > 1 ? 's' : ''}`;
-            } else {
-                descripcion.textContent = `${periodo} mes${periodo > 1 ? 'es' : ''}`;
+    function getRowIndex(itemId) {
+        const rows = document.querySelectorAll('tbody tr');
+        for (let i = 0; i < rows.length; i++) {
+            const input = rows[i].querySelector('input[name^="cantidad_"]');
+            if (input && input.name.split('_')[1] === itemId) {
+                return i + 1; // +1 porque nth-child es 1-based
             }
         }
+        return 1;
+    }
+    
+    function updateGlobalTotal() {
+        let totalGlobal = 0;
+        document.querySelectorAll('tbody tr').forEach(function(row) {
+            const subtotalCell = row.querySelector('td:nth-child(6)');
+            if (subtotalCell) {
+                const subtotalText = subtotalCell.textContent.replace('$', '').replace(',', '');
+                const subtotal = parseFloat(subtotalText) || 0;
+                totalGlobal += subtotal;
+            }
+        });
+        
+        const totalElement = document.querySelector('tfoot td:nth-child(2) strong');
+        if (totalElement) {
+            totalElement.textContent = `$${totalGlobal.toFixed(2)}`;
+        }
+    }
+    
+    // Manejar el botón "Actualizar carrito"
+    const actualizarBtn = document.getElementById('actualizar-carrito-btn');
+    if (actualizarBtn) {
+        actualizarBtn.addEventListener('click', function() {
+            const form = document.querySelector('form[action="{% url "usuarios:actualizar_carrito" %}"]');
+            if (form) {
+                const formData = new FormData(form);
+                
+                // Mostrar indicador de carga
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+                this.disabled = true;
+                
+                // Enviar actualización via AJAX
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        // Recargar la página para mostrar los cambios
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showNotification(data.message || 'Error al actualizar el carrito', 'error');
+                        if (data.errors) {
+                            data.errors.forEach(error => showNotification(error, 'error'));
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error de conexión al actualizar el carrito', 'error');
+                })
+                .finally(() => {
+                    // Restaurar botón
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                });
+            }
+        });
     }
 });
 
-function showNotification(message, type) {
-    // Función para mostrar notificaciones (si existe)
-    console.log(`${type}: ${message}`);
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : (type === 'success' ? 'success' : 'info')} alert-dismissible fade show`;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9999';
+    notification.style.maxWidth = '400px';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()" aria-label="Close">&times;</button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 5000);
 }
-
-// Enviar el formulario automáticamente solo al cambiar el tipo de renta, NO el período
-window.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.tipo-renta-select').forEach(function(element) {
-        element.addEventListener('change', function() {
-            let form = element.closest('form');
-            if (form) {
-                form.submit();
-            }
-        });
-    });
-});
 </script>
 {% endblock %}

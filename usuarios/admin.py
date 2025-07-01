@@ -45,6 +45,12 @@ class ClienteInline(admin.StackedInline):
 class UsuarioAdmin(admin.ModelAdmin):
     add_form = UsuarioAdminCreationForm
     form = UsuarioAdminChangeForm
+    
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
     list_display = ('username', 'first_name', 'last_name', 'email', 'rol')
     search_fields = ('username', 'first_name', 'last_name', 'email', 'numero_identidad')
     list_filter = ('rol', 'is_active', EstadoUsuarioFilter, RolUsuarioFilter)
@@ -70,6 +76,11 @@ class UsuarioAdmin(admin.ModelAdmin):
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
     list_display = ('usuario', 'get_numero_identidad', 'telefono', 'get_estado_usuario')
     search_fields = ('usuario__username', 'usuario__first_name', 'usuario__last_name', 'usuario__numero_identidad')
     list_filter = (EstadoUsuarioFilter, RolUsuarioFilter)
@@ -85,7 +96,12 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(CarritoItem)
 class CarritoItemAdmin(admin.ModelAdmin):
-    list_display = ('usuario', 'producto', 'cantidad', 'meses_renta', 'fecha_agregado')
+    class Media:
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
+    
+    list_display = ('usuario', 'producto', 'cantidad', 'dias_renta', 'fecha_agregado')
     list_filter = ('fecha_agregado', 'reservado')
     search_fields = ('usuario__username', 'producto__nombre')
     raw_id_fields = ['usuario', 'producto']

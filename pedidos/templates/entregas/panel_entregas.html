@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Panel de Entregas - MultiAndamios{% endblock %}
+
+{% block extra_css %}
+<style>
+.delivery-card {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.delivery-card:hover {
+    box-shadow: 0 4px 15px rgba(0,123,255,0.1);
+    transform: translateY(-2px);
+}
+
+.status-badge {
+    font-size: 0.9em;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.status-programada { background-color: #6c757d; color: white; }
+.status-en_camino { background-color: #ffc107; color: #212529; }
+.status-entregada { background-color: #28a745; color: white; }
+.status-cancelada { background-color: #dc3545; color: white; }
+.status-devuelta { background-color: #17a2b8; color: white; }
+
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.stats-card h3 {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+
+.filter-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+}
+
+.vehicle-info {
+    background: #e3f2fd;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 0.9em;
+}
+
+.time-info {
+    background: #fff3e0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85em;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3">🚛 Panel de Entregas</h1>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'pedidos:pedidos_listos_entrega' %}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> Programar Nueva Entrega
+                    </a>
+                    <button class="btn btn-outline-primary" onclick="actualizarPagina()">
+                        <i class="fas fa-sync-alt"></i> Actualizar
+                    </button>
+                    {% if user.rol == 'admin' %}
+                    <a href="{% url 'pedidos:lista_pedidos' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-list"></i> Ver Pedidos
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);">
+                <h3>{{ estadisticas.total }}</h3>
+                <p class="mb-0">Total Entregas</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);">
+                <h3>{{ estadisticas.pendientes }}</h3>
+                <p class="mb-0">Pendientes</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #48dbfb 0%, #0abde3 100%);">
+                <h3>{{ estadisticas.en_camino }}</h3>
+                <p class="mb-0">En Camino</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stats-card" style="background: linear-gradient(135deg, #1dd1a1 0%, #10ac84 100%);">
+                <h3>{{ estadisticas.completadas }}</h3>
+                <p class="mb-0">Completadas</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filter-section">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label"><strong>Estado de Entrega:</strong></label>
+                <select name="estado" class="form-select" onchange="this.form.submit()">
+                    <option value="todas" {% if estado_filtro == 'todas' %}selected{% endif %}>Todas las entregas</option>
+                    {% for value, label in estados_choices %}
+                    <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label"><strong>Período:</strong></label>
+                <select name="fecha" class="form-select" onchange="this.form.submit()">
+                    <option value="hoy" {% if fecha_filtro == 'hoy' %}selected{% endif %}>Hoy</option>
+                    <option value="semana" {% if fecha_filtro == 'semana' %}selected{% endif %}>Esta semana</option>
+                    <option value="mes" {% if fecha_filtro == 'mes' %}selected{% endif %}>Este mes</option>
+                    <option value="todas" {% if fecha_filtro == 'todas' %}selected{% endif %}>Todas las fechas</option>
+                </select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-secondary" onclick="limpiarFiltros()">
+                    <i class="fas fa-eraser"></i> Limpiar Filtros
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de Entregas -->
+    <div class="row">
+        {% for entrega in entregas %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="delivery-card card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="{{ entrega.get_estado_icon }}"></i>
+                        Pedido #{{ entrega.pedido.id_pedido }}
+                    </h5>
+                    <span class="status-badge status-{{ entrega.estado_entrega }}">
+                        {{ entrega.get_estado_entrega_display }}
+                    </span>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Información del Cliente -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-user text-primary"></i> Cliente:</h6>
+                        <p class="mb-1">{{ entrega.pedido.cliente.usuario.get_full_name|default:entrega.pedido.cliente.usuario.username }}</p>
+                        <small class="text-muted">{{ entrega.pedido.direccion_entrega }}</small>
+                    </div>
+
+                    <!-- Información del Vehículo -->
+                    <div class="vehicle-info mb-3">
+                        <div class="row">
+                            <div class="col-6">
+                                <strong>🚛 {{ entrega.vehiculo_placa }}</strong>
+                            </div>
+                            <div class="col-6">
+                                <small>👨‍💼 {{ entrega.conductor_nombre }}</small>
+                            </div>
+                        </div>
+                        <div class="row mt-1">
+                            <div class="col-12">
+                                <small>📞 {{ entrega.conductor_telefono }}</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Tiempo -->
+                    <div class="time-info mb-3">
+                        <div class="row">
+                            <div class="col-12">
+                                <strong>📅 Programada:</strong> {{ entrega.fecha_programada|date:"d/m/Y H:i" }}
+                            </div>
+                            {% if entrega.fecha_inicio_recorrido %}
+                            <div class="col-12 mt-1">
+                                <strong>🚀 Iniciada:</strong> {{ entrega.fecha_inicio_recorrido|date:"d/m/Y H:i" }}
+                            </div>
+                            {% endif %}
+                            {% if entrega.tiempo_estimado_llegada %}
+                            <div class="col-12 mt-1">
+                                <strong>⏰ Est. Llegada:</strong> {{ entrega.tiempo_estimado_llegada|date:"H:i" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Valor del Pedido -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-dollar-sign text-success"></i> Valor Total:</h6>
+                        <p class="h5 text-success">${{ entrega.pedido.total|floatformat:0|intcomma }}</p>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{% url 'pedidos:detalle_entrega' entrega.id %}" 
+                           class="btn btn-outline-primary btn-sm flex-fill">
+                            <i class="fas fa-eye"></i> Ver Detalle
+                        </a>
+                        
+                        {% if entrega.estado_entrega == 'programada' %}
+                        <a href="{% url 'pedidos:iniciar_recorrido' entrega.id %}" 
+                           class="btn btn-success btn-sm flex-fill">
+                            <i class="fas fa-play"></i> Iniciar
+                        </a>
+                        {% elif entrega.estado_entrega == 'en_camino' %}
+                        <a href="{% url 'pedidos:seguimiento_entrega' entrega.id %}" 
+                           class="btn btn-warning btn-sm flex-fill">
+                            <i class="fas fa-map-marker-alt"></i> Seguir
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <div class="mb-4">
+                    <i class="fas fa-truck-loading fa-4x text-muted"></i>
+                </div>
+                <h4 class="text-muted">No hay entregas para mostrar</h4>
+                <p class="text-muted">
+                    {% if estado_filtro != 'todas' or fecha_filtro != 'todas' %}
+                    Intenta cambiar los filtros para ver más entregas.
+                    {% else %}
+                    No hay entregas programadas en este momento.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Scripts -->
+<script>
+function actualizarPagina() {
+    location.reload();
+}
+
+function limpiarFiltros() {
+    window.location.href = '{% url "pedidos:panel_entregas" %}';
+}
+
+// Auto-actualizar cada 30 segundos
+setInterval(function() {
+    // Solo actualizar si hay entregas en camino
+    const entregasEnCamino = document.querySelectorAll('.status-en_camino').length;
+    if (entregasEnCamino > 0) {
+        actualizarPagina();
+    }
+}, 30000);
+
+// Mostrar notificación de nuevas entregas
+function mostrarNotificacionNuevaEntrega() {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Nueva Entrega Programada', {
+            body: 'Se ha programado una nueva entrega',
+            icon: '/static/logo_multiandamios.png'
+        });
+    }
+}
+
+// Solicitar permisos de notificación
+if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+}
+</script>
+
+{% endblock %}

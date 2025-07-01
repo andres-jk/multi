@@ -21,12 +21,7 @@
             
             <div class="product-info">
                 <div class="price-section">
-                    <h2 class="price-mensual">${{ producto.precio }}</h2>
-                    <span class="rent-type">por mes</span>
-                    {% if producto.precio_semanal %}
-                    <h3 class="price-semanal">${{ producto.precio_semanal }}</h3>
-                    <span class="rent-type">por semana</span>
-                    {% endif %}
+                    <h2 class="price-main">{{ producto.get_precio_display }}</h2>
                 </div>
                 
                 <div class="availability">
@@ -47,7 +42,8 @@
                 <div class="specs">
                     <h3>Detalles</h3>
                     <ul>
-                        <li><strong>Tipo de Renta:</strong> {{ producto.tipo_renta }}</li>
+                        <li><strong>Precio por día:</strong> ${{ producto.precio_diario|floatformat:2 }}</li>
+                        <li><strong>Días mínimos:</strong> {{ producto.dias_minimos_renta }} día{{ producto.dias_minimos_renta|pluralize }}</li>
                         <li><strong>Referencia:</strong> #{{ producto.id_producto }}</li>
                     </ul>
                 </div>
@@ -61,17 +57,17 @@
                             <input type="number" name="cantidad" id="cantidad" min="1" max="{{ producto.cantidad_disponible }}" value="1" required>
                         </div>
                         <div class="form-group">
-                            <label for="tipo_renta">Tipo de renta:</label>
-                            <select name="tipo_renta" id="tipo_renta" required>
-                                <option value="mensual">Mensual</option>
-                                <option value="semanal">Semanal</option>
+                            <label for="dias_renta">Días de renta:</label>
+                            <select name="dias_renta" id="dias_renta" required>
+                                {% for dias in producto.get_opciones_dias_renta %}
+                                    <option value="{{ dias }}" {% if dias == producto.dias_minimos_renta %}selected{% endif %}>
+                                        {{ dias }} día{{ dias|pluralize }}
+                                    </option>
+                                {% endfor %}
                             </select>
+                            <small>Solo se permiten múltiplos de {{ producto.dias_minimos_renta }} día{{ producto.dias_minimos_renta|pluralize }}</small>
                         </div>
-                        <div class="form-group">
-                            <label for="periodo_renta">Período de renta:</label>
-                            <input type="number" name="periodo_renta" id="periodo_renta" min="1" max="12" value="1" required>
-                            <small>Ingrese el número de meses o semanas según el tipo de renta seleccionado</small>
-                        </div>
+                        <div id="precio-preview" style="display: none;"></div>
                         <button type="submit" class="btn btn-primary">Añadir al Carrito</button>
                     </form>
                 </div>
@@ -93,20 +89,11 @@
     margin-bottom: 20px;
 }
 
-.price-mensual, .price-semanal {
+.price-main {
     margin: 0;
     color: #007bff;
-}
-
-.price-semanal {
-    font-size: 1.2em;
-    color: #28a745;
-}
-
-.rent-type {
-    font-size: 0.9em;
-    color: #6c757d;
-    margin-bottom: 10px;
+    font-size: 1.8em;
+    font-weight: bold;
 }
 
 .form-group {
@@ -135,72 +122,42 @@
 
 #precio-preview {
     background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 4px;
-    margin: 10px 0;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
     border-left: 4px solid #007bff;
+    font-size: 1.1em;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const tipoRentaSelect = document.getElementById('tipo_renta');
-    const periodoInput = document.getElementById('periodo_renta');
+    const diasRentaSelect = document.getElementById('dias_renta');
     const cantidadInput = document.getElementById('cantidad');
+    const precioPreview = document.getElementById('precio-preview');
     
     // Precios del producto
-    const precioMensual = {{ producto.precio }};
-    const precioSemanal = {% if producto.precio_semanal %}{{ producto.precio_semanal }}{% else %}{{ producto.precio|floatformat:2 }} / 4{% endif %};
+    const precioDiario = {{ producto.precio_diario }};
     
     function actualizarPrecioPreview() {
-        const tipoRenta = tipoRentaSelect.value;
-        const periodo = parseInt(periodoInput.value) || 1;
+        const diasRenta = parseInt(diasRentaSelect.value) || {{ producto.dias_minimos_renta }};
         const cantidad = parseInt(cantidadInput.value) || 1;
         
-        let precioUnitario = tipoRenta === 'semanal' ? precioSemanal : precioMensual;
-        let total = precioUnitario * periodo * cantidad;
-        let unidadTiempo = tipoRenta === 'semanal' ? 'semana' : 'mes';
-        let unidadTiempoPlural = tipoRenta === 'semanal' ? 'semanas' : 'meses';
+        let total = precioDiario * diasRenta * cantidad;
         
-        let preview = document.getElementById('precio-preview');
-        if (!preview) {
-            preview = document.createElement('div');
-            preview.id = 'precio-preview';
-            periodoInput.parentNode.appendChild(preview);
-        }
-        
-        preview.innerHTML = `
+        precioPreview.style.display = 'block';
+        precioPreview.innerHTML = `
             <strong>Precio estimado:</strong><br>
-            $${precioUnitario.toFixed(2)} por ${unidadTiempo} × ${periodo} ${periodo > 1 ? unidadTiempoPlural : unidadTiempo} × ${cantidad} unidad${cantidad > 1 ? 'es' : ''} = 
+            $${precioDiario.toFixed(2)} por día × ${diasRenta} día${diasRenta > 1 ? 's' : ''} × ${cantidad} unidad${cantidad > 1 ? 'es' : ''} = 
             <span style="color: #007bff; font-weight: bold;">$${total.toFixed(2)}</span>
         `;
     }
     
-    function actualizarEtiquetaPeriodo() {
-        const tipoRenta = tipoRentaSelect.value;
-        const label = document.querySelector('label[for="periodo_renta"]');
-        const small = document.querySelector('label[for="periodo_renta"]').nextElementSibling.nextElementSibling;
-        
-        if (tipoRenta === 'semanal') {
-            label.textContent = 'Período de renta (semanas):';
-            small.textContent = 'Ingrese el número de semanas';
-        } else {
-            label.textContent = 'Período de renta (meses):';
-            small.textContent = 'Ingrese el número de meses';
-        }
-    }
-    
     // Event listeners
-    tipoRentaSelect.addEventListener('change', function() {
-        actualizarEtiquetaPeriodo();
-        actualizarPrecioPreview();
-    });
-    
-    periodoInput.addEventListener('input', actualizarPrecioPreview);
+    diasRentaSelect.addEventListener('change', actualizarPrecioPreview);
     cantidadInput.addEventListener('input', actualizarPrecioPreview);
     
     // Inicializar
-    actualizarEtiquetaPeriodo();
     actualizarPrecioPreview();
 });
 </script>

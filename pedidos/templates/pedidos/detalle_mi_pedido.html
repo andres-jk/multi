@@ -30,8 +30,8 @@
                 <tr>
                     <th>Producto</th>
                     <th>Cantidad</th>
-                    <th>Meses</th>
-                    <th>Precio/Mes</th>
+                    <th>Días</th>
+                    <th>Precio/Día</th>
                     <th>Subtotal</th>
                 </tr>
             </thead>
@@ -40,8 +40,8 @@
                 <tr>
                     <td>{{ detalle.producto.nombre }}</td>
                     <td>{{ detalle.cantidad }}</td>
-                    <td>{{ detalle.meses_renta }}</td>
-                    <td>${{ detalle.precio_unitario }}</td>
+                    <td>{{ detalle.dias_renta }}</td>
+                    <td>${{ detalle.precio_diario }}</td>
                     <td>${{ detalle.subtotal }}</td>
                 </tr>
                 {% endfor %}

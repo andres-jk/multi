@@ -1,0 +1,910 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Dashboard de Tiempo de Rentas{% endblock %}
+{% block content %}
+<div class="card card-dashboard">
+    <h1 class="highlight">📊 Dashboard de Tiempo de Rentas</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Métricas principales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-center mb-2">
+                        <div class="icon-circle bg-primary text-white me-3">
+                            <i class="fas fa-list"></i>
+                        </div>
+                        <div>
+                            <h2 class="mb-0">{{ total_activos }}</h2>
+                            <p class="text-muted mb-0">Total Activos</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-center mb-2">
+                        <div class="icon-circle bg-danger text-white me-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <h2 class="mb-0 text-danger">{{ contadores.vencidos }}</h2>
+                            <p class="text-muted mb-0">Vencidos</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-danger" role="progressbar" 
+                             style="width: {{ porcentajes.vencidos }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-center mb-2">
+                        <div class="icon-circle bg-warning text-white me-3">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div>
+                            <h2 class="mb-0 text-warning">{{ contadores.vence_hoy }}</h2>
+                            <p class="text-muted mb-0">Vencen Hoy</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-warning" role="progressbar" 
+                             style="width: {{ porcentajes.vence_hoy }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-center mb-2">
+                        <div class="icon-circle bg-success text-white me-3">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div>
+                            <h2 class="mb-0 text-success">${{ ingresos_activos|floatformat:0|intcomma }}</h2>
+                            <p class="text-muted mb-0">Ingresos Activos</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de estado crítico -->
+    {% if porcentaje_urgentes > 15 %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>🚨 Estado Crítico:</strong> {{ porcentaje_urgentes }}% de los pedidos activos están en estado crítico.
+        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-sm btn-outline-danger ms-2">
+            Ver Notificaciones
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% elif porcentaje_urgentes > 5 %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>⚠️ Atención:</strong> {{ porcentaje_urgentes }}% de los pedidos activos requieren atención.
+        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-sm btn-outline-warning ms-2">
+            Ver Notificaciones
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- Gráficos y estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📈 Distribución por Estado de Tiempo</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="estadoTiempoChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📊 Estadísticas Detalladas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <span class="stat-label">🚨 Vencidos:</span>
+                                <span class="stat-value text-danger">{{ contadores.vencidos }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⏰ Vencen Hoy:</span>
+                                <span class="stat-value text-warning">{{ contadores.vence_hoy }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⚠️ Vencen Pronto:</span>
+                                <span class="stat-value text-info">{{ contadores.vence_pronto }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <span class="stat-label">✅ Normales:</span>
+                                <span class="stat-value text-success">{{ contadores.normales }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⏸️ Sin Iniciar:</span>
+                                <span class="stat-value text-secondary">{{ contadores.sin_iniciar }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">🔥 Críticos:</span>
+                                <span class="stat-value text-danger">{{ porcentaje_urgentes }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedidos urgentes -->
+    {% if pedidos_urgentes %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">🚨 Pedidos Urgentes (Primeros 10)</h5>
+            <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-light btn-sm">
+                Ver Todos
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Cliente</th>
+                            <th>Estado</th>
+                            <th>Tiempo</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pedido in pedidos_urgentes %}
+                        <tr class="{% if pedido.get_estado_tiempo_renta == 'vencido' %}table-danger{% else %}table-warning{% endif %}">
+                            <td>
+                                <strong>#{{ pedido.id_pedido }}</strong><br>
+                                <small>{{ pedido.fecha|date:"d/m/Y" }}</small>
+                            </td>
+                            <td>
+                                {{ pedido.cliente.usuario.get_full_name }}<br>
+                                <small class="text-muted">{{ pedido.cliente.usuario.numero_identidad }}</small>
+                            </td>
+                            <td>
+                                {% if pedido.get_estado_tiempo_renta == 'vencido' %}
+                                    <span class="badge bg-danger">🚨 Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-warning">⏰ Vence Hoy</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong class="{% if pedido.get_estado_tiempo_renta == 'vencido' %}text-danger{% else %}text-warning{% endif %}">
+                                    {{ pedido.get_tiempo_restante_renta_humanizado }}
+                                </strong>
+                            </td>
+                            <td>${{ pedido.total|floatformat:0|intcomma }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-xs">👁️</a>
+                                    <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-xs">📄</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Productos más rentados -->
+    {% if productos_populares %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">🏆 Productos Más Rentados</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for producto in productos_populares %}
+                <div class="col-md-6 mb-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="icon-circle bg-info text-white">
+                                <strong>{{ forloop.counter }}</strong>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{{ producto.producto__nombre }}</h6>
+                            <p class="mb-0">
+                                <small class="text-muted">
+                                    {{ producto.total_cantidad }} unidades en {{ producto.total_pedidos }} pedidos
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Acciones rápidas -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">⚡ Acciones Rápidas</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-danger">
+                            🔔 Notificaciones
+                        </a>
+                        <a href="{% url 'pedidos:reporte_tiempo_global' %}" class="btn btn-primary">
+                            📊 Reporte Global
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'pedidos:lista_pedidos' %}" class="btn btn-secondary">
+                            📋 Todos los Pedidos
+                        </a>
+                        <button class="btn btn-success" onclick="location.reload()">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-info" onclick="exportarDatos()">
+                            📊 Exportar Datos
+                        </button>
+                        <button class="btn btn-warning" onclick="configurarAlertas()">
+                            ⚙️ Configurar Alertas
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="window.print()">
+                            🖨️ Imprimir
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="verAyuda()">
+                            ❓ Ayuda
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Última actualización -->
+    <div class="mt-3 text-center">
+        <small class="text-muted">
+            Última actualización: <span id="ultimaActualizacion"></span>
+        </small>
+    </div>
+</div>
+
+<style>
+.card-dashboard {
+    margin: 20px auto;
+    max-width: 1400px;
+}
+
+.icon-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-weight: 500;
+    flex-grow: 1;
+}
+
+.stat-value {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.btn-xs {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.progress {
+    height: 8px;
+}
+
+@media print {
+    .btn, .card-header {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .card-dashboard {
+        margin: 10px;
+    }
+    
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Actualizar hora
+function actualizarHora() {
+    const ahora = new Date();
+    document.getElementById('ultimaActualizacion').textContent = ahora.toLocaleString();
+}
+actualizarHora();
+
+// Gráfico de estado de tiempo
+const ctx = document.getElementById('estadoTiempoChart').getContext('2d');
+const estadoTiempoChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['🚨 Vencidos', '⏰ Vencen Hoy', '⚠️ Vencen Pronto', '✅ Normales', '⏸️ Sin Iniciar'],
+        datasets: [{
+            data: [
+                {{ contadores.vencidos }},
+                {{ contadores.vence_hoy }},
+                {{ contadores.vence_pronto }},
+                {{ contadores.normales }},
+                {{ contadores.sin_iniciar }}
+            ],
+            backgroundColor: [
+                '#dc3545', // Rojo - Vencidos
+                '#ffc107', // Amarillo - Vencen hoy
+                '#17a2b8', // Azul - Vencen pronto
+                '#28a745', // Verde - Normales
+                '#6c757d'  // Gris - Sin iniciar
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    usePointStyle: true,
+                    padding: 15
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = total > 0 ? ((context.parsed * 100) / total).toFixed(1) : 0;
+                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Funciones de acciones rápidas
+function exportarDatos() {
+    alert('🚧 Función en desarrollo - Exportar datos del dashboard');
+}
+
+function configurarAlertas() {
+    alert('🚧 Función en desarrollo - Configurar alertas automáticas');
+}
+
+function verAyuda() {
+    alert('🚧 Función en desarrollo - Mostrar ayuda del dashboard');
+}
+
+// Auto-refresh cada 2 minutos
+setInterval(function() {
+    actualizarHora();
+    
+    // Mostrar notificación de actualización
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-primary border-0 position-fixed bottom-0 end-0 m-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                🔄 Dashboard actualizado automáticamente
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 3000);
+}, 120000); // 2 minutos
+
+// Función para actualizar datos en tiempo real (simulación)
+function simularActualizacionTiempoReal() {
+    // En un sistema real, esto haría una llamada AJAX para obtener datos actualizados
+    console.log('Actualizando datos en tiempo real...');
+}
+
+// Actualizar cada 30 segundos (solo para pedidos críticos)
+setInterval(simularActualizacionTiempoReal, 30000);
+</script>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-center mb-2">
+                        <div class="icon-circle bg-success text-white me-3">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div>
+                            <h2 class="mb-0 text-success">${{ ingresos_activos|floatformat:0 }}</h2>
+                            <p class="text-muted mb-0">Ingresos Activos</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de estado crítico -->
+    {% if porcentaje_urgentes > 15 %}
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong>🚨 Estado Crítico:</strong> {{ porcentaje_urgentes }}% de los pedidos activos están en estado crítico.
+        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-sm btn-outline-danger ms-2">
+            Ver Notificaciones
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% elif porcentaje_urgentes > 5 %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <strong>⚠️ Atención:</strong> {{ porcentaje_urgentes }}% de los pedidos activos requieren atención.
+        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-sm btn-outline-warning ms-2">
+            Ver Notificaciones
+        </a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- Gráficos y estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📈 Distribución por Estado de Tiempo</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="estadoTiempoChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>📊 Estadísticas Detalladas</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <span class="stat-label">🚨 Vencidos:</span>
+                                <span class="stat-value text-danger">{{ contadores.vencidos }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⏰ Vencen Hoy:</span>
+                                <span class="stat-value text-warning">{{ contadores.vence_hoy }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⚠️ Vencen Pronto:</span>
+                                <span class="stat-value text-info">{{ contadores.vence_pronto }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="stat-item">
+                                <span class="stat-label">✅ Normales:</span>
+                                <span class="stat-value text-success">{{ contadores.normales }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">⏸️ Sin Iniciar:</span>
+                                <span class="stat-value text-secondary">{{ contadores.sin_iniciar }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">🔥 Críticos:</span>
+                                <span class="stat-value text-danger">{{ porcentaje_urgentes }}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedidos urgentes -->
+    {% if pedidos_urgentes %}
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">🚨 Pedidos Urgentes (Primeros 10)</h5>
+            <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-light btn-sm">
+                Ver Todos
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Cliente</th>
+                            <th>Estado</th>
+                            <th>Tiempo</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pedido in pedidos_urgentes %}
+                        <tr class="{% if pedido.get_estado_tiempo_renta == 'vencido' %}table-danger{% else %}table-warning{% endif %}">
+                            <td>
+                                <strong>#{{ pedido.id_pedido }}</strong><br>
+                                <small>{{ pedido.fecha|date:"d/m/Y" }}</small>
+                            </td>
+                            <td>
+                                {{ pedido.cliente.usuario.get_full_name }}<br>
+                                <small class="text-muted">{{ pedido.cliente.usuario.numero_identidad }}</small>
+                            </td>
+                            <td>
+                                {% if pedido.get_estado_tiempo_renta == 'vencido' %}
+                                    <span class="badge bg-danger">🚨 Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-warning">⏰ Vence Hoy</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong class="{% if pedido.get_estado_tiempo_renta == 'vencido' %}text-danger{% else %}text-warning{% endif %}">
+                                    {{ pedido.get_tiempo_restante_renta_humanizado }}
+                                </strong>
+                            </td>
+                            <td>${{ pedido.total|floatformat:0 }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-xs">👁️</a>
+                                    <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-xs">📄</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Productos más rentados -->
+    {% if productos_populares %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">🏆 Productos Más Rentados</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for producto in productos_populares %}
+                <div class="col-md-6 mb-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <div class="icon-circle bg-info text-white">
+                                <strong>{{ forloop.counter }}</strong>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h6 class="mb-1">{{ producto.producto__nombre }}</h6>
+                            <p class="mb-0">
+                                <small class="text-muted">
+                                    {{ producto.total_cantidad }} unidades en {{ producto.total_pedidos }} pedidos
+                                </small>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Acciones rápidas -->
+    <div class="card">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="mb-0">⚡ Acciones Rápidas</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-danger">
+                            🔔 Notificaciones
+                        </a>
+                        <a href="{% url 'pedidos:reporte_tiempo_global' %}" class="btn btn-primary">
+                            📊 Reporte Global
+                        </a>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'pedidos:lista_pedidos' %}" class="btn btn-secondary">
+                            📋 Todos los Pedidos
+                        </a>
+                        <button class="btn btn-success" onclick="location.reload()">
+                            🔄 Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-info" onclick="exportarDatos()">
+                            📊 Exportar Datos
+                        </button>
+                        <button class="btn btn-warning" onclick="configurarAlertas()">
+                            ⚙️ Configurar Alertas
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="window.print()">
+                            🖨️ Imprimir
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="verAyuda()">
+                            ❓ Ayuda
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Última actualización -->
+    <div class="mt-3 text-center">
+        <small class="text-muted">
+            Última actualización: <span id="ultimaActualizacion"></span>
+        </small>
+    </div>
+</div>
+
+<style>
+.card-dashboard {
+    margin: 20px auto;
+    max-width: 1400px;
+}
+
+.icon-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    font-weight: 500;
+    flex-grow: 1;
+}
+
+.stat-value {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.btn-xs {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.progress {
+    height: 8px;
+}
+
+@media print {
+    .btn, .card-header {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .card-dashboard {
+        margin: 10px;
+    }
+    
+    .icon-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Actualizar hora
+function actualizarHora() {
+    const ahora = new Date();
+    document.getElementById('ultimaActualizacion').textContent = ahora.toLocaleString();
+}
+actualizarHora();
+
+// Gráfico de estado de tiempo
+const ctx = document.getElementById('estadoTiempoChart').getContext('2d');
+const estadoTiempoChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['🚨 Vencidos', '⏰ Vencen Hoy', '⚠️ Vencen Pronto', '✅ Normales', '⏸️ Sin Iniciar'],
+        datasets: [{
+            data: [
+                {{ contadores.vencidos }},
+                {{ contadores.vence_hoy }},
+                {{ contadores.vence_pronto }},
+                {{ contadores.normales }},
+                {{ contadores.sin_iniciar }}
+            ],
+            backgroundColor: [
+                '#dc3545', // Rojo - Vencidos
+                '#ffc107', // Amarillo - Vencen hoy
+                '#17a2b8', // Azul - Vencen pronto
+                '#28a745', // Verde - Normales
+                '#6c757d'  // Gris - Sin iniciar
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    usePointStyle: true,
+                    padding: 15
+                }
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((context.parsed * 100) / total).toFixed(1);
+                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Funciones de acciones rápidas
+function exportarDatos() {
+    alert('🚧 Función en desarrollo - Exportar datos del dashboard');
+}
+
+function configurarAlertas() {
+    alert('🚧 Función en desarrollo - Configurar alertas automáticas');
+}
+
+function verAyuda() {
+    alert('🚧 Función en desarrollo - Mostrar ayuda del dashboard');
+}
+
+// Auto-refresh cada 2 minutos
+setInterval(function() {
+    actualizarHora();
+    
+    // Mostrar notificación de actualización
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-primary border-0 position-fixed bottom-0 end-0 m-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                🔄 Dashboard actualizado automáticamente
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 3000);
+}, 120000); // 2 minutos
+
+// Función para actualizar datos en tiempo real (simulación)
+function simularActualizacionTiempoReal() {
+    // En un sistema real, esto haría una llamada AJAX para obtener datos actualizados
+    console.log('Actualizando datos en tiempo real...');
+}
+
+// Actualizar cada 30 segundos (solo para pedidos críticos)
+setInterval(simularActualizacionTiempoReal, 30000);
+</script>
+{% endblock %}

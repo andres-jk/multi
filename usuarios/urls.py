@@ -35,8 +35,8 @@ urlpatterns = [
     path('direcciones/editar/<int:direccion_id>/', views.editar_direccion, name='editar_direccion'),
     path('direcciones/eliminar/<int:direccion_id>/', views.eliminar_direccion, name='eliminar_direccion'),
     path('checkout/', views.checkout, name='checkout'),
-    path('mis-pedidos/', views.mis_pedidos, name='mis_pedidos'),
-    path('mis-pedidos/<int:pedido_id>/', views.detalle_pedido, name='detalle_pedido'),
+    path('procesar-pago/<int:pedido_id>/', views.procesar_pago, name='procesar_pago'),
+    # URLs de mis-pedidos movidas a pedidos/urls.py para evitar duplicación
     path('recibo-pdf/<int:pedido_id>/', views.generar_recibo_pdf, name='generar_recibo_pdf'),
     path('carrito/pago/<int:pedido_id>/', views.pago_recibo, name='pago_recibo'),
     path('carrito/confirmacion/<int:pedido_id>/', views.confirmacion_pago, name='confirmacion_pago'),

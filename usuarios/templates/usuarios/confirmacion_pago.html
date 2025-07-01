@@ -94,8 +94,8 @@
                                 <tr>
                                     <th>Producto</th>
                                     <th class="text-center">Cantidad</th>
-                                    <th class="text-center">Meses</th>
-                                    <th class="text-end">Precio/Mes</th>
+                                    <th class="text-center">Días</th>
+                                    <th class="text-end">Precio/Día</th>
                                     <th class="text-end">Subtotal</th>
                                 </tr>
                             </thead>
@@ -104,8 +104,8 @@
                                 <tr>
                                     <td>{{ detalle.producto.nombre }}</td>
                                     <td class="text-center">{{ detalle.cantidad }}</td>
-                                    <td class="text-center">{{ detalle.meses_renta }}</td>
-                                    <td class="text-end">${{ detalle.precio_unitario|floatformat:0|intcomma }}</td>
+                                    <td class="text-center">{{ detalle.dias_renta }}</td>
+                                    <td class="text-end">${{ detalle.precio_diario|floatformat:0|intcomma }}</td>
                                     <td class="text-end">${{ detalle.subtotal|floatformat:0|intcomma }}</td>
                                 </tr>
                                 {% endfor %}

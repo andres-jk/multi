@@ -1,0 +1,161 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <!-- CSS específico para formularios de cambio -->
+    <style type="text/css">
+        /* Reglas específicas para change_form con máxima especificidad */
+        
+        /* FILAS DE FORMULARIO */
+        body.change-form .form-row:hover,
+        body.change-form .form-row:focus-within,
+        .change-form .form-row:hover,
+        .change-form .form-row:focus-within,
+        .form-row:hover,
+        .form-row:focus-within {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-radius: 4px !important;
+            padding: 8px !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        /* CAMPOS DE ENTRADA */
+        body.change-form .form-row:hover input,
+        body.change-form .form-row:hover select,
+        body.change-form .form-row:hover textarea,
+        body.change-form input:hover,
+        body.change-form select:hover,
+        body.change-form textarea:hover,
+        .change-form .form-row:hover input,
+        .change-form .form-row:hover select,
+        .change-form .form-row:hover textarea,
+        .change-form input:hover,
+        .change-form select:hover,
+        .change-form textarea:hover,
+        .form-row:hover input,
+        .form-row:hover select,
+        .form-row:hover textarea,
+        input:hover,
+        select:hover,
+        textarea:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+            outline: 2px solid #f1c40f !important;
+            outline-offset: 1px !important;
+        }
+        
+        /* FOCUS EN CAMPOS */
+        body.change-form input:focus,
+        body.change-form select:focus,
+        body.change-form textarea:focus,
+        .change-form input:focus,
+        .change-form select:focus,
+        .change-form textarea:focus,
+        input:focus,
+        select:focus,
+        textarea:focus {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #f1c40f !important;
+            outline: 2px solid #f1c40f !important;
+            outline-offset: 1px !important;
+            box-shadow: 0 0 8px rgba(241, 196, 15, 0.3) !important;
+        }
+        
+        /* LABELS */
+        body.change-form .form-row:hover label,
+        body.change-form .form-row:focus-within label,
+        .change-form .form-row:hover label,
+        .change-form .form-row:focus-within label,
+        .form-row:hover label,
+        .form-row:focus-within label {
+            color: #ffffff !important;
+            background-color: transparent !important;
+            font-weight: bold !important;
+        }
+        
+        /* WIDGETS ESPECÍFICOS */
+        body.change-form .form-row:hover .vTextField,
+        body.change-form .form-row:hover .vTextareaField,
+        body.change-form .form-row:hover .vSelectField,
+        body.change-form .form-row:hover .vDateField,
+        body.change-form .form-row:hover .vTimeField,
+        body.change-form .form-row:hover .vURLField,
+        body.change-form .form-row:hover .vIntegerField,
+        .change-form .form-row:hover .vTextField,
+        .change-form .form-row:hover .vTextareaField,
+        .change-form .form-row:hover .vSelectField,
+        .change-form .form-row:hover .vDateField,
+        .change-form .form-row:hover .vTimeField,
+        .change-form .form-row:hover .vURLField,
+        .change-form .form-row:hover .vIntegerField,
+        .form-row:hover .vTextField,
+        .form-row:hover .vTextareaField,
+        .form-row:hover .vSelectField,
+        .form-row:hover .vDateField,
+        .form-row:hover .vTimeField,
+        .form-row:hover .vURLField,
+        .form-row:hover .vIntegerField {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+        
+        /* CHECKBOXES Y RADIOS */
+        body.change-form input[type="checkbox"]:hover,
+        body.change-form input[type="radio"]:hover,
+        .change-form input[type="checkbox"]:hover,
+        .change-form input[type="radio"]:hover,
+        input[type="checkbox"]:hover,
+        input[type="radio"]:hover {
+            background-color: #2c3e50 !important;
+            border-color: #34495e !important;
+            accent-color: #f1c40f !important;
+            transform: scale(1.1) !important;
+        }
+        
+        /* BOTONES */
+        body.change-form input[type="submit"]:hover,
+        body.change-form button:hover,
+        body.change-form .button:hover,
+        .change-form input[type="submit"]:hover,
+        .change-form button:hover,
+        .change-form .button:hover,
+        .submit-row input[type="submit"]:hover,
+        .submit-row button:hover,
+        .submit-row .button:hover {
+            background-color: #f1c40f !important;
+            color: #2c3e50 !important;
+            border-color: #f39c12 !important;
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        }
+        
+        /* CAMPOS READONLY */
+        body.change-form .form-row:hover .readonly,
+        .change-form .form-row:hover .readonly,
+        .form-row:hover .readonly {
+            background-color: #34495e !important;
+            color: #ecf0f1 !important;
+            border-color: #4a4a4a !important;
+        }
+        
+        /* HELP TEXT */
+        body.change-form .form-row:hover .help,
+        .change-form .form-row:hover .help,
+        .form-row:hover .help {
+            color: #bdc3c7 !important;
+            background-color: transparent !important;
+        }
+        
+        /* ERRORES */
+        body.change-form .form-row:hover .errorlist,
+        .change-form .form-row:hover .errorlist,
+        .form-row:hover .errorlist {
+            color: #e74c3c !important;
+            background-color: transparent !important;
+        }
+    </style>
+{% endblock %}

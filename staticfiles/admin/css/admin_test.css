@@ -1,0 +1,44 @@
+/* CSS DE PRUEBA SIMPLIFICADO - MÁXIMA PRIORIDAD */
+
+/* REGLA DE PRUEBA SIMPLE */
+body {
+    --test-color: #ff0000; /* Variable de prueba */
+}
+
+/* FILAS DE TABLA - PRUEBA */
+.change-list tbody tr:hover {
+    background-color: #ff0000 !important; /* ROJO PARA PRUEBA */
+    color: #ffffff !important;
+}
+
+.change-list tbody tr:hover td {
+    background-color: #ff0000 !important; /* ROJO PARA PRUEBA */
+    color: #ffffff !important;
+}
+
+/* CAMPOS DE FORMULARIO - PRUEBA */
+.form-row:hover {
+    background-color: #00ff00 !important; /* VERDE PARA PRUEBA */
+    color: #000000 !important;
+}
+
+input:hover {
+    background-color: #0000ff !important; /* AZUL PARA PRUEBA */
+    color: #ffffff !important;
+}
+
+/* SOBRESCRIBIR TODO - MÁXIMA FUERZA */
+* {
+    transition: all 0.1s ease !important;
+}
+
+/* REGLA NUCLEAR - SOBRESCRIBE TODO */
+.change-list tbody tr:hover,
+.change-list tbody tr:hover td,
+.change-list tbody tr:hover th,
+body.change-list #changelist #changelist-results table tbody tr:hover,
+body.change-list #changelist #changelist-results table tbody tr:hover td {
+    background-color: #ff0000 !important; /* ROJO VISIBLE */
+    color: #ffffff !important;
+    border: 2px solid #ffff00 !important; /* BORDE AMARILLO */
+}

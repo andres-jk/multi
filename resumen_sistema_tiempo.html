@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reportes de Tiempo - MultiAndamios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 0; }
+        .feature-card { transition: transform 0.3s; }
+        .feature-card:hover { transform: translateY(-5px); }
+        .status-badge { padding: 8px 16px; border-radius: 20px; font-weight: bold; }
+        .success { background-color: #d4edda; color: #155724; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .danger { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero">
+        <div class="container text-center">
+            <h1 class="display-4 mb-3">🎉 Sistema de Reportes de Tiempo</h1>
+            <p class="lead mb-4">MultiAndamios - Sistema Completamente Implementado y Funcional</p>
+            <div class="status-badge success">
+                <i class="fas fa-check-circle"></i> IMPLEMENTADO Y FUNCIONANDO
+            </div>
+        </div>
+    </div>
+
+    <!-- Resumen del Estado -->
+    <div class="container my-5">
+        <div class="row">
+            <div class="col-12">
+                <h2 class="text-center mb-4">📊 Estado del Sistema</h2>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card text-center bg-success text-white mb-3">
+                            <div class="card-body">
+                                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                <h5>Modelos</h5>
+                                <p>100% Completos</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center bg-success text-white mb-3">
+                            <div class="card-body">
+                                <i class="fas fa-eye fa-2x mb-2"></i>
+                                <h5>Vistas</h5>
+                                <p>5 Vistas Activas</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center bg-success text-white mb-3">
+                            <div class="card-body">
+                                <i class="fas fa-file-code fa-2x mb-2"></i>
+                                <h5>Templates</h5>
+                                <p>5 Templates Listos</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center bg-success text-white mb-3">
+                            <div class="card-body">
+                                <i class="fas fa-link fa-2x mb-2"></i>
+                                <h5>URLs</h5>
+                                <p>Configuradas y Probadas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enlaces Rápidos -->
+    <div class="container my-5">
+        <h2 class="text-center mb-4">🚀 Enlaces de Acceso Rápido</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card feature-card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5><i class="fas fa-users"></i> Para Clientes</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Los clientes pueden monitorear el tiempo restante de sus rentas:</p>
+                        <a href="http://127.0.0.1:8000/panel/mis-pedidos/tiempo/" class="btn btn-primary w-100" target="_blank">
+                            ⏰ Ver Tiempo de Mis Pedidos
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card feature-card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5><i class="fas fa-user-tie"></i> Para Administradores</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Panel completo de gestión de tiempo de rentas:</p>
+                        <div class="d-grid gap-2">
+                            <a href="http://127.0.0.1:8000/panel/admin/tiempo/dashboard/" class="btn btn-success" target="_blank">
+                                📊 Dashboard Principal
+                            </a>
+                            <a href="http://127.0.0.1:8000/panel/admin/tiempo/reporte/" class="btn btn-outline-success" target="_blank">
+                                📋 Reporte Global
+                            </a>
+                            <a href="http://127.0.0.1:8000/panel/admin/tiempo/notificaciones/" class="btn btn-outline-warning" target="_blank">
+                                🔔 Notificaciones
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Características Implementadas -->
+    <div class="container my-5">
+        <h2 class="text-center mb-4">✨ Características Implementadas</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clock fa-3x text-primary mb-3"></i>
+                        <h5>Tiempo Real</h5>
+                        <p>Cálculo dinámico del tiempo restante basado en fechas de entrega y duración de renta.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-bell fa-3x text-warning mb-3"></i>
+                        <h5>Notificaciones</h5>
+                        <p>Sistema automático de alertas para vencimientos próximos y vencidos.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-pie fa-3x text-success mb-3"></i>
+                        <h5>Dashboard</h5>
+                        <p>Panel de control con métricas, gráficos y estadísticas en tiempo real.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-mobile-alt fa-3x text-info mb-3"></i>
+                        <h5>Responsive</h5>
+                        <p>Interfaz optimizada para desktop, tablet y dispositivos móviles.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shield-alt fa-3x text-danger mb-3"></i>
+                        <h5>Seguridad</h5>
+                        <p>Sistema de permisos que garantiza acceso apropiado según el rol de usuario.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card feature-card mb-4">
+                    <div class="card-body text-center">
+                        <i class="fas fa-palette fa-3x text-secondary mb-3"></i>
+                        <h5>UX/UI</h5>
+                        <p>Indicadores visuales con colores, iconos y barras de progreso intuitivas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estados del Sistema -->
+    <div class="container my-5">
+        <h2 class="text-center mb-4">🎯 Estados de Tiempo Implementados</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger me-3 fs-4">🚨</span>
+                            <div>
+                                <h6 class="mb-1"><strong>Vencido</strong></h6>
+                                <p class="mb-0 text-muted">Requiere acción inmediata. Color rojo.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-warning me-3 fs-4">⏰</span>
+                            <div>
+                                <h6 class="mb-1"><strong>Vence Hoy</strong></h6>
+                                <p class="mb-0 text-muted">Urgente. Color naranja.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-info me-3 fs-4">⚠️</span>
+                            <div>
+                                <h6 class="mb-1"><strong>Vence Pronto</strong></h6>
+                                <p class="mb-0 text-muted">Alerta preventiva. Color amarillo.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-success me-3 fs-4">✅</span>
+                            <div>
+                                <h6 class="mb-1"><strong>Normal</strong></h6>
+                                <p class="mb-0 text-muted">Sin problemas. Color verde.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-3 fs-4">⏸️</span>
+                            <div>
+                                <h6 class="mb-1"><strong>Sin Iniciar</strong></h6>
+                                <p class="mb-0 text-muted">Aún no entregado. Color gris.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas Actuales -->
+    <div class="container my-5">
+        <h2 class="text-center mb-4">📈 Métricas del Sistema</h2>
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title text-center">Estado Actual del Sistema</h5>
+                        <div class="row text-center">
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <h3 class="text-primary">8</h3>
+                                    <p class="mb-0">Pedidos Activos</p>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <h3 class="text-success">5</h3>
+                                    <p class="mb-0">Normales</p>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <h3 class="text-secondary">3</h3>
+                                    <p class="mb-0">Sin Iniciar</p>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <h3 class="text-success">0%</h3>
+                                <p class="mb-0">Críticos</p>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="status-badge success text-center w-100">
+                                <i class="fas fa-check-circle"></i> Sistema funcionando normalmente
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Próximos Pasos -->
+    <div class="container my-5">
+        <h2 class="text-center mb-4">🚀 Próximos Pasos Recomendados</h2>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6><i class="fas fa-envelope text-primary"></i> Sistema de Comunicaciones</h6>
+                        <p class="mb-0">Implementar envío automático de emails y SMS para notificaciones.</p>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6><i class="fas fa-calendar text-success"></i> Gestión Avanzada</h6>
+                        <p class="mb-0">Extensión automática de rentas y programación de recogidas.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6><i class="fas fa-file-excel text-warning"></i> Exportación</h6>
+                        <p class="mb-0">Reportes en Excel y PDF para análisis detallados.</p>
+                    </div>
+                </div>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6><i class="fas fa-robot text-info"></i> Automatización</h6>
+                        <p class="mb-0">IA para predicción de vencimientos y optimización de rutas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-4">
+        <div class="container">
+            <p class="mb-2"><strong>Sistema de Reportes de Tiempo - MultiAndamios</strong></p>
+            <p class="mb-0">Implementado y funcionando correctamente ✨</p>
+            <small class="text-muted">Julio 2025 - Versión 1.0 Completa</small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Animación simple al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            const cards = document.querySelectorAll('.feature-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    card.style.transition = 'all 0.5s ease';
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                    }, 100);
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

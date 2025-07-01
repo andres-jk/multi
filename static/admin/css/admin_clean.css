@@ -1,0 +1,227 @@
+/* CSS LIMPIO Y FUNCIONAL PARA ADMIN DJANGO - CONTRASTE MEJORADO */
+
+/* ========================================== */
+/* VARIABLES CSS PARA CONSISTENCIA */
+/* ========================================== */
+:root {
+    --admin-hover-bg: #2c3e50;
+    --admin-hover-text: #ffffff;
+    --admin-hover-link: #f1c40f;
+    --admin-hover-border: #34495e;
+    --admin-input-hover-bg: #4a4a4a;
+}
+
+/* ========================================== */
+/* FILAS DE TABLA - HOVER OSCURO */
+/* ========================================== */
+.change-list tbody tr:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    transition: all 0.2s ease !important;
+}
+
+.change-list tbody tr:hover td {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-border) !important;
+}
+
+.change-list tbody tr:hover th {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+}
+
+/* ========================================== */
+/* ENLACES EN FILAS - AMARILLO DESTACADO */
+/* ========================================== */
+.change-list tbody tr:hover a {
+    color: var(--admin-hover-link) !important;
+    text-decoration: none !important;
+    font-weight: bold !important;
+}
+
+.change-list tbody tr:hover a:hover {
+    text-decoration: underline !important;
+}
+
+/* ========================================== */
+/* CAMPOS DE FORMULARIO - HOVER OSCURO */
+/* ========================================== */
+.form-row:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-radius: 4px !important;
+    padding: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+.form-row:hover label {
+    color: var(--admin-hover-text) !important;
+    font-weight: bold !important;
+}
+
+/* ========================================== */
+/* INPUTS Y CONTROLES - HOVER/FOCUS */
+/* ========================================== */
+input:hover,
+textarea:hover,
+select:hover {
+    background-color: var(--admin-input-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-border) !important;
+    transition: all 0.2s ease !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    background-color: var(--admin-input-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-link) !important;
+    outline: 2px solid var(--admin-hover-link) !important;
+    outline-offset: 1px !important;
+}
+
+/* ========================================== */
+/* CHECKBOXES Y RADIOS */
+/* ========================================== */
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+    background-color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-link) !important;
+    accent-color: var(--admin-hover-link) !important;
+}
+
+/* ========================================== */
+/* BOTONES - HOVER DESTACADO */
+/* ========================================== */
+.button:hover,
+input[type="submit"]:hover,
+button:hover {
+    background-color: var(--admin-hover-link) !important;
+    color: var(--admin-hover-bg) !important;
+    border-color: #f39c12 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    transition: all 0.2s ease !important;
+}
+
+/* ========================================== */
+/* ACCIONES Y FILTROS */
+/* ========================================== */
+.actions select:hover,
+.actions button:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-border) !important;
+}
+
+#changelist-filter li:hover,
+#changelist-filter li:hover a {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+}
+
+/* ========================================== */
+/* PAGINACIÓN */
+/* ========================================== */
+.paginator a:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-color: var(--admin-hover-border) !important;
+    border-radius: 4px !important;
+    padding: 6px 10px !important;
+}
+
+/* ========================================== */
+/* NAVEGACIÓN Y BREADCRUMBS */
+/* ========================================== */
+.breadcrumbs a:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-link) !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+}
+
+/* ========================================== */
+/* CAMPOS ESPECÍFICOS DEL PROYECTO */
+/* ========================================== */
+.field-precio_diario:hover,
+.field-dias_minimos_renta:hover {
+    background-color: #e8f5e8 !important;
+    border-color: #28a745 !important;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25) !important;
+}
+
+.change-list tbody tr:hover .field-precio_diario,
+.change-list tbody tr:hover .field-dias_minimos_renta {
+    background-color: var(--admin-hover-border) !important;
+    color: var(--admin-hover-link) !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+}
+
+/* ========================================== */
+/* MENSAJES DEL SISTEMA */
+/* ========================================== */
+.messagelist .info:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+}
+
+.messagelist .success:hover {
+    background-color: #1e5d2e !important;
+    color: var(--admin-hover-text) !important;
+}
+
+.messagelist .warning:hover {
+    background-color: #8b5a00 !important;
+    color: var(--admin-hover-text) !important;
+}
+
+.messagelist .error:hover {
+    background-color: #8b0000 !important;
+    color: var(--admin-hover-text) !important;
+}
+
+/* ========================================== */
+/* ELEMENTOS INLINE */
+/* ========================================== */
+.inline-group .tabular tr:hover {
+    background-color: #f0f8ff !important;
+}
+
+.inline-group .tabular tr:hover td {
+    background-color: transparent !important;
+    color: var(--admin-hover-bg) !important;
+}
+
+/* ========================================== */
+/* ELEMENTOS DE AYUDA */
+/* ========================================== */
+.help:hover {
+    background-color: var(--admin-hover-bg) !important;
+    color: var(--admin-hover-text) !important;
+    border-radius: 4px !important;
+    padding: 6px !important;
+}
+
+/* ========================================== */
+/* CAMPOS DE SOLO LECTURA */
+/* ========================================== */
+.readonly:hover {
+    background-color: var(--admin-hover-border) !important;
+    color: #ecf0f1 !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+}
+
+/* ========================================== */
+/* TRANSICIONES GLOBALES */
+/* ========================================== */
+* {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}

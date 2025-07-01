@@ -1,0 +1,81 @@
+{% extends "admin/base.html" %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <!-- CSS limpio con máxima especificidad para sobrescribir Django admin -->
+    <link rel="stylesheet" type="text/css" href="{% load static %}{% static "admin/css/admin_clean.css" %}">
+    <style type="text/css">
+        /* CSS inline crítico para máxima prioridad */
+        
+        /* Variables CSS globales */
+        :root {
+            --admin-hover-bg: #2c3e50 !important;
+            --admin-hover-text: #ffffff !important;
+            --admin-hover-link: #f1c40f !important;
+        }
+        
+        /* Filas de tabla con hover - PRIORIDAD MÁXIMA */
+        body.change-list #changelist-results table tbody tr:hover,
+        .change-list tbody tr:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+        }
+        
+        body.change-list #changelist-results table tbody tr:hover td,
+        .change-list tbody tr:hover td {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+        
+        /* Enlaces en filas con hover */
+        body.change-list #changelist-results table tbody tr:hover a,
+        .change-list tbody tr:hover a {
+            color: #f1c40f !important;
+            font-weight: bold !important;
+            text-decoration: none !important;
+        }
+        
+        /* Campos de formulario con hover */
+        body.change-form .form-row:hover,
+        .form-row:hover {
+            background-color: #2c3e50 !important;
+            color: #ffffff !important;
+            border-radius: 4px !important;
+            padding: 8px !important;
+        }
+        
+        /* Inputs con hover/focus */
+        body input:hover,
+        body textarea:hover,
+        body select:hover {
+            background-color: #4a4a4a !important;
+            color: #ffffff !important;
+            border-color: #34495e !important;
+        }
+        
+        body input:focus,
+        body textarea:focus,
+        body select:focus {
+            background-color: #4a4a4a !important;
+            color: #ffffff !important;
+            border-color: #f1c40f !important;
+            outline: 2px solid #f1c40f !important;
+        }
+        
+        /* Labels en hover */
+        .form-row:hover label {
+            color: #ffffff !important;
+            font-weight: bold !important;
+        }
+        
+        /* Botones con hover */
+        body .button:hover,
+        body input[type="submit"]:hover,
+        body button:hover {
+            background-color: #f1c40f !important;
+            color: #2c3e50 !important;
+            border-color: #f39c12 !important;
+        }
+    </style>
+{% endblock %}

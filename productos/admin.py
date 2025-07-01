@@ -1,18 +1,26 @@
 from django.contrib import admin
+from django.utils.html import format_html
 from .models import Producto
+from .forms import ProductoAdminForm
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
+    form = ProductoAdminForm
+    
+    class Media:
+        js = ('admin/js/producto_admin.js',)
+        css = {
+            'all': ('admin/css/admin_custom.css',)
+        }
     list_display = [
         'nombre', 
-        'tipo_renta', 
-        'precio', 
-        'precio_semanal', 
+        'precio_display', 
+        'dias_minimos_renta',
         'peso',
         'cantidad_disponible', 
         'activo'
     ]
-    list_filter = ['tipo_renta', 'activo']
+    list_filter = ['dias_minimos_renta', 'activo']
     search_fields = ['nombre', 'descripcion']
     list_editable = ['activo']
     
@@ -20,9 +28,9 @@ class ProductoAdmin(admin.ModelAdmin):
         ('Información Básica', {
             'fields': ('nombre', 'descripcion', 'imagen', 'activo')
         }),
-        ('Precios y Tipo de Renta', {
-            'fields': ('tipo_renta', 'precio', 'precio_semanal', 'peso'),
-            'description': 'Configure el tipo de renta, precios y peso del producto. Si no especifica precio semanal, se calculará automáticamente como precio mensual ÷ 4.'
+        ('Precios y Renta', {
+            'fields': ('precio_diario', 'dias_minimos_renta', 'peso'),
+            'description': 'Configure el precio diario y los días mínimos de renta.'
         }),
         ('Inventario', {
             'fields': ('cantidad_disponible', 'cantidad_reservada', 'cantidad_en_renta'),
@@ -32,11 +40,7 @@ class ProductoAdmin(admin.ModelAdmin):
     
     readonly_fields = ['cantidad_reservada', 'cantidad_en_renta']
     
-    def save_model(self, request, obj, form, change):
-        """Personalizar el guardado para calcular precio semanal automáticamente"""
-        super().save_model(request, obj, form, change)
-        
-    class Media:
-        css = {
-            'all': ('admin/css/admin_custom.css',)
-        }
+    def precio_display(self, obj):
+        """Mostrar el precio formateado"""
+        return obj.get_precio_display()
+    precio_display.short_description = 'Precio'

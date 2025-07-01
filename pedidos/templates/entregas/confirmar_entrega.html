@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmar Entrega - MultiAndamios{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/entregas.css' %}">
+<style>
+    .confirmation-card {
+        max-width: 600px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
+        color: #212529; /* Texto negro para mejor legibilidad */
+    }
+    
+    .confirmation-header {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        padding: 25px;
+        text-align: center;
+    }
+    
+    .confirmation-header h1,
+    .confirmation-header h2,
+    .confirmation-header p {
+        color: white;
+    }
+    
+    .confirmation-body {
+        padding: 30px;
+        color: #212529; /* Texto negro */
+    }
+    
+    .confirmation-body h3,
+    .confirmation-body h4,
+    .confirmation-body h5,
+    .confirmation-body strong {
+        color: #343a40; /* Títulos en gris oscuro */
+    }
+    
+    .confirmation-body .text-muted {
+        color: #6c757d !important; /* Texto auxiliar más oscuro */
+    }
+    
+    .delivery-summary {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 25px;
+        color: #212529; /* Texto negro */
+    }
+    
+    .delivery-summary h4,
+    .delivery-summary h5,
+    .delivery-summary strong {
+        color: #343a40; /* Títulos en gris oscuro */
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        color: #343a40; /* Labels en gris oscuro */
+        font-weight: 600;
+    }
+    
+    .form-control {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+        color: #212529; /* Texto negro */
+    }
+    
+    .form-control:focus {
+        border-color: #28a745;
+        box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        color: #212529; /* Texto negro */
+    }
+    
+    .btn-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-top: 30px;
+    }
+    
+    .btn {
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        border: none;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        color: white;
+    }
+    
+    .confirmation-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #dee2e6;
+        color: #212529; /* Texto negro */
+    }
+    
+    .info-row strong {
+        color: #343a40; /* Labels en gris oscuro */
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .info-value {
+        color: #28a745;
+        font-weight: 500;
+    }
+    
+    .alert-info {
+        background-color: #e3f2fd;
+        border-color: #2196f3;
+        color: #1976d2;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="confirmation-card">
+        <div class="confirmation-header">
+            <div class="confirmation-icon">
+                <i class="fas fa-truck"></i>
+            </div>
+            <h2>Confirmar Entrega</h2>
+            <p class="mb-0">Pedido #{{ entrega.pedido.id_pedido }}</p>
+        </div>
+        
+        <div class="confirmation-body">
+            <div class="delivery-summary">
+                <h5 class="mb-3">
+                    <i class="fas fa-info-circle text-primary"></i>
+                    Resumen de la Entrega
+                </h5>
+                
+                <div class="info-row">
+                    <span class="info-label">Cliente:</span>
+                    <span class="info-value">{{ entrega.pedido.cliente.nombre_completo }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Dirección:</span>
+                    <span class="info-value">{{ entrega.direccion_destino }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Vehículo:</span>
+                    <span class="info-value">{{ entrega.vehiculo_placa }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Conductor:</span>
+                    <span class="info-value">{{ entrega.conductor_nombre }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Fecha programada:</span>
+                    <span class="info-value">{{ entrega.fecha_programada|date:"d/m/Y H:i" }}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Tiempo en ruta:</span>
+                    <span class="info-value">
+                        {% if entrega.fecha_inicio_recorrido %}
+                            {{ entrega.tiempo_en_ruta }} minutos
+                        {% else %}
+                            No iniciado
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <i class="fas fa-clock"></i>
+                <strong>Importante:</strong> 
+                Al confirmar esta entrega, se iniciará automáticamente el contador de tiempo para la devolución del pedido. 
+                El cliente será notificado y comenzará su período de renta.
+            </div>
+            
+            <form method="post" id="confirmarEntregaForm">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="observaciones_entrega" class="form-label">
+                        <i class="fas fa-sticky-note"></i>
+                        Observaciones de la entrega (opcional)
+                    </label>
+                    <textarea class="form-control" 
+                              id="observaciones_entrega" 
+                              name="observaciones_entrega" 
+                              rows="3" 
+                              placeholder="Ej: Cliente satisfecho, productos en perfecto estado, entrega sin novedad..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="confirmarCheckbox" 
+                               required>
+                        <label class="form-check-label" for="confirmarCheckbox">
+                            Confirmo que la entrega se ha realizado correctamente y el cliente ha recibido todos los productos
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-success btn-lg" id="btnConfirmar" disabled>
+                        <i class="fas fa-check-circle"></i>
+                        Confirmar Entrega
+                    </button>
+                    <a href="{% url 'pedidos:seguimiento_entrega' entrega.id %}" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-arrow-left"></i>
+                        Volver al Seguimiento
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('confirmarCheckbox');
+    const btnConfirmar = document.getElementById('btnConfirmar');
+    
+    // Habilitar/deshabilitar botón según checkbox
+    checkbox.addEventListener('change', function() {
+        btnConfirmar.disabled = !this.checked;
+    });
+    
+    // Confirmación antes de enviar
+    document.getElementById('confirmarEntregaForm').addEventListener('submit', function(e) {
+        if (!confirm('¿Está seguro de que desea confirmar esta entrega? Esta acción no se puede deshacer.')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

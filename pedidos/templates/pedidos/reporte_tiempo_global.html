@@ -1,0 +1,346 @@
+{% extends 'base.html' %}
+{% block title %}Reporte Global de Tiempo{% endblock %}
+{% block content %}
+<div class="card card-admin">
+    <h1 class="highlight">📊 Reporte Global de Tiempo de Rentas</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Estadísticas principales -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_activos }}</h3>
+                    <p>Total Activos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-danger text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_vencidos }}</h3>
+                    <p>Vencidos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-warning text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_vence_hoy }}</h3>
+                    <p>Vencen Hoy</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_vence_pronto }}</h3>
+                    <p>Vencen Pronto</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_normales }}</h3>
+                    <p>Normales</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-secondary text-white">
+                <div class="card-body">
+                    <h3>{{ estadisticas.total_sin_iniciar }}</h3>
+                    <p>Sin Iniciar</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alerta de críticos -->
+    {% if estadisticas.porcentaje_criticos > 10 %}
+    <div class="alert alert-danger">
+        <strong>⚠️ Atención:</strong> {{ estadisticas.porcentaje_criticos }}% de los pedidos están en estado crítico (vencidos o vencen hoy).
+    </div>
+    {% endif %}
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>🔍 Filtros</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Cliente</label>
+                    <input type="text" class="form-control" name="cliente" value="{{ filtros.cliente }}" placeholder="Nombre o cédula">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estado del Pedido</label>
+                    <select class="form-select" name="estado">
+                        <option value="">Todos</option>
+                        {% for estado_key, estado_name in estados_pedido %}
+                            <option value="{{ estado_key }}" {% if filtros.estado == estado_key %}selected{% endif %}>{{ estado_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estado de Tiempo</label>
+                    <select class="form-select" name="tiempo">
+                        <option value="">Todos</option>
+                        <option value="criticos" {% if filtros.tiempo == 'criticos' %}selected{% endif %}>🚨 Críticos</option>
+                        <option value="alerta" {% if filtros.tiempo == 'alerta' %}selected{% endif %}>⚠️ Alerta</option>
+                        <option value="normal" {% if filtros.tiempo == 'normal' %}selected{% endif %}>✅ Normal</option>
+                        <option value="sin_iniciar" {% if filtros.tiempo == 'sin_iniciar' %}selected{% endif %}>⏸️ Sin Iniciar</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                        <a href="{% url 'pedidos:reporte_tiempo_global' %}" class="btn btn-secondary">Limpiar</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Acciones rápidas -->
+    <div class="mb-3">
+        <a href="{% url 'pedidos:dashboard_tiempo' %}" class="btn btn-info">📊 Dashboard</a>
+        <a href="{% url 'pedidos:notificaciones_vencimiento' %}" class="btn btn-warning">🔔 Notificaciones</a>
+        <button class="btn btn-success" onclick="window.print()">🖨️ Imprimir</button>
+    </div>
+
+    <!-- Lista de pedidos -->
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Pedido #</th>
+                    <th>Cliente</th>
+                    <th>Estado</th>
+                    <th>Fecha Pedido</th>
+                    <th>Inicio Renta</th>
+                    <th>Fin Renta</th>
+                    <th>Tiempo Restante</th>
+                    <th>Estado Tiempo</th>
+                    <th>Progreso</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in pedidos %}
+                <tr class="
+                    {% if pedido.get_estado_tiempo_renta == 'vencido' %}table-danger
+                    {% elif pedido.get_estado_tiempo_renta == 'vence_hoy' %}table-warning
+                    {% elif pedido.get_estado_tiempo_renta == 'vence_pronto' %}table-info
+                    {% elif pedido.get_estado_tiempo_renta == 'normal' %}table-success
+                    {% else %}table-secondary{% endif %}
+                ">
+                    <td><strong>#{{ pedido.id_pedido }}</strong></td>
+                    <td>
+                        {{ pedido.cliente.usuario.get_full_name }}<br>
+                        <small class="text-muted">{{ pedido.cliente.usuario.numero_identidad }}</small>
+                    </td>
+                    <td>
+                        <span class="badge 
+                            {% if pedido.estado_pedido_general == 'entregado' %}bg-success
+                            {% elif pedido.estado_pedido_general == 'pagado' %}bg-primary
+                            {% elif pedido.estado_pedido_general == 'en_preparacion' %}bg-warning
+                            {% else %}bg-secondary{% endif %}
+                        ">
+                            {{ pedido.get_estado_pedido_general_display }}
+                        </span>
+                    </td>
+                    <td>{{ pedido.fecha|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if pedido.get_fecha_inicio_renta %}
+                            {{ pedido.get_fecha_inicio_renta|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="text-muted">No iniciado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if pedido.get_fecha_fin_renta %}
+                            {{ pedido.get_fecha_fin_renta|date:"d/m/Y" }}
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong class="
+                            {% if pedido.get_estado_tiempo_renta == 'vencido' %}text-danger
+                            {% elif pedido.get_estado_tiempo_renta == 'vence_hoy' %}text-warning
+                            {% elif pedido.get_estado_tiempo_renta == 'vence_pronto' %}text-info
+                            {% elif pedido.get_estado_tiempo_renta == 'normal' %}text-success
+                            {% else %}text-muted{% endif %}
+                        ">
+                            {{ pedido.get_tiempo_restante_renta_humanizado }}
+                        </strong>
+                    </td>
+                    <td>
+                        {% if pedido.get_estado_tiempo_renta == 'vencido' %}
+                            <span class="badge bg-danger">🚨 Vencido</span>
+                        {% elif pedido.get_estado_tiempo_renta == 'vence_hoy' %}
+                            <span class="badge bg-warning">⏰ Vence Hoy</span>
+                        {% elif pedido.get_estado_tiempo_renta == 'vence_pronto' %}
+                            <span class="badge bg-info">⚠️ Próximo</span>
+                        {% elif pedido.get_estado_tiempo_renta == 'normal' %}
+                            <span class="badge bg-success">✅ Normal</span>
+                        {% else %}
+                            <span class="badge bg-secondary">⏸️ Sin Iniciar</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if pedido.get_fecha_inicio_renta %}
+                            <div class="progress" style="width: 80px; height: 20px;">
+                                <div class="progress-bar 
+                                    {% if pedido.get_estado_tiempo_renta == 'vencido' %}bg-danger
+                                    {% elif pedido.get_estado_tiempo_renta == 'vence_hoy' %}bg-warning
+                                    {% elif pedido.get_estado_tiempo_renta == 'vence_pronto' %}bg-info
+                                    {% else %}bg-success{% endif %}
+                                " role="progressbar" style="width: {{ pedido.get_porcentaje_tiempo_transcurrido }}%">
+                                    <small>{{ pedido.get_porcentaje_tiempo_transcurrido|floatformat:0 }}%</small>
+                                </div>
+                            </div>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group-vertical btn-group-sm">
+                            <a href="{% url 'pedidos:detalle_tiempo_pedido' pedido.id_pedido %}" class="btn btn-outline-info btn-xs">👁️</a>
+                            <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-outline-secondary btn-xs">📄</a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center">
+                        <div class="alert alert-info">
+                            No se encontraron pedidos con los filtros aplicados.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Resumen por estado -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h5>📈 Resumen por Estado de Tiempo</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <canvas id="estadoTiempoChart" width="400" height="200"></canvas>
+                </div>
+                <div class="col-md-6">
+                    <div class="list-group">
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            🚨 Vencidos
+                            <span class="badge bg-danger rounded-pill">{{ estadisticas.total_vencidos }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            ⏰ Vencen Hoy
+                            <span class="badge bg-warning rounded-pill">{{ estadisticas.total_vence_hoy }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            ⚠️ Vencen Pronto
+                            <span class="badge bg-info rounded-pill">{{ estadisticas.total_vence_pronto }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            ✅ Normales
+                            <span class="badge bg-success rounded-pill">{{ estadisticas.total_normales }}</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            ⏸️ Sin Iniciar
+                            <span class="badge bg-secondary rounded-pill">{{ estadisticas.total_sin_iniciar }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-admin {
+    margin: 20px auto;
+    max-width: 1400px;
+}
+
+.btn-xs {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.progress {
+    font-size: 0.7rem;
+}
+
+.table th {
+    white-space: nowrap;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+@media print {
+    .btn, .card-header, .alert {
+        display: none !important;
+    }
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Gráfico de estado de tiempo
+const ctx = document.getElementById('estadoTiempoChart').getContext('2d');
+const estadoTiempoChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Vencidos', 'Vencen Hoy', 'Vencen Pronto', 'Normales', 'Sin Iniciar'],
+        datasets: [{
+            data: [
+                {{ estadisticas.total_vencidos }},
+                {{ estadisticas.total_vence_hoy }},
+                {{ estadisticas.total_vence_pronto }},
+                {{ estadisticas.total_normales }},
+                {{ estadisticas.total_sin_iniciar }}
+            ],
+            backgroundColor: [
+                '#dc3545',
+                '#ffc107',
+                '#17a2b8',
+                '#28a745',
+                '#6c757d'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            },
+            title: {
+                display: true,
+                text: 'Distribución por Estado de Tiempo'
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

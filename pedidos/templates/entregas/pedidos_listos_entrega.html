@@ -1,0 +1,427 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pedidos Listos para Entrega - MultiAndamios{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/entregas.css' %}">
+<style>
+    .pedidos-header {
+        background: linear-gradient(135deg, #17a2b8, #138496);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        text-align: center;
+    }
+    
+    .pedido-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+        border-left: 5px solid #17a2b8;
+    }
+    
+    .pedido-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+    }
+    
+    .pedido-card.pagado {
+        border-left-color: #28a745;
+    }
+    
+    .pedido-card.en_preparacion {
+        border-left-color: #ffc107;
+    }
+    
+    .pedido-card.listo_entrega {
+        border-left-color: #17a2b8;
+    }
+    
+    .pedido-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .pedido-id {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #495057;
+    }
+    
+    .estado-pedido {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .estado-pagado {
+        background: #e8f5e8;
+        color: #2e7d32;
+    }
+    
+    .estado-preparacion {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .estado-listo {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .pedido-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .info-icon {
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        color: #17a2b8;
+        font-size: 1rem;
+    }
+    
+    .info-content {
+        flex: 1;
+    }
+    
+    .info-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin: 0;
+    }
+    
+    .info-value {
+        font-weight: 600;
+        color: #495057;
+        margin: 0;
+    }
+    
+    .pedido-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .btn-programar {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-programar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .btn-ver {
+        background: linear-gradient(135deg, #007bff, #0056b3);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-ver:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        color: white;
+        text-decoration: none;
+    }
+    
+    .stats-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #17a2b8;
+        margin: 0;
+    }
+    
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin: 0;
+    }
+    
+    .no-pedidos {
+        text-align: center;
+        padding: 60px 20px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+    
+    .no-pedidos i {
+        font-size: 4rem;
+        color: #e9ecef;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <!-- Header -->
+    <div class="pedidos-header">
+        <h1><i class="fas fa-clipboard-check"></i> Pedidos Listos para Entrega</h1>
+        <p class="mb-0">Selecciona pedidos con pagos aceptados para programar entregas</p>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <p class="stat-number">{{ estadisticas.total }}</p>
+                <p class="stat-label">Total Pedidos</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <p class="stat-number">{{ estadisticas.pagados }}</p>
+                <p class="stat-label">Pagados</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <p class="stat-number">{{ estadisticas.en_preparacion }}</p>
+                <p class="stat-label">En Preparación</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <p class="stat-number">{{ estadisticas.listos }}</p>
+                <p class="stat-label">Listos</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="filters-container">
+        <form method="get" class="filters-row">
+            <div class="filter-group">
+                <label class="filter-label">Cliente:</label>
+                <input type="text" 
+                       name="cliente" 
+                       value="{{ cliente_filtro }}" 
+                       class="filter-select" 
+                       placeholder="Buscar por nombre o razón social...">
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">Fecha de Pago:</label>
+                <select name="fecha" class="filter-select">
+                    <option value="todas" {% if fecha_filtro == 'todas' %}selected{% endif %}>Todas las fechas</option>
+                    <option value="hoy" {% if fecha_filtro == 'hoy' %}selected{% endif %}>Hoy</option>
+                    <option value="semana" {% if fecha_filtro == 'semana' %}selected{% endif %}>Esta semana</option>
+                    <option value="mes" {% if fecha_filtro == 'mes' %}selected{% endif %}>Este mes</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Navegación -->
+    <div class="mb-4">
+        <a href="{% url 'pedidos:panel_entregas' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Volver al Panel de Entregas
+        </a>
+    </div>
+    
+    <!-- Lista de pedidos -->
+    {% if pedidos %}
+        {% for pedido in pedidos %}
+        <div class="pedido-card {{ pedido.estado_pedido_general }}">
+            <div class="pedido-header">
+                <div class="pedido-id">
+                    <i class="fas fa-receipt"></i>
+                    Pedido #{{ pedido.id_pedido }}
+                </div>
+                <div class="estado-pedido estado-{{ pedido.estado_pedido_general }}">
+                    {{ pedido.get_estado_pedido_general_display }}
+                </div>
+            </div>
+            
+            <div class="pedido-info">
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Cliente</p>
+                        <p class="info-value">{{ pedido.cliente.nombre_completo }}</p>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-phone"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Teléfono</p>
+                        <p class="info-value">{{ pedido.cliente.telefono|default:"No registrado" }}</p>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Dirección de Entrega</p>
+                        <p class="info-value">{{ pedido.direccion_entrega|truncatechars:50 }}</p>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Valor Total</p>
+                        <p class="info-value">${{ pedido.total|floatformat:0 }}</p>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Fecha de Pago</p>
+                        <p class="info-value">{{ pedido.fecha_pago|date:"d/m/Y H:i"|default:"No registrada" }}</p>
+                    </div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="info-content">
+                        <p class="info-label">Días desde pago</p>
+                        <p class="info-value">
+                            {% if pedido.fecha_pago %}
+                                {{ pedido.fecha_pago|timesince }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="pedido-actions">
+                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn-ver">
+                    <i class="fas fa-eye"></i>
+                    Ver Detalles
+                </a>
+                
+                <a href="{% url 'pedidos:programar_entrega' pedido.id_pedido %}" class="btn-programar">
+                    <i class="fas fa-truck"></i>
+                    Programar Entrega
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="no-pedidos">
+            <i class="fas fa-inbox"></i>
+            <h4>No hay pedidos listos para entrega</h4>
+            <p class="text-muted">
+                {% if cliente_filtro or fecha_filtro != 'todas' %}
+                    No se encontraron pedidos que coincidan con los filtros aplicados.
+                {% else %}
+                    Actualmente no hay pedidos con pagos aceptados pendientes de programar entrega.
+                {% endif %}
+            </p>
+            <a href="{% url 'pedidos:panel_entregas' %}" class="btn btn-primary">
+                <i class="fas fa-truck"></i> Ir al Panel de Entregas
+            </a>
+        </div>
+    {% endif %}
+    
+    <!-- Información adicional -->
+    <div class="alert alert-info mt-4">
+        <i class="fas fa-info-circle"></i>
+        <strong>Información:</strong> 
+        Solo se muestran pedidos con pagos aceptados que aún no tienen entrega programada. 
+        Los estados válidos son: Pagado, En Preparación y Listo para Entrega.
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit del formulario al cambiar los filtros
+    const selectFilters = document.querySelectorAll('select[name="fecha"]');
+    selectFilters.forEach(select => {
+        select.addEventListener('change', function() {
+            this.form.submit();
+        });
+    });
+    
+    // Confirmar antes de programar entrega
+    const programarButtons = document.querySelectorAll('.btn-programar');
+    programarButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            const pedidoId = this.href.split('/').slice(-2, -1)[0];
+            if (!confirm(`¿Está seguro de que desea programar la entrega para el pedido #${pedidoId}?`)) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

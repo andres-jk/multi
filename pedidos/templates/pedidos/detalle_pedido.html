@@ -22,102 +22,179 @@
         <p><strong>Dirección de entrega:</strong> {{ pedido.direccion_entrega }}</p>
         {% if pedido.notas %}
         <p><strong>Notas:</strong> {{ pedido.notas }}</p>
-        {% endif %}        {% if user.is_staff or user.rol == 'admin' %}
-        <div class="actions" style="margin: 20px 0;">
-            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Recibo Individual</a>
-            <a href="{% url 'recibos:crear_recibo_consolidado' pedido.id_pedido %}" class="btn btn-success">Crear Recibo Único con Múltiples Productos</a>
-            <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn btn-secondary">Generar Factura</a>
-        </div>
         {% endif %}
-    </div>
-    
-    <div class="table-responsive">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Producto</th>
-                    <th>Cantidad</th>
-                    <th>Meses</th>
-                    <th>Precio/Mes</th>
-                    <th>Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for detalle in pedido.detalles.all %}
-                <tr>
-                    <td>{{ detalle.producto.nombre }}</td>
-                    <td>{{ detalle.cantidad }}</td>
-                    <td>{{ detalle.meses_renta }}</td>
-                    <td>${{ detalle.precio_unitario }}</td>
-                    <td>${{ detalle.subtotal }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                    <td><strong>${{ pedido.total }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
+        
+        <!-- Información de Totales -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <p><strong>Subtotal:</strong> ${{ pedido.subtotal|floatformat:2 }}</p>
+                <p><strong>IVA (19%):</strong> ${{ pedido.iva|floatformat:2 }}</p>
+                <p><strong>Transporte:</strong> ${{ pedido.costo_transporte|floatformat:2 }}</p>
+                <h4><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</h4>
+            </div>
+        </div>
     </div>
 
-    <!-- Sección de Recibos de Obra -->
-    <div class="recibos-obra-section">
-        <h2>Recibos de Obra</h2>
-        
-        {% if pedido.recibos_obra.exists %}
-        <div class="table-responsive">
-            <table class="table recibos-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Producto</th>
-                        <th>Cantidad</th>
-                        <th>Estado</th>
-                        <th>Pendiente</th>
-                        <th>Fecha Entrega</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for recibo in pedido.recibos_obra.all %}
-                    <tr class="{% if recibo.cantidad_pendiente > 0 %}pendiente{% else %}completado{% endif %}">
-                        <td>{{ recibo.id }}</td>
-                        <td>{{ recibo.producto.nombre }}</td>
-                        <td>{{ recibo.cantidad_solicitada }}</td>
-                        <td><span class="estado-badge {{ recibo.estado|lower }}">{{ recibo.get_estado_display }}</span></td>
-                        <td>{{ recibo.cantidad_pendiente }}</td>
-                        <td>{{ recibo.fecha_entrega|date:"d/m/Y" }}</td>
-                        <td>
-                            {% if recibo.cantidad_pendiente > 0 %}
-                            <a href="{% url 'recibos:registrar_devolucion' recibo.id %}" class="btn btn-sm btn-primary">Registrar Devolución</a>
-                            {% endif %}
-                            <a href="{% url 'recibos:generar_pdf' recibo.id %}" class="btn btn-sm btn-secondary">Ver PDF</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <!-- Sección de Gestión de Pagos -->
+    {% if puede_aprobar_pago and pedido.estado_pedido_general == 'procesando_pago' and pago_pendiente %}
+    <div class="card mt-4 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="fas fa-credit-card"></i> Gestión de Pago - Acción Requerida</h5>
         </div>
-        
-        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
-        <div class="recibos-actions">
-            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Nuevo Recibo</a>
-            <a href="{% url 'recibos:registrar_devolucion_multiple' pedido.id_pedido %}" class="btn btn-success">Registrar Devolución Múltiple</a>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información del Pago:</h6>
+                    <p><strong>Método:</strong> {{ pago_pendiente.get_tipo_display }}</p>
+                    <p><strong>Monto:</strong> ${{ pago_pendiente.monto|floatformat:2 }}</p>
+                    <p><strong>Fecha de creación:</strong> {{ pago_pendiente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                    {% if pago_pendiente.numero_referencia %}
+                    <p><strong>Referencia:</strong> {{ pago_pendiente.numero_referencia }}</p>
+                    {% endif %}
+                    {% if pago_pendiente.comprobante %}
+                    <p><strong>Comprobante:</strong> 
+                        <a href="{{ pago_pendiente.comprobante.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-download"></i> Ver Comprobante
+                        </a>
+                    </p>
+                    {% endif %}
+                    {% if pago_pendiente.notas %}
+                    <p><strong>Notas del cliente:</strong> {{ pago_pendiente.notas }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h6>Acciones de Pago:</h6>
+                    <form method="post" action="{% url 'pedidos:aprobar_pago' pedido.id_pedido %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="notas_admin" class="form-label">Notas del Administrador:</label>
+                            <textarea class="form-control" id="notas_admin" name="notas_admin" rows="3" 
+                                      placeholder="Agregar comentarios sobre la verificación del pago..."></textarea>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="accion" value="aprobar" class="btn btn-success" 
+                                    onclick="return confirm('¿Está seguro de aprobar este pago? Esta acción confirmará el pedido.')">
+                                <i class="fas fa-check"></i> Aprobar Pago
+                            </button>
+                            <button type="submit" name="accion" value="rechazar" class="btn btn-danger" 
+                                    onclick="return confirm('¿Está seguro de rechazar este pago? Se liberará el inventario.')">
+                                <i class="fas fa-times"></i> Rechazar Pago
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        {% endif %}
-        
-        {% else %}
-        <p>No hay recibos de obra asociados a este pedido.</p>
-        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
-        <div class="recibos-actions">
-            <a href="{% url 'recibos:crear_recibo' pedido.id_pedido %}" class="btn btn-primary">Crear Recibo</a>
-        </div>
-        {% endif %}
-        {% endif %}
     </div>
-    
+    {% endif %}
+
+    <!-- Historial de Pagos -->
+    {% if pagos %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-history"></i> Historial de Pagos</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Método</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Verificado por</th>
+                            <th>Fecha Verificación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pago in pagos %}
+                        <tr>
+                            <td>{{ pago.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                            <td>{{ pago.get_tipo_display }}</td>
+                            <td>${{ pago.monto|floatformat:2 }}</td>
+                            <td>
+                                <span class="badge {% if pago.estado == 'aprobado' %}bg-success
+                                                   {% elif pago.estado == 'rechazado' %}bg-danger
+                                                   {% elif pago.estado == 'pendiente' %}bg-warning
+                                                   {% else %}bg-secondary{% endif %}">
+                                    {{ pago.get_estado_display }}
+                                </span>
+                            </td>
+                            <td>{{ pago.verificado_por.username|default:"-" }}</td>
+                            <td>{{ pago.fecha_verificacion|date:"d/m/Y H:i"|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Productos del Pedido -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-box"></i> Productos del Pedido</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-center">Días</th>
+                            <th class="text-end">Precio/Día</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>{{ detalle.producto.nombre }}</td>
+                            <td class="text-center">{{ detalle.cantidad }}</td>
+                            <td class="text-center">{{ detalle.dias_renta }}</td>
+                            <td class="text-end">${{ detalle.precio_diario|floatformat:2 }}</td>
+                            <td class="text-end">${{ detalle.subtotal|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No hay productos en este pedido</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="pedido-info mt-4">
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Resumen del Pedido:</h6>
+                <p><strong>Subtotal:</strong> ${{ pedido.subtotal|floatformat:2 }}</p>
+                <p><strong>IVA (19%):</strong> ${{ pedido.iva|floatformat:2 }}</p>
+                <p><strong>Transporte:</strong> ${{ pedido.costo_transporte|floatformat:2 }}</p>
+                <h4><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</h4>
+            </div>
+            <div class="col-md-6">
+                <h6>Estado del Pago:</h6>
+                {% if pago_pendiente %}
+                <p><strong>Estado:</strong> {{ pago_pendiente.get_estado_display }}</p>
+                <p><strong>Método:</strong> {{ pago_pendiente.get_tipo_display }}</p>
+                <p><strong>Monto:</strong> ${{ pago_pendiente.monto|floatformat:2 }}</p>
+                <p><strong>Fecha de creación:</strong> {{ pago_pendiente.fecha_creacion|date:"d/m/Y H:i" }}</p>
+                {% if pago_pendiente.estado == 'aprobado' %}
+                <p><strong>Fecha de aprobación:</strong> {{ pago_pendiente.fecha_aprobacion|date:"d/m/Y H:i" }}</p>
+                {% endif %}
+                {% else %}
+                <p>No hay pagos pendientes para este pedido.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="pedido-actions">
         <a href="{% url 'pedidos:lista_pedidos' %}" class="btn">Volver a la lista</a>
         <a href="{% url 'pedidos:generar_remision_pdf' pedido.id_pedido %}" class="btn" target="_blank">Descargar Remisión</a>

@@ -1,21 +1,23 @@
+# productos/models.py
+
 from django.db import models, transaction
+from decimal import Decimal, ROUND_HALF_UP # Importar Decimal y ROUND_HALF_UP
 
 class Producto(models.Model):
-    TIPO_RENTA_CHOICES = [
-        ('mensual', 'Mensual'),
-        ('semanal', 'Semanal'),
-    ]
-    
     id_producto = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=255)
-    descripcion = models.TextField(blank=True, null=True)  # Nuevo campo
-    precio = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio mensual')
-    precio_semanal = models.DecimalField(
+    descripcion = models.TextField(blank=True, null=True)
+    precio_diario = models.DecimalField(
         max_digits=10, 
         decimal_places=2, 
-        blank=True, 
-        null=True,
-        verbose_name='Precio semanal'
+        verbose_name='Precio por día',
+        help_text='Precio de renta por día en pesos',
+        default=0
+    )
+    dias_minimos_renta = models.PositiveIntegerField(
+        default=1,
+        verbose_name='Días mínimos de renta',
+        help_text='Número mínimo de días consecutivos que se debe rentar este producto'
     )
     peso = models.DecimalField(
         max_digits=8,
@@ -23,12 +25,6 @@ class Producto(models.Model):
         default=0.00,
         verbose_name='Peso individual (kg)',
         help_text='Peso en kilogramos de una unidad del producto'
-    )
-    tipo_renta = models.CharField(
-        max_length=10,
-        choices=TIPO_RENTA_CHOICES,
-        default='mensual',
-        verbose_name='Tipo de renta'
     )
     cantidad_disponible = models.PositiveIntegerField()
     cantidad_reservada = models.PositiveIntegerField(default=0)
@@ -38,37 +34,44 @@ class Producto(models.Model):
 
     def __str__(self):
         return self.nombre
-    
-    def get_precio_por_tipo(self, tipo_renta='mensual'):
-        """Retorna el precio según el tipo de renta"""
-        if tipo_renta == 'semanal':
-            # Si no hay precio semanal definido, calcularlo como precio_mensual / 4
-            if self.precio_semanal:
-                return self.precio_semanal
-            else:
-                return round(self.precio / 4, 2)
-        else:
-            return self.precio
-    
-    def save(self, *args, **kwargs):
-        """Calcula precio semanal automáticamente si no está definido"""
-        if not self.precio_semanal and self.precio:
-            try:
-                # Convertir a Decimal para evitar errores de tipo
-                from decimal import Decimal
-                precio_decimal = Decimal(str(self.precio))
-                self.precio_semanal = round(precio_decimal / 4, 2)
-            except (ValueError, TypeError):
-                # Si hay error en la conversión, no calcular precio semanal
-                pass
-        super().save(*args, **kwargs)
+
+    def get_precio_total(self, dias_renta, cantidad=1):
+        """Calcula el precio total para una cantidad de días específica"""
+        if dias_renta % self.dias_minimos_renta != 0:
+            raise ValueError(f"Los días de renta deben ser múltiplos de {self.dias_minimos_renta}")
         
-    def cantidad_total(self):
-        """Retorna la cantidad total de unidades del producto (disponibles + reservadas + en_renta)"""
-        return self.cantidad_disponible + self.cantidad_reservada + self.cantidad_en_renta
+        return (self.precio_diario * Decimal(str(dias_renta)) * Decimal(str(cantidad))).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
     
+    def get_opciones_dias_renta(self, max_dias=90):
+        """Retorna las opciones válidas de días de renta hasta el máximo especificado"""
+        opciones = []
+        dias = self.dias_minimos_renta
+        while dias <= max_dias:
+            opciones.append(dias)
+            dias += self.dias_minimos_renta
+        return opciones
+    
+    def get_precio_display(self):
+        """Obtiene el precio formateado para mostrar"""
+        return f"${self.precio_diario:,.2f}/día (mín. {self.dias_minimos_renta} día{'s' if self.dias_minimos_renta > 1 else ''})"
+    
+    def es_dias_valido(self, dias):
+        """Verifica si la cantidad de días es válida para este producto"""
+        return dias > 0 and dias % self.dias_minimos_renta == 0
+
+    def save(self, *args, **kwargs):
+        # Validar que días mínimos sea al menos 1
+        if self.dias_minimos_renta < 1:
+            self.dias_minimos_renta = 1
+        
+        super().save(*args, **kwargs)
+
+    def cantidad_total(self):
+        return self.cantidad_disponible + self.cantidad_reservada + self.cantidad_en_renta
+
     def reservar(self, cantidad):
-        """Reserva una cantidad del producto, moviéndola de disponible a reservada"""
         with transaction.atomic():
             producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
             if cantidad <= producto_a_actualizar.cantidad_disponible:
@@ -77,9 +80,8 @@ class Producto(models.Model):
                 producto_a_actualizar.save()
                 return True
         return False
-    
+
     def confirmar_renta(self, cantidad):
-        """Confirma la renta de una cantidad que estaba reservada"""
         with transaction.atomic():
             producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
             if cantidad <= producto_a_actualizar.cantidad_reservada:
@@ -88,20 +90,18 @@ class Producto(models.Model):
                 producto_a_actualizar.save()
                 return True
         return False
-    
+
     def cancelar_reserva(self, cantidad):
-        """Cancela la reserva de una cantidad, devolviéndola al estado disponible"""
         with transaction.atomic():
             producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
             if cantidad <= producto_a_actualizar.cantidad_reservada:
-                producto_a_actualizar.cantidad_reservada -= cantidad
-                producto_a_actualizar.cantidad_disponible += cantidad
+                producto_a_actualizar.cantidad_reservada -= cantidad # O quantity? Asegúrate de la variable correcta
+                producto_a_actualizar.cantidad_disponible += cantidad # O quantity? Asegúrate de la variable correcta
                 producto_a_actualizar.save()
                 return True
         return False
-    
+
     def devolver_de_renta(self, cantidad):
-        """Devuelve productos que estaban en renta al estado disponible"""
         with transaction.atomic():
             producto_a_actualizar = Producto.objects.select_for_update().get(pk=self.pk)
             if cantidad <= producto_a_actualizar.cantidad_en_renta:

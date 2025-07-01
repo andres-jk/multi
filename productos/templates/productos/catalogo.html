@@ -34,7 +34,7 @@
             <div class="product-info">
                 <h3><a href="{% url 'productos:detalle_producto' producto.id_producto %}">{{ producto.nombre }}</a></h3>
                 <p>{{ producto.descripcion|truncatewords:15 }}</p>
-                <p class="precio">${{ producto.precio|floatformat:2 }}</p>
+                <p class="precio">{{ producto.get_precio_display }}</p>
                 <form class="agregar-carrito-form" method="POST" action="{% url 'usuarios:agregar_al_carrito' producto.id_producto %}">
                     {% csrf_token %}
                     <div class="form-controls">
@@ -43,8 +43,15 @@
                             <input type="number" id="cantidad-{{ producto.id_producto }}" name="cantidad" value="1" min="1" max="{{ producto.cantidad_disponible }}">
                         </div>
                         <div class="control-group">
-                            <label for="meses-{{ producto.id_producto }}">Meses:</label>
-                            <input type="number" id="meses-{{ producto.id_producto }}" name="meses_renta" value="1" min="1" max="12">
+                            <label for="dias-{{ producto.id_producto }}">Días:</label>
+                            <select id="dias-{{ producto.id_producto }}" name="dias_renta" required>
+                                {% for dias in producto.get_opciones_dias_renta %}
+                                    <option value="{{ dias }}" {% if dias == producto.dias_minimos_renta %}selected{% endif %}>
+                                        {{ dias }} día{{ dias|pluralize }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">mín. {{ producto.dias_minimos_renta }} día{{ producto.dias_minimos_renta|pluralize }}</small>
                         </div>
                     </div>
                     {% if producto.cantidad_disponible > 0 %}
@@ -139,12 +146,24 @@
     color: #666;
 }
 
-.control-group input {
+.control-group input, .control-group select {
     width: 60px;
     padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 5px;
     text-align: center;
+}
+
+.control-group select {
+    width: 100px;
+    text-align: left;
+}
+
+.control-group small {
+    display: block;
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 0.25rem;
 }
 
 .btn-agregar {
