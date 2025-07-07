@@ -27,14 +27,13 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 
 🚀 PASOS PARA APLICAR EN PYTHONANYWHERE:
 
-PRIMERO, RESOLVER CONFLICTO DE MERGE:
+⚠️ PRIMERO, RESOLVER CONFLICTO DE MERGE:
 
 0. RESPALDAR BASE DE DATOS ACTUAL:
    cp db.sqlite3 db.sqlite3.backup
 
-1. RESOLVER CONFLICTO:
-   git stash
-   git pull origin main
+1. FORZAR ACTUALIZACIÓN (NECESARIO):
+   git reset --hard origin/main
 
 2. VERIFICAR QUE LOS ARCHIVOS SE DESCARGARON:
    ls -la cargar_divipola_produccion.py
@@ -55,12 +54,6 @@ PRIMERO, RESOLVER CONFLICTO DE MERGE:
 6. REINICIAR APLICACIÓN:
    - Ir a la pestaña "Web" en PythonAnywhere
    - Hacer clic en "Reload"
-
-🚨 SI LOS ARCHIVOS AUN NO APARECEN:
-Ejecuta este comando para forzar la actualización:
-   git reset --hard origin/main
-   
-Luego continúa desde el paso 3.
 
 📋 VERIFICACIÓN FINAL:
 Después de aplicar la solución, verifica que:
