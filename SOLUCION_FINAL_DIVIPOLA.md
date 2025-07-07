@@ -27,31 +27,41 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 
 🚀 PASOS PARA APLICAR EN PYTHONANYWHERE:
 
-⚠️ PRIMERO, RESOLVER CONFLICTO DE MERGE:
+🚨 PASO CRÍTICO PRIMERO - CONFIGURAR ALLOWED_HOSTS:
 
-0. RESPALDAR BASE DE DATOS ACTUAL:
+0. EDITAR SETTINGS.PY:
+   nano multiandamios/settings.py
+   
+   Cambiar ALLOWED_HOSTS a:
+   ALLOWED_HOSTS = ['dalej.pythonanywhere.com', 'localhost', '127.0.0.1']
+   
+   Guardar: Ctrl + X, Y, Enter
+
+⚠️ SEGUNDO, RESOLVER CONFLICTO DE MERGE:
+
+1. RESPALDAR BASE DE DATOS ACTUAL:
    cp db.sqlite3 db.sqlite3.backup
 
-1. FORZAR ACTUALIZACIÓN (NECESARIO):
+2. FORZAR ACTUALIZACIÓN (NECESARIO):
    git reset --hard origin/main
 
-2. VERIFICAR QUE LOS ARCHIVOS SE DESCARGARON:
+3. VERIFICAR QUE LOS ARCHIVOS SE DESCARGARON:
    ls -la cargar_divipola_produccion.py
 
-3. CARGAR DATOS DIVIPOLA:
+4. CARGAR DATOS DIVIPOLA:
    python3.10 cargar_divipola_produccion.py
 
-3. CARGAR DATOS DIVIPOLA:
+4. CARGAR DATOS DIVIPOLA:
    python3.10 cargar_divipola_produccion.py
 
-4. VERIFICAR QUE TODO FUNCIONA:
+5. VERIFICAR QUE TODO FUNCIONA:
    python3.10 verificar_api_divipola.py
    python3.10 test_divipola_completo.py
 
-5. ACTUALIZAR ARCHIVOS ESTÁTICOS:
+6. ACTUALIZAR ARCHIVOS ESTÁTICOS:
    python3.10 manage.py collectstatic --clear --noinput
 
-6. REINICIAR APLICACIÓN:
+7. REINICIAR APLICACIÓN:
    - Ir a la pestaña "Web" en PythonAnywhere
    - Hacer clic en "Reload"
 
