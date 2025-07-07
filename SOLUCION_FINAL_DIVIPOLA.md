@@ -28,7 +28,7 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 🚀 PASOS PARA APLICAR EN PYTHONANYWHERE:
 
 1. ACTUALIZAR CÓDIGO:
-   cd /home/tu-usuario/multiandamios  # Reemplaza 'tu-usuario' por tu usuario real
+   cd /home/tu-usuario/multi  # Reemplaza 'tu-usuario' por tu usuario real
    git pull origin main
 
 2. CARGAR DATOS DIVIPOLA:

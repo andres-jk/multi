@@ -3,8 +3,8 @@ COMANDOS ESPECÍFICOS PARA EL REPOSITORIO MULTIANDAMIOS
 ===================================================================
 
 🔧 ESTRUCTURA CORRECTA DEL REPOSITORIO:
-- Repositorio: multiandamios
-- Ruta en PythonAnywhere: /home/TU-USUARIO/multiandamios
+- Repositorio: multi
+- Ruta en PythonAnywhere: /home/TU-USUARIO/multi
 - Archivo WSGI: /home/TU-USUARIO/multi (carpeta del proyecto Django)
 
 📋 COMANDOS EXACTOS PARA EJECUTAR:
@@ -14,7 +14,7 @@ COMANDOS ESPECÍFICOS PARA EL REPOSITORIO MULTIANDAMIOS
    - Hacer clic en "Bash"
 
 2. NAVEGAR AL REPOSITORIO
-   cd /home/TU-USUARIO/multiandamios
+   cd /home/TU-USUARIO/multi
    # Reemplaza "TU-USUARIO" por tu usuario real de PythonAnywhere
 
 3. ACTUALIZAR CÓDIGO
@@ -34,7 +34,7 @@ COMANDOS ESPECÍFICOS PARA EL REPOSITORIO MULTIANDAMIOS
    - Hacer clic en el botón "Reload"
 
 🌐 ESTRUCTURA DE RUTAS:
-- Repositorio Git: /home/TU-USUARIO/multiandamios/
+- Repositorio Git: /home/TU-USUARIO/multi/
 - Proyecto Django: /home/TU-USUARIO/multi/
 - Archivo WSGI apunta a: /home/TU-USUARIO/multi/
 
@@ -47,4 +47,4 @@ Después de ejecutar todos los comandos, verifica en tu sitio web que:
 🚨 IMPORTANTE:
 - Asegúrate de usar TU usuario real de PythonAnywhere
 - El archivo WSGI debe apuntar a /home/TU-USUARIO/multi/
-- El repositorio está en /home/TU-USUARIO/multiandamios/
+- El repositorio está en /home/TU-USUARIO/multi/
