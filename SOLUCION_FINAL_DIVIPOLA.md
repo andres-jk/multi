@@ -27,23 +27,40 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 
 🚀 PASOS PARA APLICAR EN PYTHONANYWHERE:
 
-1. ACTUALIZAR CÓDIGO:
-   cd /home/Dalej/multi
+PRIMERO, RESOLVER CONFLICTO DE MERGE:
+
+0. RESPALDAR BASE DE DATOS ACTUAL:
+   cp db.sqlite3 db.sqlite3.backup
+
+1. RESOLVER CONFLICTO:
+   git stash
    git pull origin main
 
-2. CARGAR DATOS DIVIPOLA:
+2. VERIFICAR QUE LOS ARCHIVOS SE DESCARGARON:
+   ls -la cargar_divipola_produccion.py
+
+3. CARGAR DATOS DIVIPOLA:
    python3.10 cargar_divipola_produccion.py
 
-3. VERIFICAR QUE TODO FUNCIONA:
+3. CARGAR DATOS DIVIPOLA:
+   python3.10 cargar_divipola_produccion.py
+
+4. VERIFICAR QUE TODO FUNCIONA:
    python3.10 verificar_api_divipola.py
    python3.10 test_divipola_completo.py
 
-4. ACTUALIZAR ARCHIVOS ESTÁTICOS:
+5. ACTUALIZAR ARCHIVOS ESTÁTICOS:
    python3.10 manage.py collectstatic --clear --noinput
 
-5. REINICIAR APLICACIÓN:
+6. REINICIAR APLICACIÓN:
    - Ir a la pestaña "Web" en PythonAnywhere
    - Hacer clic en "Reload"
+
+🚨 SI LOS ARCHIVOS AUN NO APARECEN:
+Ejecuta este comando para forzar la actualización:
+   git reset --hard origin/main
+   
+Luego continúa desde el paso 3.
 
 📋 VERIFICACIÓN FINAL:
 Después de aplicar la solución, verifica que:
