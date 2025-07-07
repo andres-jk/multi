@@ -17,7 +17,25 @@
     
     <div class="pedido-info">
         <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
-        <p><strong>Estado:</strong> <span class="badge {% if pedido.estado_pedido_general == 'PENDIENTE' %}badge-warning{% elif pedido.estado_pedido_general == 'EN_PROCESO' %}badge-primary{% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success{% else %}badge-secondary{% endif %}">{{ pedido.get_estado_pedido_general_display }}</span></p>
+        <p><strong>Estado:</strong> 
+            <span class="badge 
+                {% if pedido.estado_pedido_general == 'pendiente_pago' %}badge-warning
+                {% elif pedido.estado_pedido_general == 'procesando_pago' %}badge-warning
+                {% elif pedido.estado_pedido_general == 'pagado' %}badge-success
+                {% elif pedido.estado_pedido_general == 'pago_vencido' %}badge-danger
+                {% elif pedido.estado_pedido_general == 'pago_rechazado' %}badge-danger
+                {% elif pedido.estado_pedido_general == 'en_preparacion' %}badge-primary
+                {% elif pedido.estado_pedido_general == 'listo_entrega' %}badge-primary
+                {% elif pedido.estado_pedido_general == 'en_camino' %}badge-primary
+                {% elif pedido.estado_pedido_general == 'entregado' %}badge-primary
+                {% elif pedido.estado_pedido_general == 'recibido' %}badge-success
+                {% elif pedido.estado_pedido_general == 'programado_devolucion' %}badge-info
+                {% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success
+                {% else %}badge-secondary
+                {% endif %}">
+                {{ pedido.get_estado_pedido_general_display }}
+            </span>
+        </p>
         <p><strong>Dirección de entrega:</strong> {{ pedido.direccion_entrega }}</p>
         {% if pedido.notas %}
         <p><strong>Notas:</strong> {{ pedido.notas }}</p>
@@ -92,9 +110,53 @@
     <div class="pedido-actions">
         <a href="{% url 'pedidos:mis_pedidos' %}" class="btn">Volver a mis pedidos</a>
         <a href="{% url 'usuarios:inicio_cliente' %}" class="btn">Ir al inicio</a>
-        {% if pedido.estado_pedido_general == 'EN_PROCESO' %}
-            <a href="{% url 'pedidos:programar_devolucion' pedido.id_pedido %}" class="btn btn-primary">Programar Devolución</a>
+        
+        <!-- Descargar remisión del pedido (solo si el pago está aprobado) -->
+        {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'en_preparacion' or pedido.estado_pedido_general == 'listo_entrega' or pedido.estado_pedido_general == 'en_camino' or pedido.estado_pedido_general == 'entregado' or pedido.estado_pedido_general == 'recibido' or pedido.estado_pedido_general == 'programado_devolucion' or pedido.estado_pedido_general == 'CERRADO' %}
+            <a href="{% url 'pedidos:generar_remision_pdf' pedido.id_pedido %}" class="btn btn-info" target="_blank">
+                <i class="fas fa-file-pdf"></i> Descargar Remisión
+            </a>
+            
+            <!-- También agregar enlace a factura -->
+            <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn btn-success" target="_blank">
+                <i class="fas fa-file-invoice"></i> Descargar Factura
+            </a>
+        {% else %}
+            <!-- Mostrar mensaje informativo si el pago no está aprobado -->
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> La remisión y factura estarán disponibles una vez que tu pago sea aprobado.
+            </div>
         {% endif %}
+        
+        <!-- Botón de seguimiento GPS para clientes -->
+        {% if pedido.entrega and pedido.estado_pedido_general in 'en_camino,entregado,recibido' %}
+            <a href="{% url 'pedidos:seguimiento_cliente' pedido.id_pedido %}" class="btn btn-warning">
+                <i class="fas fa-map-marker-alt"></i> 🚛 Ver Seguimiento GPS
+            </a>
+        {% endif %}
+        
+        {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'en_preparacion' or pedido.estado_pedido_general == 'listo_entrega' or pedido.estado_pedido_general == 'en_camino' or pedido.estado_pedido_general == 'entregado' or pedido.estado_pedido_general == 'recibido' %}
+            <!-- Botón para programar devolución voluntaria -->
+            <a href="{% url 'pedidos:programar_devolucion' pedido.id_pedido %}" class="btn btn-primary">
+                <i class="fas fa-calendar-alt"></i> Programar Devolución Voluntaria
+            </a>
+            
+            {% if pedido.estado_pedido_general == 'entregado' or pedido.estado_pedido_general == 'recibido' %}
+            <!-- Botón para devolución parcial solo cuando ya se tiene el producto -->
+            <a href="{% url 'pedidos:seleccion_devolucion_parcial' pedido.id_pedido %}" class="btn btn-success">
+                <i class="fas fa-boxes"></i> Devolución Parcial / Extender Renta
+            </a>
+            {% endif %}
+        {% endif %}
+        
+        <!-- Información de diagnóstico (solo para debug) -->
+        <div class="diagnostico-info" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 5px; font-size: 0.9em;">
+            <strong>Estado del pedido:</strong> {{ pedido.estado_pedido_general }} ({{ pedido.get_estado_pedido_general_display }})<br>
+            <strong>Estados de productos:</strong>
+            {% for detalle in pedido.detalles.all %}
+                <br>• {{ detalle.producto.nombre }}: {{ detalle.estado }} ({{ detalle.get_estado_display }}) - Cantidad: {{ detalle.cantidad }}, Devuelta: {{ detalle.cantidad_devuelta }}
+            {% endfor %}
+        </div>
     </div>
 </div>
 
@@ -168,6 +230,16 @@
 
 .badge-success {
     background-color: #28a745;
+    color: #fff;
+}
+
+.badge-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.badge-info {
+    background-color: #17a2b8;
     color: #fff;
 }
 

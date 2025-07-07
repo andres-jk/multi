@@ -755,40 +755,49 @@ def crear_recibo_multiple(request, pedido_id):
                             errores.append(f"No hay suficientes {producto.nombre} disponibles o en renta.")
                             continue
                     
-                    # Crear el recibo para este producto
-                    recibo = ReciboObra.objects.create(
+                    # Buscar un recibo existente para este pedido o crear uno nuevo
+                    recibo, created = ReciboObra.objects.get_or_create(
                         pedido=pedido,
-                        cliente=pedido.cliente,
+                        defaults={
+                            'cliente': pedido.cliente,
+                            'notas_entrega': notas_generales,
+                            'condicion_entrega': condicion_general,
+                            'empleado': request.user
+                        }
+                    )
+                    
+                    # Crear el detalle del recibo para este producto
+                    DetalleReciboObra.objects.create(
+                        recibo=recibo,
                         producto=producto,
                         detalle_pedido=detalle,
                         cantidad_solicitada=cantidad,
-                        notas_entrega=notas_generales,
-                        condicion_entrega=condicion_general,
-                        empleado=request.user
+                        estado='PENDIENTE'
                     )
                     
-                    recibos_creados += 1
+                    if created:
+                        recibos_creados += 1
                     productos_procesados.append(producto.nombre)
                     
                 except ValueError:
                     errores.append(f"Error al procesar la cantidad para {detalle.producto.nombre}.")
         
         # Mostrar mensajes según los resultados
-        if recibos_creados > 0:
+        if productos_procesados:
             productos_str = ", ".join(productos_procesados)
             messages.success(
                 request, 
-                f"Se han creado {recibos_creados} recibo(s) de obra exitosamente para: {productos_str}."
+                f"Se han agregado productos al recibo de obra exitosamente: {productos_str}."
             )
             
             if errores:
                 for error in errores:
                     messages.warning(request, error)
                 
-            # Si solo se creó un recibo, redirigir al PDF
-            if recibos_creados == 1:
-                ultimo_recibo = ReciboObra.objects.filter(pedido=pedido).order_by('-id').first()
-                return redirect('recibos:generar_pdf', recibo_id=ultimo_recibo.id)
+            # Redirigir al recibo (siempre habrá uno para este pedido)
+            recibo = ReciboObra.objects.filter(pedido=pedido).order_by('-id').first()
+            if recibo:
+                return redirect('recibos:generar_pdf', recibo_id=recibo.id)
             else:
                 return redirect('pedidos:detalle_pedido', pedido_id=pedido.id_pedido)
         else:
@@ -813,6 +822,9 @@ def crear_recibo_multiple(request, pedido_id):
 def crear_recibo_consolidado(request, pedido_id):
     """Vista para crear un único recibo de obra con múltiples productos"""
     pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
+    
+    # Determinar si es un recibo para devolución
+    es_devolucion = pedido.estado_pedido_general == 'programado_devolucion'
     
     if request.method == 'POST':
         # Variables para llevar el conteo
@@ -840,7 +852,8 @@ def crear_recibo_consolidado(request, pedido_id):
             cliente=pedido.cliente,
             notas_entrega=notas_generales,
             condicion_entrega=condicion_general,
-            empleado=request.user
+            empleado=request.user,
+            es_recibo_devolucion=es_devolucion
         )
         
         cantidad_total = 0
@@ -923,6 +936,7 @@ def crear_recibo_consolidado(request, pedido_id):
     context = {
         'pedido': pedido,
         'detalles': pedido.detalles.all(),
+        'es_devolucion': es_devolucion,
     }
     
     return render(request, 'recibos/crear_recibo_consolidado.html', context)
