@@ -82,19 +82,19 @@ python3.10 manage.py makemigrations
 python3.10 manage.py migrate
 
 echo "=== PROCESO COMPLETADO ==="
-echo "📝 RECUERDA:"
-echo "1. Hacer 'Reload' en la pestaña Web de PythonAnywhere"
+echo "RECUERDA:"
+echo "1. Hacer 'Reload' en la pestana Web de PythonAnywhere"
 echo "2. Probar el sitio web en el navegador"
 echo "3. Verificar proceso de pedidos con departamentos/municipios"
 """
 
-with open('comandos_pythonanywhere.sh', 'w') as f:
+with open('comandos_pythonanywhere.sh', 'w', encoding='utf-8') as f:
     f.write(commands_file)
 
-print("📄 Archivo creado: comandos_pythonanywhere.sh")
-print("   (Para usar en PythonAnywhere si prefieres un script automático)")
+print("Archivo creado: comandos_pythonanywhere.sh")
+print("   (Para usar en PythonAnywhere si prefieres un script automatico)")
 print()
-print("🎯 PRÓXIMOS PASOS:")
+print("PROXIMOS PASOS:")
 print("1. Ejecutar en local: git add .")
 print("2. Ejecutar en local: git commit -m 'Scripts para DIVIPOLA'")
 print("3. Ejecutar en local: git push origin main")

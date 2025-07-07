@@ -90,10 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
         codigoDivipolaInput.value = '';
         
         if (departamentoId) {
-            fetch(`{% url 'usuarios:cargar_municipios' %}?departamento_id=${departamentoId}`)
+            fetch(`/api/municipios/?departamento_id=${departamentoId}`)
                 .then(response => response.json())
                 .then(data => {
-                    data.forEach(municipio => {
+                    data.municipios.forEach(municipio => {
                         const option = new Option(municipio.nombre, municipio.id);
                         option.dataset.codigo = municipio.codigo;
                         municipioSelect.add(option);
