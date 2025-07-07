@@ -1,0 +1,30 @@
+/* Estilos para sistema de precios por día */
+.dias-minimos-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background-color: #007bff;
+    color: white;
+    border-radius: 4px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+/* Ajustes para la tabla de productos */
+.table th:nth-child(3), .table td:nth-child(3) {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+/* Estilos para precios por día */
+.precio-diario {
+    font-weight: bold;
+    color: #FFD600;
+}
+
+/* Información adicional de precios */
+.info-precio {
+    font-size: 0.85em;
+    color: #aaa;
+    display: block;
+    margin-top: 4px;
+}

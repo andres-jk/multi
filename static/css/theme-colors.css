@@ -1,0 +1,201 @@
+/* 
+  MultiAndamios - Color Theme Override 
+  New color scheme:
+  1. #F9C552 (Yellow - primary color)
+  2. #1A1228 (Dark purple/navy)
+  3. #FF99BA (Pink)
+  4. #AAD4EA (Light blue)
+  5. #2FD5D5 (Teal)
+*/
+
+/* Basic elements */
+body {
+  color: #1A1228;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #1A1228;
+}
+
+h1.highlight {
+  color: #1A1228;
+  border-bottom: 3px solid #F9C552;
+  padding-bottom: 5px;
+  display: inline-block;
+}
+
+/* Header and Navigation */
+header {
+  background: linear-gradient(90deg, #F9C552, #F9C552);
+}
+
+nav a {
+  background: rgba(26, 18, 40, 0.1);
+  color: #1A1228;
+}
+
+nav a:hover {
+  background: #2FD5D5;
+}
+
+/* Buttons */
+button, .btn {
+  background-color: #F9C552;
+  color: #1A1228;
+  box-shadow: 0 2px 8px rgba(249, 197, 82, 0.25);
+  border: none;
+}
+
+button:hover, .btn:hover {
+  background-color: #2FD5D5;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(47, 213, 213, 0.3);
+}
+
+.btn-primary {
+  background-color: #F9C552;
+  color: #1A1228;
+}
+
+.btn-primary:hover {
+  background-color: #2FD5D5;
+}
+
+.btn-secondary {
+  background-color: #AAD4EA;
+  color: #1A1228;
+}
+
+.btn-secondary:hover {
+  background-color: #2FD5D5;
+}
+
+.btn-danger, .btn-delete {
+  background-color: #FF99BA;
+  color: #1A1228;
+}
+
+.btn-danger:hover, .btn-delete:hover {
+  background-color: #ff7ba9;
+}
+
+/* Cards */
+.card {
+  background: white;
+  color: #1A1228;
+  box-shadow: 0 4px 12px rgba(26, 18, 40, 0.1);
+}
+
+/* Tables */
+.table {
+  background: white;
+  box-shadow: 0 2px 10px rgba(26, 18, 40, 0.08);
+}
+
+/* Special background for clients, orders and employees tables */
+.lista-clientes-table,
+.lista-pedidos-table,
+.lista-empleados-table,
+.table-lista-clientes,
+.table-lista-pedidos,
+.table-lista-empleados,
+.table-lista-productos {
+  background-color: #E0EDF4 !important;
+  border-collapse: collapse !important;
+  border: 1px solid #AAD4EA !important;
+}
+
+.table-lista-clientes th,
+.table-lista-pedidos th,
+.table-lista-empleados th,
+.table-lista-productos th {
+  background-color: #1A1228 !important;
+  color: white !important;
+  border: 1px solid #1A1228 !important;
+}
+
+.table-lista-clientes td,
+.table-lista-pedidos td,
+.table-lista-empleados td,
+.table-lista-productos td {
+  border: 1px solid #AAD4EA !important;
+  background-color: #E0EDF4 !important;
+}
+
+.table-lista-clientes tbody tr,
+.table-lista-pedidos tbody tr,
+.table-lista-empleados tbody tr,
+.table-lista-productos tbody tr {
+  background-color: #E0EDF4 !important;
+}
+
+.table th, .table td {
+  border-bottom: 1px solid #eee;
+  color: #1A1228;
+}
+
+.table th {
+  background: #1A1228;
+  color: white;
+  border-bottom: 2px solid #F9C552;
+}
+
+.table tr:hover {
+  background-color: rgba(249, 197, 82, 0.05);
+}
+
+/* Override Bootstrap striped table */
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: inherit !important;
+}
+
+.table-striped.table-lista-pedidos tbody tr:nth-of-type(odd),
+.table-striped.table-lista-pedidos tbody tr:nth-of-type(even),
+.table-striped.table-lista-clientes tbody tr:nth-of-type(odd),
+.table-striped.table-lista-clientes tbody tr:nth-of-type(even),
+.table-striped.table-lista-empleados tbody tr:nth-of-type(odd),
+.table-striped.table-lista-empleados tbody tr:nth-of-type(even) {
+  background-color: #E0EDF4 !important;
+}
+
+/* Form elements */
+input, textarea, select {
+  border: 2px solid #AAD4EA;
+  color: #1A1228;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: #F9C552;
+  box-shadow: 0 0 5px rgba(249, 197, 82, 0.5);
+}
+
+/* Status indicators */
+.badge-success, .status-success {
+  background-color: rgba(47, 213, 213, 0.2);
+  color: #1A1228;
+  border: 1px solid #2FD5D5;
+}
+
+.badge-warning, .status-warning {
+  background-color: rgba(249, 197, 82, 0.2);
+  color: #1A1228;
+  border: 1px solid #F9C552;
+}
+
+.badge-danger, .status-danger {
+  background-color: rgba(255, 153, 186, 0.2);
+  color: #1A1228;
+  border: 1px solid #FF99BA;
+}
+
+/* Custom badges */
+.dias-minimos-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  background-color: #F9C552;
+  color: #1A1228;
+  border: 1px solid #F9C552;
+}
