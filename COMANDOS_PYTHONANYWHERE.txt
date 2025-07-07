@@ -1,0 +1,36 @@
+# COMANDOS PASO A PASO para PythonAnywhere
+# Ejecuta estos comandos UNO POR UNO en la consola de PythonAnywhere
+
+# 1. Navegar a tu directorio
+cd /home/Dalej/multi
+
+# 2. Verificar que los archivos están ahí
+ls -la
+
+# 3. Crear directorios necesarios
+mkdir -p staticfiles
+mkdir -p media
+
+# 4. Verificar permisos
+ls -la
+
+# 5. Aplicar migraciones
+python manage.py makemigrations
+python manage.py migrate
+
+# 6. Recolectar archivos estáticos
+python manage.py collectstatic --noinput
+
+# 7. Crear superusuario (si no existe)
+python manage.py createsuperuser
+
+# 8. Verificar que todo esté correcto
+python manage.py check
+
+# 9. Probar que el proyecto funciona
+python manage.py runserver
+
+# IMPORTANTE: Después de estos comandos, ve a la pestaña "Web" en PythonAnywhere y:
+# 1. Haz clic en "Reload dalej.pythonanywhere.com"
+# 2. Verifica que la URL de tu aplicación sea correcta
+# 3. Asegúrate de que el archivo WSGI apunte a /home/Dalej/multi/multiandamios/wsgi.py
