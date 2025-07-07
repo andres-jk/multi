@@ -30,7 +30,7 @@ git reset --hard origin/main FORZARÁ la descarga de TODOS los archivos.
 🎯 DESPUÉS DE QUE APAREZCAN LOS ARCHIVOS:
 1. python3.10 cargar_divipola_produccion.py
 2. python3.10 verificar_api_divipola.py
-3. python3.10 manage.py collectstatic --clear --noinput
+3. python3.10 manage.py collectstatic --noinput
 4. Reload de la aplicación web
 
 💡 ALTERNATIVA SI PERSISTE:

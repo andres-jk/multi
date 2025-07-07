@@ -27,7 +27,7 @@ git reset --hard origin/main
    python3.10 verificar_api_divipola.py
 
 7. SÉPTIMO, ACTUALIZAR ARCHIVOS ESTÁTICOS:
-   python3.10 manage.py collectstatic --clear --noinput
+   python3.10 manage.py collectstatic --noinput
 
 8. OCTAVO, REINICIAR APLICACIÓN:
    Ve a la pestaña "Web" en PythonAnywhere y haz clic en "Reload"
