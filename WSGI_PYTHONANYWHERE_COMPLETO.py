@@ -5,7 +5,7 @@ import os
 import sys
 
 # Add your project directory to the sys.path
-path = '/home/Dalej/multi'
+path = '/home/Dalej/multi'  # Cambiar 'Dalej' por tu usuario real de PythonAnywhere
 if path not in sys.path:
     sys.path.insert(0, path)
 
