@@ -6,11 +6,15 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.conf import settings
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch, cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from decimal import Decimal
 import io
 import os
+from datetime import datetime
 from .models import Pedido, DetallePedido
 from usuarios.models import Cliente, Usuario
 from productos.models import Producto
@@ -89,46 +93,37 @@ def admin_productos(request):
         try:
             nombre = request.POST.get('nombre')
             descripcion = request.POST.get('descripcion')
-            precio = request.POST.get('precio')
-            precio_semanal = request.POST.get('precio_semanal')
+            precio_diario = request.POST.get('precio_diario')
+            dias_minimos_renta = request.POST.get('dias_minimos_renta')
             peso = request.POST.get('peso')
-            tipo_renta = request.POST.get('tipo_renta')
             cantidad = request.POST.get('cantidad')
             imagen = request.FILES.get('imagen')
             
-            # Validar tipo de renta
-            if tipo_renta not in ['mensual', 'semanal']:
-                messages.error(request, 'Tipo de renta debe ser mensual o semanal')
-                return redirect('pedidos:admin_productos')
-            
             # Validar y convertir valores numéricos
             try:
-                precio_decimal = Decimal(precio) if precio else Decimal('0')
+                precio_diario_decimal = Decimal(precio_diario) if precio_diario else Decimal('0')
+                dias_minimos_int = int(dias_minimos_renta) if dias_minimos_renta else 1
                 peso_decimal = Decimal(peso) if peso else Decimal('0')
                 cantidad_int = int(cantidad) if cantidad else 0
             except (ValueError, TypeError):
-                messages.error(request, 'Error en los valores numéricos. Verifique precio, peso y cantidad.')
+                messages.error(request, 'Error en los valores numéricos. Verifique precio diario, días mínimos, peso y cantidad.')
                 return redirect('pedidos:admin_productos')
+            
+            # Validar días mínimos
+            if dias_minimos_int < 1:
+                dias_minimos_int = 1
+                messages.warning(request, 'Días mínimos de renta debe ser al menos 1. Se ha ajustado automáticamente.')
             
             # Crear el producto
             producto_data = {
                 'nombre': nombre,
                 'descripcion': descripcion,
-                'precio': precio_decimal,
+                'precio_diario': precio_diario_decimal,
+                'dias_minimos_renta': dias_minimos_int,
                 'peso': peso_decimal,
-                'tipo_renta': tipo_renta,
                 'cantidad_disponible': cantidad_int,
                 'imagen': imagen
             }
-            
-            # Agregar precio semanal si se proporcionó
-            if precio_semanal:
-                try:
-                    precio_semanal_decimal = Decimal(precio_semanal)
-                    producto_data['precio_semanal'] = precio_semanal_decimal
-                except (ValueError, TypeError):
-                    messages.error(request, 'Error en el precio semanal.')
-                    return redirect('pedidos:admin_productos')
             
             Producto.objects.create(**producto_data)
             messages.success(request, f'Producto "{nombre}" creado exitosamente')
@@ -146,16 +141,35 @@ def editar_producto(request, producto_id):
     producto = get_object_or_404(Producto, id_producto=producto_id)
     
     if request.method == 'POST':
-        producto.nombre = request.POST.get('nombre')
-        producto.descripcion = request.POST.get('descripcion')
-        producto.precio = request.POST.get('precio')
-        producto.tipo_renta = request.POST.get('tipo_renta')
-        producto.cantidad_disponible = request.POST.get('cantidad')
+        try:
+            nombre = request.POST.get('nombre')
+            descripcion = request.POST.get('descripcion')
+            precio_diario = request.POST.get('precio_diario')
+            dias_minimos_renta = request.POST.get('dias_minimos_renta')
+            cantidad = request.POST.get('cantidad')
+            peso = request.POST.get('peso', producto.peso)
+            
+            # Validar valores numéricos
+            precio_diario_decimal = Decimal(precio_diario) if precio_diario else producto.precio_diario
+            dias_minimos_int = max(1, int(dias_minimos_renta)) if dias_minimos_renta else producto.dias_minimos_renta
+            cantidad_int = int(cantidad) if cantidad else producto.cantidad_disponible
+            peso_decimal = Decimal(peso) if peso else producto.peso
+            
+            producto.nombre = nombre
+            producto.descripcion = descripcion
+            producto.precio_diario = precio_diario_decimal
+            producto.dias_minimos_renta = dias_minimos_int
+            producto.cantidad_disponible = cantidad_int
+            producto.peso = peso_decimal
+            
+            if request.FILES.get('imagen'):
+                producto.imagen = request.FILES.get('imagen')
+            
+            producto.save()
+            messages.success(request, f'Producto "{nombre}" actualizado exitosamente')
+        except Exception as e:
+            messages.error(request, f'Error al actualizar el producto: {str(e)}')
         
-        if request.FILES.get('imagen'):
-            producto.imagen = request.FILES.get('imagen')
-        
-        producto.save()
         return redirect('pedidos:admin_productos')
         
     return render(request, 'pedidos/editar_producto.html', {'producto': producto})
@@ -205,8 +219,8 @@ def crear_pedido(request):
                         pedido=pedido,
                         producto=producto,
                         cantidad=item['cantidad'],
-                        meses_renta=item['meses'],
-                        precio_unitario=item['precio_unitario']
+                        dias_renta=item.get('dias', item.get('meses', 1)),  # Support both old and new format
+                        precio_diario=item.get('precio_diario', item.get('precio_unitario', 0))
                     )
                     
                     # Mover productos de reservados a en renta
@@ -276,36 +290,428 @@ def detalle_pedido(request, pedido_id):
         
     
 @login_required
-@user_passes_test(es_staff)
 def generar_remision_pdf(request, pedido_id):
+    """
+    Genera PDF de remisión con formato comercial completo.
+    Accesible para:
+    - Staff/administradores (cualquier pedido)
+    - Clientes (solo sus propios pedidos con pago aprobado)
+    Versión actualizada: 19/12/2024 - Incluye colores corporativos amarillos
+    """
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch, cm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from datetime import datetime
+    
     pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
+    
+    # Verificar permisos de acceso
+    if request.user.is_staff or es_staff(request.user):
+        # Staff puede ver cualquier pedido
+        pass
+    else:
+        # Clientes solo pueden ver sus propios pedidos
+        try:
+            cliente = Cliente.objects.get(usuario=request.user)
+            if pedido.cliente != cliente:
+                messages.error(request, "No tienes permiso para acceder a este pedido.")
+                return redirect('pedidos:mis_pedidos')
+            
+            # Verificar que el pago esté aprobado
+            estados_permitidos = ['pagado', 'en_preparacion', 'listo_entrega', 'en_camino', 'entregado', 'recibido', 'programado_devolucion', 'CERRADO']
+            if pedido.estado_pedido_general not in estados_permitidos:
+                messages.error(request, "La remisión estará disponible una vez que tu pago sea aprobado.")
+                return redirect('pedidos:detalle_mi_pedido', pedido_id=pedido_id)
+                
+        except Cliente.DoesNotExist:
+            messages.error(request, "No tienes perfil de cliente.")
+            return redirect('usuarios:inicio_cliente')
     
     # Crear el PDF
     buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        rightMargin=2*cm, 
+        leftMargin=2*cm, 
+        topMargin=2*cm, 
+        bottomMargin=2*cm
+    )
     
-    # Dibujar el contenido
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(50, 750, f"Remisión - Pedido #{pedido.id_pedido}")
+    # Colores corporativos amarillos
+    AMARILLO_MULTIANDAMIOS = colors.Color(1, 0.84, 0)  # RGB: 255, 214, 0 - Color amarillo principal
+    AMARILLO_OSCURO = colors.Color(0.9, 0.76, 0)       # RGB: 230, 194, 0 - Amarillo más oscuro
+    GRIS_TEXTO = colors.Color(0.2, 0.2, 0.2)           # RGB: 51, 51, 51 - Gris para texto
+    NEGRO = colors.black
+    BLANCO = colors.white
     
-    p.setFont("Helvetica", 12)
-    p.drawString(50, 720, f"Cliente: {pedido.cliente}")
-    p.drawString(50, 700, f"Fecha: {pedido.fecha.strftime('%d/%m/%Y %H:%M')}")
-    p.drawString(50, 680, f"Dirección de entrega: {pedido.direccion_entrega}")
-    y = 640
+    # Estilos personalizados
+    styles = getSampleStyleSheet()
+    
+    titulo_empresa = ParagraphStyle(
+        'TituloEmpresa',
+        parent=styles['Title'],
+        fontSize=20,
+        textColor=GRIS_TEXTO,
+        alignment=1,  # Centrado
+        spaceAfter=10,
+        fontName='Helvetica-Bold'
+    )
+    
+    titulo_documento = ParagraphStyle(
+        'TituloDocumento',
+        parent=styles['Heading1'],
+        fontSize=16,
+        textColor=GRIS_TEXTO,
+        alignment=1,  # Centrado
+        spaceAfter=20,
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitulo = ParagraphStyle(
+        'Subtitulo',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=GRIS_TEXTO,
+        spaceAfter=10,
+        fontName='Helvetica-Bold'
+    )
+    
+    texto_normal = ParagraphStyle(
+        'TextoNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=GRIS_TEXTO,
+        spaceAfter=6,
+        fontName='Helvetica'
+    )
+    
+    # Contenido del documento
+    story = []
+    
+    # 1. ENCABEZADO DE LA EMPRESA
+    encabezado_empresa = f"""
+    <para align="center">
+    <b><font size="20" color="#{int(GRIS_TEXTO.red*255):02x}{int(GRIS_TEXTO.green*255):02x}{int(GRIS_TEXTO.blue*255):02x}">MULTIANDAMIOS S.A.S</font></b><br/>
+    <font size="10" color="#{int(GRIS_TEXTO.red*255):02x}{int(GRIS_TEXTO.green*255):02x}{int(GRIS_TEXTO.blue*255):02x}">
+    NIT: 900.123.456-7<br/>
+    Dirección: Calle 123 #45-67, Bogotá D.C.<br/>
+    Teléfono: (601) 234-5678 | Email: info@multiandamios.com<br/>
+    www.multiandamios.com
+    </font>
+    </para>
+    """
+    story.append(Paragraph(encabezado_empresa, texto_normal))
+    story.append(Spacer(1, 20))
+    
+    # 2. TÍTULO DEL DOCUMENTO
+    titulo_remision = """
+    <para align="center">
+    <b><font size="18">REMISIÓN DE EQUIPOS</font></b><br/>
+    <font size="14">Número: REM-{:06d}</font>
+    </para>
+    """.format(pedido.id_pedido)
+    story.append(Paragraph(titulo_remision, texto_normal))
+    story.append(Spacer(1, 25))
+    
+    # 3. INFORMACIÓN DEL CLIENTE Y PEDIDO
+    fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M')
+    fecha_pedido = pedido.fecha.strftime('%d/%m/%Y %H:%M')
+    
+    # Obtener información del cliente de forma segura
+    if pedido.cliente:
+        cliente_info = {
+            'nombre': str(pedido.cliente),
+            'documento': getattr(pedido.cliente, 'documento', 'No especificado'),
+            'telefono': getattr(pedido.cliente, 'telefono', 'No especificado'),
+            'email': getattr(pedido.cliente, 'email', 'No especificado')
+        }
+    else:
+        cliente_info = {
+            'nombre': 'Cliente no especificado',
+            'documento': 'No especificado',
+            'telefono': 'No especificado',
+            'email': 'No especificado'
+        }
+    
+    # Tabla de información
+    info_data = [
+        ['INFORMACIÓN DEL CLIENTE', 'INFORMACIÓN DEL PEDIDO'],
+        ['', ''],
+        [f'Cliente: {cliente_info["nombre"]}', f'Número de Pedido: {pedido.id_pedido}'],
+        [f'Documento: {cliente_info["documento"]}', f'Fecha de Pedido: {fecha_pedido}'],
+        [f'Teléfono: {cliente_info["telefono"]}', f'Fecha de Remisión: {fecha_actual}'],
+        [f'Email: {cliente_info["email"]}', f'Estado: {pedido.get_estado_pedido_general_display()}'],
+        ['', ''],
+        ['Dirección de Entrega:', ''],
+        [pedido.direccion_entrega, ''],
+    ]
+    
+    # Agregar fecha de entrega si existe
+    if pedido.fecha_entrega:
+        info_data.insert(-2, ['', f'Fecha de Entrega: {pedido.fecha_entrega.strftime("%d/%m/%Y %H:%M")}'])
+    
+    # Agregar observaciones si existen
+    if pedido.notas:
+        info_data.extend([
+            ['Observaciones del Cliente:', ''],
+            [pedido.notas, ''],
+        ])
+    
+    # Crear tabla de información
+    tabla_info = Table(info_data, colWidths=[9*cm, 9*cm])
+    tabla_info.setStyle(TableStyle([
+        # Encabezado con fondo amarillo
+        ('BACKGROUND', (0, 0), (1, 0), AMARILLO_MULTIANDAMIOS),
+        ('TEXTCOLOR', (0, 0), (1, 0), NEGRO),
+        ('ALIGN', (0, 0), (1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (1, 0), 12),
+        ('TOPPADDING', (0, 0), (1, 0), 12),
+        
+        # Contenido
+        ('ALIGN', (0, 1), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 2), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 2), (1, -1), 10),
+        ('VALIGN', (0, 0), (1, -1), 'TOP'),
+        
+        # Bordes
+        ('GRID', (0, 0), (1, -1), 1, NEGRO),
+        ('LEFTPADDING', (0, 0), (1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (1, -1), 8),
+        ('TOPPADDING', (0, 1), (1, -1), 6),
+        ('BOTTOMPADDING', (0, 1), (1, -1), 6),
+    ]))
+    
+    story.append(tabla_info)
+    story.append(Spacer(1, 25))
+    
+    # 4. DETALLE DE EQUIPOS
+    story.append(Paragraph('<b>DETALLE DE EQUIPOS A ENTREGAR</b>', subtitulo))
+    story.append(Spacer(1, 15))
+    
+    # Datos de la tabla de productos
+    productos_data = [
+        ['DESCRIPCIÓN', 'CANTIDAD', 'DÍAS\nRENTA', 'PRECIO\nDIARIO', 'SUBTOTAL']
+    ]
+    
+    total_subtotal = 0
+    
+    # Agregar productos con validaciones ultra-robustas
     for detalle in pedido.detalles.all():
-        p.drawString(50, y, f"{detalle.producto.nombre} - {detalle.cantidad} unidades - {detalle.meses_renta} meses")
-        y -= 20
-    p.showPage()
-    p.save()
+        try:
+            # Verificaciones de seguridad para prevenir 'NoneType' object is not subscriptable
+            if not detalle:
+                print(f"[DEBUG PDF] Detalle es None, saltando...")
+                continue
+                
+            if not hasattr(detalle, 'producto') or not detalle.producto:
+                print(f"[DEBUG PDF] Detalle sin producto: {detalle}")
+                continue
+            
+            # Obtener valores con validaciones seguras
+            precio_diario = float(getattr(detalle, 'precio_diario', 0) or 0)
+            cantidad = int(getattr(detalle, 'cantidad', 1) or 1)
+            dias_renta = int(getattr(detalle, 'dias_renta', 1) or 1)
+            
+            # Calcular subtotal con manejo de errores
+            try:
+                subtotal = float(getattr(detalle, 'subtotal', 0) or (cantidad * dias_renta * precio_diario))
+            except (TypeError, ValueError, AttributeError) as e:
+                print(f"[DEBUG PDF] Error calculando subtotal: {e}")
+                subtotal = cantidad * dias_renta * precio_diario
+            
+            total_subtotal += subtotal
+            
+            # Nombre del producto con validación
+            nombre_producto = "Producto sin nombre"
+            if detalle.producto and hasattr(detalle.producto, 'nombre') and detalle.producto.nombre:
+                nombre_producto = str(detalle.producto.nombre)
+            
+            productos_data.append([
+                nombre_producto,
+                str(cantidad),
+                str(dias_renta),
+                f'${precio_diario:,.0f}',
+                f'${subtotal:,.0f}'
+            ])
+            
+        except Exception as e:
+            print(f"[DEBUG PDF] Error procesando detalle: {e}")
+            # Continuar con el siguiente detalle en caso de error
+            continue
+    
+    # Agregar línea en blanco antes de totales
+    productos_data.append(['', '', '', '', ''])
+    
+    # Agregar totales
+    productos_data.append(['', '', '', 'SUBTOTAL:', f'${total_subtotal:,.0f}'])
+    
+    # IVA si aplica
+    iva_valor = float(getattr(pedido, 'iva', 0) or 0)
+    if iva_valor > 0:
+        productos_data.append(['', '', '', 'IVA (19%):', f'${iva_valor:,.0f}'])
+    
+    # Transporte si aplica
+    transporte_valor = float(getattr(pedido, 'costo_transporte', 0) or 0)
+    if transporte_valor > 0:
+        productos_data.append(['', '', '', 'TRANSPORTE:', f'${transporte_valor:,.0f}'])
+    
+    # Total general
+    total_general = float(getattr(pedido, 'total', 0) or total_subtotal + iva_valor + transporte_valor)
+    productos_data.append(['', '', '', 'TOTAL GENERAL:', f'${total_general:,.0f}'])
+    
+    # Crear tabla de productos
+    tabla_productos = Table(productos_data, colWidths=[6*cm, 2*cm, 2*cm, 3*cm, 3*cm])
+    
+    # Calcular número de filas de productos (sin encabezado ni totales)
+    filas_productos = len(pedido.detalles.all())
+    
+    tabla_productos.setStyle(TableStyle([
+        # Encabezado con fondo amarillo
+        ('BACKGROUND', (0, 0), (4, 0), AMARILLO_MULTIANDAMIOS),
+        ('TEXTCOLOR', (0, 0), (4, 0), NEGRO),
+        ('ALIGN', (0, 0), (4, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (4, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (4, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (4, 0), 10),
+        ('TOPPADDING', (0, 0), (4, 0), 10),
+        
+        # Datos de productos
+        ('ALIGN', (1, 1), (4, filas_productos), 'CENTER'),  # Cantidad, días, precio, subtotal centrados
+        ('ALIGN', (0, 1), (0, filas_productos), 'LEFT'),    # Descripción a la izquierda
+        ('FONTNAME', (0, 1), (4, filas_productos), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (4, filas_productos), 10),
+        
+        # Sección de totales con fondo amarillo más claro
+        ('BACKGROUND', (3, filas_productos + 2), (4, -1), AMARILLO_OSCURO),
+        ('ALIGN', (3, filas_productos + 2), (4, -1), 'RIGHT'),
+        ('FONTNAME', (3, filas_productos + 2), (4, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (3, filas_productos + 2), (4, -1), 11),
+        
+        # Total general destacado
+        ('BACKGROUND', (3, -1), (4, -1), AMARILLO_MULTIANDAMIOS),
+        ('FONTSIZE', (3, -1), (4, -1), 12),
+        
+        # Bordes
+        ('GRID', (0, 0), (4, filas_productos), 1, NEGRO),    # Productos
+        ('GRID', (3, filas_productos + 2), (4, -1), 1, NEGRO),  # Totales
+        ('VALIGN', (0, 0), (4, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (4, -1), 8),
+        ('RIGHTPADDING', (0, 0), (4, -1), 8),
+        ('TOPPADDING', (0, 0), (4, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (4, -1), 8),
+    ]))
+    
+    story.append(tabla_productos)
+    story.append(Spacer(1, 25))
+    
+    # 5. TÉRMINOS Y CONDICIONES
+    story.append(Paragraph('<b>TÉRMINOS Y CONDICIONES</b>', subtitulo))
+    
+    terminos_texto = """
+    <b>1. ENTREGA:</b> Los equipos se entregan en la dirección especificada en perfectas condiciones de funcionamiento. 
+    El cliente debe verificar el estado de los equipos al momento de la entrega y reportar cualquier anomalía.<br/><br/>
+    
+    <b>2. RESPONSABILIDAD:</b> El cliente se hace responsable de los equipos desde el momento de la entrega hasta 
+    su devolución. Debe mantenerlos en condiciones adecuadas de uso, almacenamiento y seguridad.<br/><br/>
+    
+    <b>3. DEVOLUCIÓN:</b> Los equipos deben ser devueltos en las mismas condiciones en que fueron entregados, 
+    limpios, completos y en perfecto estado de funcionamiento en la fecha acordada.<br/><br/>
+    
+    <b>4. DAÑOS Y PÉRDIDAS:</b> Cualquier daño, deterioro, pérdida o faltante será cobrado al precio comercial 
+    vigente del equipo. Se realizará una inspección detallada al momento de la devolución.<br/><br/>
+    
+    <b>5. MORA:</b> El retraso en la devolución generará cargos adicionales del 2% del valor de renta diaria 
+    por cada día de mora, hasta un máximo del 50% del valor total del equipo.<br/><br/>
+    
+    <b>6. USO ADECUADO:</b> El cliente debe usar los equipos exclusivamente según las especificaciones técnicas 
+    y normas de seguridad establecidas. Está prohibido el uso inadecuado, modificaciones o préstamo a terceros.
+    """
+    
+    story.append(Paragraph(terminos_texto, texto_normal))
+    story.append(Spacer(1, 30))
+    
+    # 6. SECCIÓN DE FIRMAS
+    firmas_data = [
+        ['', ''],
+        ['', ''],
+        ['_____________________________', '_____________________________'],
+        ['ENTREGA', 'RECIBE'],
+        ['Firma del Empleado MultiAndamios', 'Firma del Cliente'],
+        ['', ''],
+        ['Nombre: _______________________', 'Nombre: _______________________'],
+        ['C.C.: _________________________', 'C.C.: _________________________'],
+        ['Cargo: ________________________', 'Empresa: ______________________'],
+        [f'Fecha: {fecha_actual}', 'Fecha: _______________________'],
+    ]
+    
+    tabla_firmas = Table(firmas_data, colWidths=[9*cm, 9*cm])
+    tabla_firmas.setStyle(TableStyle([
+        # Líneas de firma
+        ('ALIGN', (0, 2), (1, 2), 'CENTER'),
+        ('BOTTOMPADDING', (0, 2), (1, 2), 15),
+        
+        # Títulos ENTREGA/RECIBE con fondo amarillo
+        ('BACKGROUND', (0, 3), (1, 4), AMARILLO_MULTIANDAMIOS),
+        ('ALIGN', (0, 3), (1, 4), 'CENTER'),
+        ('FONTNAME', (0, 3), (1, 4), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 3), (1, 4), 11),
+        ('TOPPADDING', (0, 3), (1, 4), 8),
+        ('BOTTOMPADDING', (0, 3), (1, 4), 8),
+        
+        # Campos de información
+        ('ALIGN', (0, 5), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 5), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 5), (1, -1), 9),
+        ('TOPPADDING', (0, 5), (1, -1), 4),
+        ('BOTTOMPADDING', (0, 5), (1, -1), 4),
+    ]))
+    
+    story.append(tabla_firmas)
+    story.append(Spacer(1, 20))
+    
+    # 7. PIE DE PÁGINA
+    pie_pagina = f"""
+    <para align="center">
+    <font size="8" color="gray">
+    <i>Documento generado electrónicamente el {fecha_actual}<br/>
+    Este documento es válido sin firma manuscrita según la Ley 527 de 1999<br/>
+    Para consultas o reclamos: info@multiandamios.com | (601) 234-5678</i>
+    </font>
+    </para>
+    """
+    story.append(Paragraph(pie_pagina, texto_normal))
+    
+    # Construir el PDF
+    doc.build(story)
+    
     buffer.seek(0)
+    
+    # Generar timestamp único para evitar problemas de caché
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="remision_pedido_{pedido_id}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="remision_pedido_{pedido_id}_{timestamp}.pdf"'
+    
+    # Agregar headers para evitar caché del navegador
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    
     return response
 
 @login_required
-@user_passes_test(es_staff)
 def generar_factura_pdf(request, pedido_id):
+    """
+    Genera PDF de factura con formato comercial completo.
+    Accesible para:
+    - Staff/administradores (cualquier pedido)
+    - Clientes (solo sus propios pedidos con pago aprobado)
+    """
     from decimal import Decimal
     import io
     import os
@@ -317,6 +723,30 @@ def generar_factura_pdf(request, pedido_id):
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import letter
     from django.utils import timezone
+    
+    pedido = get_object_or_404(Pedido, id_pedido=pedido_id)
+    
+    # Verificar permisos de acceso (mismo código que en remisión)
+    if request.user.is_staff or es_staff(request.user):
+        # Staff puede ver cualquier pedido
+        pass
+    else:
+        # Clientes solo pueden ver sus propios pedidos
+        try:
+            cliente = Cliente.objects.get(usuario=request.user)
+            if pedido.cliente != cliente:
+                messages.error(request, "No tienes permiso para acceder a este pedido.")
+                return redirect('pedidos:mis_pedidos')
+            
+            # Verificar que el pago esté aprobado
+            estados_permitidos = ['pagado', 'en_preparacion', 'listo_entrega', 'en_camino', 'entregado', 'recibido', 'programado_devolucion', 'CERRADO']
+            if pedido.estado_pedido_general not in estados_permitidos:
+                messages.error(request, "La factura estará disponible una vez que tu pago sea aprobado.")
+                return redirect('pedidos:detalle_mi_pedido', pedido_id=pedido_id)
+                
+        except Cliente.DoesNotExist:
+            messages.error(request, "No tienes perfil de cliente.")
+            return redirect('usuarios:inicio_cliente')
 
     def format_currency(amount):
         """Formatea valores monetarios con separadores de miles y dos decimales"""
@@ -458,7 +888,7 @@ def generar_factura_pdf(request, pedido_id):
             cols = [
                 ('Producto', content_width * 0.45),
                 ('Cant.', content_width * 0.10),
-                ('Meses', content_width * 0.10),
+                ('Días', content_width * 0.10),
                 ('Precio Unit.', content_width * 0.15),
                 ('Subtotal', content_width * 0.20)
             ]
@@ -511,36 +941,59 @@ def generar_factura_pdf(request, pedido_id):
             p.setFont("Helvetica", 10)
             
             for i, detalle in enumerate(pedido.detalles.all()):
-                # Fondo alternado
-                if i % 2 == 0:
-                    p.setFillColor(colors.HexColor('#F8F8F8'))
-                    p.rect(margin_left + 1, y - 15, content_width - 2, 20, fill=True)
-                
-                p.setFillColor(negro)
-                
-                # Producto
-                nombre = detalle.producto.nombre
-                nombre_cortado = (nombre[:45] + '...') if len(nombre) > 45 else nombre
-                p.drawString(x_positions[0] + 5, y, nombre_cortado)
-                
-                # Cantidad (centrado)
-                cant_str = str(detalle.cantidad)
-                cant_width = p.stringWidth(cant_str, "Helvetica", 10)
-                x_cant = x_positions[1] + (cols[1][1] / 2) - (cant_width / 2)
-                p.drawString(x_cant, y, cant_str)
-                
-                # Meses (centrado)
-                meses_str = str(detalle.meses_renta)
-                meses_width = p.stringWidth(meses_str, "Helvetica", 10)
-                x_meses = x_positions[2] + (cols[2][1] / 2) - (meses_width / 2)
-                p.drawString(x_meses, y, meses_str)
-                  # Precio unitario (derecha)
-                precio_str = format_currency(detalle.precio_unitario)
-                p.drawRightString(x_positions[3] + cols[3][1] - 5, y, precio_str)
-                
-                # Subtotal (derecha)
-                subtotal_str = format_currency(detalle.subtotal)
-                p.drawRightString(x_positions[4] + cols[4][1] - 5, y, subtotal_str)
+                try:
+                    # Verificaciones de seguridad para prevenir 'NoneType' object is not subscriptable
+                    if not detalle:
+                        print(f"[DEBUG PDF FACTURA] Detalle es None, saltando...")
+                        continue
+                        
+                    if not hasattr(detalle, 'producto') or not detalle.producto:
+                        print(f"[DEBUG PDF FACTURA] Detalle sin producto: {detalle}")
+                        continue
+                    
+                    # Fondo alternado
+                    if i % 2 == 0:
+                        p.setFillColor(colors.HexColor('#F8F8F8'))
+                        p.rect(margin_left + 1, y - 15, content_width - 2, 20, fill=True)
+                    
+                    p.setFillColor(negro)
+                    
+                    # Producto con validación
+                    nombre = "Producto sin nombre"
+                    if detalle.producto and hasattr(detalle.producto, 'nombre') and detalle.producto.nombre:
+                        nombre = str(detalle.producto.nombre)
+                    
+                    nombre_cortado = (nombre[:45] + '...') if len(nombre) > 45 else nombre
+                    p.drawString(x_positions[0] + 5, y, nombre_cortado)
+                    
+                    # Cantidad (centrado) con validación
+                    cantidad = getattr(detalle, 'cantidad', 1) or 1
+                    cant_str = str(cantidad)
+                    cant_width = p.stringWidth(cant_str, "Helvetica", 10)
+                    x_cant = x_positions[1] + (cols[1][1] / 2) - (cant_width / 2)
+                    p.drawString(x_cant, y, cant_str)
+                    
+                    # Días (centrado) con validación
+                    dias_renta = getattr(detalle, 'dias_renta', 1) or 1
+                    dias_str = str(dias_renta)
+                    dias_width = p.stringWidth(dias_str, "Helvetica", 10)
+                    x_meses = x_positions[2] + (cols[2][1] / 2) - (dias_width / 2)
+                    p.drawString(x_meses, y, dias_str)
+                    
+                    # Precio unitario (derecha) con validación
+                    precio_diario = getattr(detalle, 'precio_diario', 0) or 0
+                    precio_str = format_currency(precio_diario)
+                    p.drawRightString(x_positions[3] + cols[3][1] - 5, y, precio_str)
+                    
+                    # Subtotal (derecha) con validación
+                    subtotal = getattr(detalle, 'subtotal', 0) or 0
+                    subtotal_str = format_currency(subtotal)
+                    p.drawRightString(x_positions[4] + cols[4][1] - 5, y, subtotal_str)
+                    
+                except Exception as e:
+                    print(f"[DEBUG PDF FACTURA] Error procesando detalle: {e}")
+                    # Continuar con el siguiente detalle en caso de error
+                    continue
                 
                 y -= 20
                 total += detalle.subtotal

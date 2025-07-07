@@ -21,31 +21,31 @@
     }
     
     .stat-card {
-        background: #f8f9fa;
+        background: #A099FF;
         padding: 15px;
         border-radius: 8px;
         text-align: center;
-        border-left: 4px solid #007bff;
-        color: #212529;
+        border-left: 4px solid #1A1228;
+        color: #1A1228;
     }
     
     .stat-card h3 {
-        color: #495057;
+        color: #1A1228;
         font-weight: bold;
         margin-bottom: 5px;
         font-size: 2rem;
     }
     
     .stat-card p {
-        color: #6c757d;
+        color: #1A1228;
         margin: 0;
         font-size: 0.9rem;
         font-weight: 500;
     }
     
     .stat-card.success {
-        border-left-color: #28a745;
-        background: #d4edda;
+        border-left-color: #1A1228;
+        background: #1ACA8F;
     }
     
     .stat-card.success h3 {
@@ -53,20 +53,20 @@
     }
     
     .stat-card.success p {
-        color: #155724;
+        color: #1A1228;
     }
     
     .stat-card.warning {
-        border-left-color: #ffc107;
-        background: #fff3cd;
+        border-left-color: #1A1228;
+        background: #FF99BA;
     }
     
     .stat-card.warning h3 {
-        color: #856404;
+        color: #1A1228;
     }
     
     .stat-card.warning p {
-        color: #856404;
+        color: #1A1228;
     }
     
     .btn-group {
@@ -170,15 +170,15 @@
             
             <!-- Estadísticas -->
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card" style="background: #A099FF; border-left: 4px solid #1A1228;">
                     <h3>{{ total_empleados }}</h3>
                     <p>Total de Empleados</p>
                 </div>
-                <div class="stat-card success">
+                <div class="stat-card success" style="background: #1ACA8F; border-left: 4px solid #1A1228;">
                     <h3>{{ empleados_activos }}</h3>
                     <p>Empleados Activos</p>
                 </div>
-                <div class="stat-card warning">
+                <div class="stat-card warning" style="background: #FF99BA; border-left: 4px solid #1A1228;">
                     <h3>{{ empleados_inactivos }}</h3>
                     <p>Empleados Inactivos</p>
                 </div>
@@ -190,7 +190,7 @@
                 
                 {% if empleados %}
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table table-lista-empleados" style="background-color: #E0EDF4 !important; border: 1px solid #AAD4EA !important;">
                         <thead>
                             <tr>
                                 <th>Usuario</th>

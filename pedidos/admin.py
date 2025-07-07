@@ -3,8 +3,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.urls import reverse
 from django.utils import timezone
-from .models import Pedido, DetallePedido, EntregaPedido
-# Original import: Pedido, DetallePedido
+from .models import Pedido, DetallePedido, DevolucionParcial, ExtensionRenta, EntregaPedido
 
 class DetallePedidoInline(admin.TabularInline):
     model = DetallePedido
@@ -51,6 +50,18 @@ class DetallePedidoInline(admin.TabularInline):
             color, icon, estado.replace('_', ' ').title()
         )
     estado_tiempo_visual.short_description = "Estado Tiempo"
+
+class DevolucionParcialInline(admin.TabularInline):
+    model = DevolucionParcial
+    extra = 0
+    readonly_fields = ('fecha_devolucion', 'procesado_por')
+    fields = ('cantidad', 'estado', 'fecha_devolucion', 'procesado_por', 'notas')
+    
+class ExtensionRentaInline(admin.TabularInline):
+    model = ExtensionRenta
+    extra = 0
+    readonly_fields = ('fecha_extension', 'procesado_por')
+    fields = ('cantidad', 'dias_adicionales', 'precio_diario', 'fecha_extension', 'procesado_por', 'notas')
 
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
@@ -99,7 +110,6 @@ class PedidoAdmin(admin.ModelAdmin):
             if obj.estado_pedido_general == 'pendiente_pago':
                 return format_html('<span style="color: red;">Vencido</span>')
             return '-'
-        
         if tiempo.days > 0:
             return f"{tiempo.days}d {tiempo.seconds//3600}h"
         else:
@@ -120,7 +130,7 @@ class PedidoAdmin(admin.ModelAdmin):
         
         colors = {
             'normal': '#28a745',      # Verde
-            'vence_pronto': '#ffc107', # Amarillo  
+            'vence_pronto': '#ffc107', # Amarillo
             'vence_hoy': '#fd7e14',   # Naranja
             'vencido': '#dc3545'      # Rojo
         }
@@ -167,7 +177,6 @@ class PedidoAdmin(admin.ModelAdmin):
             )
         
         color = '#fff3cd' if tiempo.days <= 0 else '#d1ecf1'
-        
         return format_html(
             '<div style="padding: 10px; background-color: {}; border-radius: 5px;">'
             '<strong>⏰ Tiempo restante:</strong> {}<br>'
@@ -235,7 +244,7 @@ class PedidoAdmin(admin.ModelAdmin):
         
         return format_html(
             '<div style="width: 200px; background-color: #e9ecef; border-radius: 10px; overflow: hidden;">'
-            '<div style="width: {}%; height: 20px; background-color: {}; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold;">'
+            '<div style="width: {}%; height: 20px; background-color: {}; text-align: center; line-height: 20px; color: white; font-size: 12px; font-weight: bold;">'        
             '{:.1f}%'
             '</div>'
             '</div>',
@@ -247,7 +256,7 @@ class PedidoAdmin(admin.ModelAdmin):
         """Genera un reporte detallado del tiempo de todos los productos"""
         if not obj.pk:
             return "Guarde el pedido primero"
-        
+            
         html = ['<div style="font-family: Arial, sans-serif;">']
         html.append('<h3 style="color: #495057; margin-bottom: 15px;">📋 Reporte de Tiempo por Producto</h3>')
         
@@ -261,7 +270,7 @@ class PedidoAdmin(admin.ModelAdmin):
             html.append(f'<p><strong>Inicio de renta:</strong> {obj.get_fecha_inicio_renta().strftime("%d/%m/%Y %H:%M")}</p>')
         if obj.get_fecha_fin_renta():
             html.append(f'<p><strong>Fin de renta:</strong> {obj.get_fecha_fin_renta().strftime("%d/%m/%Y %H:%M")}</p>')
-        
+
         html.append(f'<p><strong>Tiempo restante general:</strong> {obj.get_tiempo_restante_renta_humanizado()}</p>')
         html.append('</div>')
         
@@ -283,7 +292,6 @@ class PedidoAdmin(admin.ModelAdmin):
             
             for detalle in detalles:
                 estado_tiempo = detalle.get_estado_tiempo_renta_detalle()
-                
                 # Colores según el estado
                 row_colors = {
                     'normal': '#d4edda',
@@ -306,6 +314,7 @@ class PedidoAdmin(admin.ModelAdmin):
                 
                 estado_display = estado_tiempo.replace('_', ' ').title() if estado_tiempo else 'No iniciado'
                 html.append(f'<td style="padding: 8px; border: 1px solid #dee2e6; text-align: center;">{estado_display}</td>')
+                
                 html.append('</tr>')
             
             html.append('</tbody>')
@@ -329,6 +338,7 @@ class PedidoAdmin(admin.ModelAdmin):
             html.append(f'<p>🔔 {len(pronto_vencimiento)} producto(s) próximos a vencer. Enviar recordatorio al cliente.</p>')
         
         html.append('</div>')
+        
         html.append('</div>')
         
         return mark_safe(''.join(html))
@@ -340,21 +350,23 @@ class DetallePedidoAdmin(admin.ModelAdmin):
         css = {
             'all': ('admin/css/admin_custom.css',)
         }
+    
     list_display = ('pedido', 'producto', 'cantidad', 'dias_renta', 'precio_diario', 'subtotal', 
                    'estado', 'tiempo_restante_display', 'estado_tiempo_visual')
     list_filter = ('estado', 'dias_renta', 'fecha_entrega')
     search_fields = ('pedido__id_pedido', 'producto__nombre')
     raw_id_fields = ['pedido', 'producto']
     readonly_fields = ('subtotal', 'tiempo_restante_info', 'fecha_fin_calculada')
-
+    inlines = [DevolucionParcialInline, ExtensionRentaInline]
+    
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('pedido', 'producto')
-
+    
     def tiempo_restante_display(self, obj):
         """Muestra el tiempo restante en la lista"""
         return obj.get_tiempo_restante_humanizado_detalle()
     tiempo_restante_display.short_description = "Tiempo Restante"
-
+    
     def estado_tiempo_visual(self, obj):
         """Muestra el estado del tiempo con colores"""
         estado = obj.get_estado_tiempo_renta_detalle()
@@ -383,7 +395,7 @@ class DetallePedidoAdmin(admin.ModelAdmin):
             color, icon, estado.replace('_', ' ').title()
         )
     estado_tiempo_visual.short_description = "Estado Tiempo"
-
+    
     def tiempo_restante_info(self, obj):
         """Información detallada del tiempo restante"""
         estado = obj.get_estado_tiempo_renta_detalle()
@@ -416,15 +428,14 @@ class DetallePedidoAdmin(admin.ModelAdmin):
         
         return format_html(info_html)
     tiempo_restante_info.short_description = "Información de Tiempo"
-
+    
     def fecha_fin_calculada(self, obj):
         """Muestra la fecha calculada de fin de renta"""
         fecha = obj.get_fecha_fin_renta_detalle()
         return fecha.strftime('%d/%m/%Y %H:%M') if fecha else 'No calculado'
     fecha_fin_calculada.short_description = "Fecha Fin Renta"
 
-
-
+@admin.register(EntregaPedido)
 class EntregaPedidoAdmin(admin.ModelAdmin):
     list_display = ['pedido', 'empleado_entrega', 'estado_entrega', 'fecha_programada', 'vehiculo_placa']
     list_filter = ['estado_entrega', 'fecha_programada', 'empleado_entrega']
@@ -457,3 +468,25 @@ class EntregaPedidoAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         })
     )
+
+@admin.register(DevolucionParcial)
+class DevolucionParcialAdmin(admin.ModelAdmin):
+    list_display = ('id', 'detalle_pedido', 'cantidad', 'estado', 'fecha_devolucion', 'procesado_por')
+    list_filter = ('estado', 'fecha_devolucion')
+    search_fields = ('detalle_pedido__producto__nombre', 'notas')
+    date_hierarchy = 'fecha_devolucion'
+    
+    def get_pedido(self, obj):
+        return obj.detalle_pedido.pedido.id_pedido
+    get_pedido.short_description = 'Pedido'
+
+@admin.register(ExtensionRenta)
+class ExtensionRentaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'detalle_pedido', 'cantidad', 'dias_adicionales', 'subtotal', 'fecha_extension', 'procesado_por')
+    list_filter = ('fecha_extension',)
+    search_fields = ('detalle_pedido__producto__nombre', 'notas')
+    date_hierarchy = 'fecha_extension'
+    
+    def get_pedido(self, obj):
+        return obj.detalle_pedido.pedido.id_pedido
+    get_pedido.short_description = 'Pedido'

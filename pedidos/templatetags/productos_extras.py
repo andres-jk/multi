@@ -20,9 +20,17 @@ def currency(value):
         return "$0.00"
 
 @register.filter
-def precio_calculado(value):
-    """Calcula el precio semanal como 1/4 del mensual"""
+def calcular_precio_total(precio_diario, dias):
+    """Calcula el precio total basado en el precio por día y la cantidad de días"""
     try:
-        return float(value) / 4
+        return float(precio_diario) * float(dias)
     except (ValueError, TypeError):
         return 0
+
+@register.filter
+def dias_pluralize(value):
+    """Retorna 's' si el valor es diferente a 1, para pluralizar 'día'"""
+    try:
+        return '' if int(value) == 1 else 's'
+    except (ValueError, TypeError):
+        return 's'

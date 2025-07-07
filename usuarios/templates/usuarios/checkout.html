@@ -65,9 +65,18 @@
                         <strong>IVA (19%):</strong>
                         <span id="iva">${{ iva|floatformat:2|intcomma }}</span>
                     </div>
-                    <div class="d-flex justify-content-between">
-                        <strong>Transporte:</strong>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>
+                            Transporte:
+                            <i class="fas fa-info-circle text-muted ms-1" 
+                               data-bs-toggle="tooltip" 
+                               data-bs-placement="top" 
+                               title="El costo de envío se calcula automáticamente según el municipio de destino"></i>
+                        </strong>
                         <span id="transporte-resumen">${{ costo_transporte|floatformat:2|intcomma }}</span>
+                    </div>
+                    <div id="transporte-info" class="text-muted small mb-2">
+                        <i class="fas fa-info-circle"></i> El costo se actualiza según el municipio seleccionado
                     </div>
                     <div class="d-flex justify-content-between">
                         <strong>Peso total:</strong>
@@ -87,7 +96,13 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const municipioSelect = document.getElementById('id_municipio');
+        // Inicializar tooltips de Bootstrap
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+        
+        const municipioSelect = document.getElementById('municipio');
         const subtotal = parseFloat('{{ subtotal|stringformat:"f" }}');
         const iva = parseFloat('{{ iva|stringformat:"f" }}');
 
@@ -95,36 +110,61 @@
             return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 }).format(value);
         }
 
-        function updateTotal(costoTransporte) {
+        function updateTotal(costoTransporte, municipioInfo = null) {
             const total = subtotal + iva + costoTransporte;
             
             document.getElementById('transporte-resumen').textContent = formatCurrency(costoTransporte);
             document.getElementById('total-resumen').textContent = formatCurrency(total);
+            
+            // Actualizar información del transporte
+            const transporteInfo = document.getElementById('transporte-info');
+            if (municipioInfo) {
+                transporteInfo.innerHTML = `<i class="fas fa-map-marker-alt"></i> Envío a: ${municipioInfo.municipio}, ${municipioInfo.departamento}`;
+                transporteInfo.className = 'text-success small mb-2';
+            } else {
+                transporteInfo.innerHTML = '<i class="fas fa-info-circle"></i> El costo se actualiza según el municipio seleccionado';
+                transporteInfo.className = 'text-muted small mb-2';
+            }
         }
 
         municipioSelect.addEventListener('change', function() {
             const municipioId = this.value;
+            
+            // Mostrar indicador de carga
+            const transporteInfo = document.getElementById('transporte-info');
+            transporteInfo.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculando costo de envío...';
+            transporteInfo.className = 'text-info small mb-2';
+            
             if (municipioId) {
-                fetch(`/usuarios/get_costo_transporte/${municipioId}/`)
+                fetch(`{% url 'usuarios:calcular_costo_envio_ajax' %}?municipio_id=${municipioId}`)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.costo_transporte !== undefined) {
-                            updateTotal(data.costo_transporte);
+                        if (data.success) {
+                            const municipioInfo = {
+                                municipio: data.municipio_nombre,
+                                departamento: data.departamento_nombre
+                            };
+                            updateTotal(data.costo_transporte, municipioInfo);
                         } else {
-                            updateTotal(0);
+                            console.error('Error:', data.error);
+                            updateTotal(15000); // Costo por defecto
+                            transporteInfo.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al calcular envío. Usando costo base.';
+                            transporteInfo.className = 'text-warning small mb-2';
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching transport cost:', error);
-                        updateTotal(0);
+                        updateTotal(15000); // Costo por defecto
+                        transporteInfo.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error al calcular envío. Usando costo base.';
+                        transporteInfo.className = 'text-warning small mb-2';
                     });
             } else {
-                updateTotal(0);
+                updateTotal(15000); // Costo por defecto cuando no hay municipio seleccionado
             }
         });
 
-        // Initial calculation
-        updateTotal(0);
+        // Cálculo inicial con costo por defecto
+        updateTotal(parseFloat('{{ costo_transporte|stringformat:"f" }}'));
     });
 </script>
 {% endblock %}

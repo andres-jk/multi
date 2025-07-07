@@ -300,12 +300,12 @@
         <div class="col-12 text-center">
             <form method="POST" id="startJourneyForm">
                 {% csrf_token %}
-                <input type="hidden" name="latitud" id="latitud-input">
-                <input type="hidden" name="longitud" id="longitud-input">
+                <input type="hidden" name="latitud" id="latitud-input" value="0">
+                <input type="hidden" name="longitud" id="longitud-input" value="0">
                 
-                <button type="button" class="btn btn-start-journey btn-lg pulse" id="startButton" disabled onclick="iniciarRecorrido()">
+                <button type="button" class="btn btn-start-journey btn-lg pulse" id="startButton" onclick="iniciarRecorrido()">
                     <i class="fas fa-play me-2"></i>
-                    <span id="button-text">Complete la verificación para iniciar</span>
+                    <span id="button-text">Iniciar Recorrido</span>
                 </button>
                 
                 <div class="mt-3">
@@ -358,6 +358,16 @@
             </div>
         </div>
     </div>
+
+    {% if user.rol == 'recibos_obra' %}
+    <div class="alert alert-success mt-3" role="alert">
+        <h4 class="alert-heading"><i class="fas fa-info-circle"></i> ¡Función mejorada!</h4>
+        <p>Se ha actualizado la función de iniciar recorrido para permitir a todos los empleados de recibos de obra iniciar y gestionar cualquier entrega.</p>
+        <hr>
+        <p><i class="fas fa-bell"></i> <strong>¡Importante!</strong> Las entregas en estado "En Camino" ahora permanecerán visibles en el panel principal hasta que sean completadas, independientemente de los filtros aplicados.</p>
+        <p class="mb-0">Si encuentras algún problema, por favor reportarlo al administrador del sistema.</p>
+    </div>
+    {% endif %}
 </div>
 
 <script>
@@ -465,30 +475,47 @@ function iniciarRecorrido() {
     console.log('iniciarRecorrido() llamado');
     
     try {
-        // Verificar que todos los checkboxes estén marcados
-        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-        const todosChecked = Array.from(checkboxes).every(cb => cb.checked);
+        // Actualizar hora
+        actualizarHora();
         
-        if (!todosChecked) {
-            alert('Por favor, complete todos los elementos del checklist antes de continuar.');
-            return;
+        // Obtener coordenadas GPS si están disponibles
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // Actualizar campos ocultos con coordenadas
+                    document.getElementById('latitud-input').value = position.coords.latitude.toFixed(7);
+                    document.getElementById('longitud-input').value = position.coords.longitude.toFixed(7);
+                    console.log(`Coordenadas obtenidas: ${position.coords.latitude}, ${position.coords.longitude}`);
+                },
+                (error) => {
+                    console.warn(`Error GPS: ${error.message}`);
+                    // Usar coordenadas por defecto
+                    document.getElementById('latitud-input').value = '0';
+                    document.getElementById('longitud-input').value = '0';
+                }
+            );
         }
         
-        console.log('Todos los checkboxes están marcados');
-        
         // Mostrar modal de confirmación
-        const modalElement = document.getElementById('confirmModal');
-        if (modalElement) {
-            // Usar Bootstrap 5 API
-            const modal = new bootstrap.Modal(modalElement, {
-                backdrop: 'static',
-                keyboard: false
-            });
-            modal.show();
-            console.log('Modal mostrado');
-        } else {
-            console.error('No se encontró el modal confirmModal');
-            alert('Error: No se pudo mostrar el modal de confirmación.');
+        try {
+            const modalElement = document.getElementById('confirmModal');
+            if (modalElement) {
+                // Usar Bootstrap 5 API
+                const modal = new bootstrap.Modal(modalElement, {
+                    backdrop: 'static',
+                    keyboard: false
+                });
+                modal.show();
+                console.log('Modal mostrado');
+            } else {
+                console.error('No se encontró el modal confirmModal');
+                // Fallback directo si no hay modal
+                confirmarInicio();
+            }
+        } catch (modalError) {
+            console.error('Error al mostrar modal:', modalError);
+            // Fallback directo si hay error
+            confirmarInicio();
         }
         
     } catch (error) {
@@ -501,25 +528,35 @@ function confirmarInicio() {
     console.log('confirmarInicio() llamado');
     
     try {
+        // Asignar coordenadas (incluso si son valores por defecto)
+        document.getElementById('latitud-input').value = document.getElementById('latitud-input').value || '0';
+        document.getElementById('longitud-input').value = document.getElementById('longitud-input').value || '0';
+        
         // Mostrar debug info
         document.getElementById('debug-text').textContent = 'Iniciando proceso...';
         document.getElementById('debug-info').style.display = 'block';
         
         // Cerrar modal usando Bootstrap 5 API
         const modalElement = document.getElementById('confirmModal');
-        const modalInstance = bootstrap.Modal.getInstance(modalElement);
-        if (modalInstance) {
-            modalInstance.hide();
-            console.log('Modal cerrado');
-        } else {
-            console.log('No se pudo obtener instancia del modal, cerrando manualmente');
-            modalElement.style.display = 'none';
-            modalElement.classList.remove('show');
-            document.body.classList.remove('modal-open');
-            // Remover backdrop si existe
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
+        if (modalElement) {
+            try {
+                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                if (modalInstance) {
+                    modalInstance.hide();
+                } else {
+                    // Fallback para cerrar manualmente
+                    modalElement.style.display = 'none';
+                    modalElement.classList.remove('show');
+                    document.body.classList.remove('modal-open');
+                    // Remover backdrop si existe
+                    const backdrop = document.querySelector('.modal-backdrop');
+                    if (backdrop) backdrop.remove();
+                }
+            } catch (err) {
+                console.error('Error al cerrar modal:', err);
+                // Fallback para cerrar manualmente
+                modalElement.style.display = 'none';
+                modalElement.classList.remove('show');
             }
         }
         
@@ -528,28 +565,13 @@ function confirmarInicio() {
         if (startButton) {
             startButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Iniciando recorrido...';
             startButton.disabled = true;
-            console.log('Botón actualizado');
-        } else {
-            console.log('No se encontró el botón startButton');
         }
         
-        // Verificar que el formulario existe
+        // Enviar formulario
         const form = document.getElementById('startJourneyForm');
         if (form) {
-            console.log('Formulario encontrado, enviando...');
-            
-            // Debug: mostrar datos del formulario
-            const formData = new FormData(form);
-            console.log('Datos del formulario:');
-            for (let [key, value] of formData.entries()) {
-                console.log(`${key}: ${value}`);
-            }
-            
-            // Enviar formulario después de un breve delay
-            setTimeout(() => {
-                console.log('Enviando formulario...');
-                form.submit();
-            }, 500);
+            console.log('Enviando formulario...');
+            form.submit();
         } else {
             console.error('No se encontró el formulario startJourneyForm');
             alert('Error: No se pudo encontrar el formulario. Por favor, recarga la página.');

@@ -64,6 +64,17 @@
     border-radius: 6px;
     font-size: 0.85em;
 }
+
+/* Animación para el ícono de camión en la notificación */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
 </style>
 {% endblock %}
 
@@ -146,6 +157,31 @@
             </div>
         </form>
     </div>
+
+    <!-- Notificaciones de entregas en camino -->
+    {% if estadisticas.en_camino > 0 %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <div class="d-flex align-items-center">
+            <div class="flex-shrink-0">
+                <i class="fas fa-truck fa-2x pulse" style="margin-right: 15px;"></i>
+            </div>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading">¡Atención! Entregas en curso</h5>
+                <p>Hay <strong>{{ estadisticas.en_camino }}</strong> entregas en camino actualmente.</p>
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endif %}
+
+    <!-- Contador de Actualización Automática -->
+    {% if estadisticas.en_camino > 0 %}
+    <div class="text-center mb-3">
+        <span class="badge bg-info text-dark">
+            <i class="fas fa-sync-alt"></i> Actualización automática en <span id="contador-actualizacion">30</span>s
+        </span>
+    </div>
+    {% endif %}
 
     <!-- Lista de Entregas -->
     <div class="row">
@@ -262,17 +298,28 @@ function actualizarPagina() {
 }
 
 function limpiarFiltros() {
-    window.location.href = '{% url "pedidos:panel_entregas" %}';
+    // Redirección con parámetro para limpiar sesión
+    window.location.href = '{% url "pedidos:panel_entregas" %}?clear=1';
 }
 
-// Auto-actualizar cada 30 segundos
-setInterval(function() {
-    // Solo actualizar si hay entregas en camino
-    const entregasEnCamino = document.querySelectorAll('.status-en_camino').length;
-    if (entregasEnCamino > 0) {
-        actualizarPagina();
+// Auto-actualizar cada 30 segundos si hay entregas en camino
+{% if estadisticas.en_camino > 0 %}
+let timerActualizacion = 30;
+const intervaloActualizacion = setInterval(function() {
+    // Mostrar cuenta regresiva
+    if (document.getElementById('contador-actualizacion')) {
+        document.getElementById('contador-actualizacion').textContent = timerActualizacion;
     }
-}, 30000);
+    timerActualizacion--;
+    
+    if (timerActualizacion <= 0) {
+        // Actualizar la página
+        actualizarPagina();
+        // Reiniciar contador
+        timerActualizacion = 30;
+    }
+}, 1000);
+{% endif %}
 
 // Mostrar notificación de nuevas entregas
 function mostrarNotificacionNuevaEntrega() {

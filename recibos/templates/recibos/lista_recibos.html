@@ -16,7 +16,14 @@
 
 {% block content %}
 <div class="card">
-    <h1 class="highlight">Recibos de Obra</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 class="highlight">Recibos de Obra</h1>
+        {% if solo_recibos %}
+        <a href="/panel/entregas/panel/" class="btn btn-entregas" style="background-color: #2FD5D5; color: #1A1228; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; transition: all 0.3s ease;">
+            🚚 Panel de Entregas
+        </a>
+        {% endif %}
+    </div>
     
     {% if not solo_recibos %}
     <div class="search-container">
@@ -33,7 +40,7 @@
     {% endif %}
     
     <div class="table-responsive">
-        <table class="table">
+        <table class="table table-lista-pedidos" style="background-color: #E0EDF4 !important; border: 1px solid #AAD4EA !important;">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -41,7 +48,8 @@
                     <th>Producto(s)</th>
                     <th>Cantidad</th>
                     <th>Estado</th>
-                    <th>Fecha Entrega</th>
+                    <th>Tipo</th>
+                    <th>Fecha</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -67,7 +75,15 @@
                         {% endif %}
                     </td>
                     <td>{{ recibo.cantidad_solicitada }}</td>
-                    <td>{{ recibo.get_estado_display }}</td>                    <td>{{ recibo.fecha_entrega|date:"d/m/Y H:i" }}</td>
+                    <td>{{ recibo.get_estado_display }}</td>
+                    <td>
+                        {% if recibo.es_recibo_devolucion %}
+                        <span class="badge badge-return">Devolución</span>
+                        {% else %}
+                        <span class="badge badge-delivery">Entrega</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ recibo.fecha_entrega|date:"d/m/Y H:i" }}</td>
                     <td class="actions">
                         <a href="{% url 'recibos:generar_pdf' recibo.id %}" class="btn btn-sm" title="Ver PDF">
                             <i class="fas fa-file-pdf"></i> PDF
@@ -143,10 +159,43 @@
     border: 1px solid #bbdefb;
 }
 
+.badge-return {
+    background-color: #fef0f0;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+}
+
+.badge-delivery {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
 .productos-list {
     margin: 0;
     padding-left: 15px;
     font-size: 0.9em;
+}
+
+/* Estilos para el botón de entregas */
+.btn-entregas:hover {
+    background-color: #AAD4EA !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .card > div:first-child {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .btn-entregas {
+        width: 100%;
+        text-align: center;
+    }
 }
 </style>
 {% endblock %}

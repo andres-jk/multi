@@ -10,21 +10,50 @@ from datetime import datetime, timedelta
 import json
 from decimal import Decimal
 
-from .models import Pedido, EntregaPedido
+from .models import Pedido, EntregaPedido, DetallePedido
 from usuarios.models import Usuario
 
 def es_empleado_recibos(user):
     """Verifica si el usuario es empleado de recibos de obra"""
     return user.is_authenticated and (user.rol == 'recibos_obra' or user.rol == 'admin')
 
+def es_admin(user):
+    """Verifica si el usuario es administrador"""
+    return user.is_authenticated and user.rol == 'admin'
+
 @login_required
 @user_passes_test(es_empleado_recibos)
 def panel_entregas(request):
     """Panel principal para empleados de recibos de obra"""
     
-    # Filtros
-    estado_filtro = request.GET.get('estado', 'todas')
-    fecha_filtro = request.GET.get('fecha', 'hoy')
+    # Verificar si se solicita limpiar filtros
+    if 'clear' in request.GET:
+        if 'entregas_estado_filtro' in request.session:
+            del request.session['entregas_estado_filtro']
+        if 'entregas_fecha_filtro' in request.session:
+            del request.session['entregas_fecha_filtro']
+        return redirect('pedidos:panel_entregas')
+    
+    # Mostrar mensaje informativo para los empleados
+    entregas_en_camino = EntregaPedido.objects.filter(estado_entrega='en_camino').count()
+    if entregas_en_camino > 0:
+        messages.success(request, f"¡Importante! Hay {entregas_en_camino} entregas en camino que se mantendrán visibles en todo momento.")
+    else:
+        messages.info(request, "Bienvenido al panel de entregas. Ahora todos los empleados de recibos pueden gestionar cualquier entrega programada.")
+    
+    # Filtros - Guardar preferencias en sesión
+    # Si hay parámetros GET, úsalos y guárdalos en la sesión
+    if 'estado' in request.GET or 'fecha' in request.GET:
+        estado_filtro = request.GET.get('estado', 'todas')
+        fecha_filtro = request.GET.get('fecha', 'todas')
+        
+        # Guardar en sesión
+        request.session['entregas_estado_filtro'] = estado_filtro
+        request.session['entregas_fecha_filtro'] = fecha_filtro
+    else:
+        # Recuperar de la sesión o usar valores predeterminados
+        estado_filtro = request.session.get('entregas_estado_filtro', 'todas')
+        fecha_filtro = request.session.get('entregas_fecha_filtro', 'todas')
     
     # Base queryset
     entregas = EntregaPedido.objects.select_related('pedido', 'empleado_entrega')
@@ -33,20 +62,29 @@ def panel_entregas(request):
     if estado_filtro != 'todas':
         entregas = entregas.filter(estado_entrega=estado_filtro)
     
-    # Aplicar filtros de fecha
+    # Obtener las entregas en camino (siempre visibles)
+    entregas_en_camino_query = EntregaPedido.objects.filter(estado_entrega='en_camino')
+    
+    # Aplicar filtros de fecha a las demás entregas
     hoy = timezone.now().date()
     if fecha_filtro == 'hoy':
-        entregas = entregas.filter(fecha_programada__date=hoy)
+        entregas_filtradas = entregas.filter(fecha_programada__date=hoy)
+        # Unir con entregas en camino
+        entregas = entregas_filtradas | entregas_en_camino_query
     elif fecha_filtro == 'semana':
         inicio_semana = hoy - timedelta(days=hoy.weekday())
         fin_semana = inicio_semana + timedelta(days=6)
-        entregas = entregas.filter(fecha_programada__date__range=[inicio_semana, fin_semana])
+        entregas_filtradas = entregas.filter(fecha_programada__date__range=[inicio_semana, fin_semana])
+        # Unir con entregas en camino
+        entregas = entregas_filtradas | entregas_en_camino_query
     elif fecha_filtro == 'mes':
-        entregas = entregas.filter(fecha_programada__year=hoy.year, fecha_programada__month=hoy.month)
+        entregas_filtradas = entregas.filter(fecha_programada__year=hoy.year, fecha_programada__month=hoy.month)
+        # Unir con entregas en camino
+        entregas = entregas_filtradas | entregas_en_camino_query
+    # 'todas' no aplica filtro, se muestran todas las entregas
     
-    # Solo mostrar entregas del empleado si no es admin
-    if request.user.rol == 'recibos_obra':
-        entregas = entregas.filter(empleado_entrega=request.user)
+    # Mostrar todas las entregas para empleados de recibos_obra y admin
+    # (Ya no filtramos por empleado asignado)
     
     # Estadísticas
     total_entregas = entregas.count()
@@ -75,8 +113,8 @@ def detalle_entrega(request, entrega_id):
     """Detalle de una entrega específica"""
     entrega = get_object_or_404(EntregaPedido, id=entrega_id)
     
-    # Verificar permisos
-    if request.user.rol == 'recibos_obra' and entrega.empleado_entrega != request.user:
+    # Verificar permisos - permitir a todos los empleados de recibos_obra ver cualquier entrega
+    if request.user.rol != 'recibos_obra' and request.user.rol != 'admin':
         messages.error(request, 'No tienes permisos para ver esta entrega.')
         return redirect('pedidos:panel_entregas')
     
@@ -94,8 +132,8 @@ def iniciar_recorrido(request, entrega_id):
     """Iniciar el recorrido de una entrega"""
     entrega = get_object_or_404(EntregaPedido, id=entrega_id)
     
-    # Verificar permisos
-    if request.user.rol == 'recibos_obra' and entrega.empleado_entrega != request.user:
+    # Verificar permisos - permitir a todos los empleados de recibos_obra iniciar cualquier entrega
+    if request.user.rol != 'recibos_obra' and request.user.rol != 'admin':
         messages.error(request, 'No tienes permisos para esta entrega.')
         return redirect('pedidos:panel_entregas')
     
@@ -107,23 +145,37 @@ def iniciar_recorrido(request, entrega_id):
     if request.method == 'POST':
         try:
             # Obtener coordenadas GPS si están disponibles
-            latitud = request.POST.get('latitud')
-            longitud = request.POST.get('longitud')
+            latitud = request.POST.get('latitud', '0')
+            longitud = request.POST.get('longitud', '0')
             
             print(f"DEBUG: Iniciando recorrido para entrega {entrega.id}")
             print(f"DEBUG: Latitud: {latitud}, Longitud: {longitud}")
+            print(f"DEBUG: Estado actual: {entrega.estado_entrega}")
+            print(f"DEBUG: Usuario: {request.user.username}, Rol: {request.user.rol}")
+            print(f"DEBUG: Empleado asignado: {entrega.empleado_entrega.username}")
+            
+            # Usar coordenadas por defecto si son inválidas o están vacías
+            try:
+                lat_decimal = Decimal(latitud) if latitud and latitud != 'null' else Decimal('0')
+                lon_decimal = Decimal(longitud) if longitud and longitud != 'null' else Decimal('0')
+            except:
+                print("ERROR: Coordenadas inválidas, usando valores por defecto")
+                lat_decimal = Decimal('0')
+                lon_decimal = Decimal('0')
             
             # Iniciar recorrido
             entrega.iniciar_recorrido(
-                latitud_inicial=Decimal(latitud) if latitud else None,
-                longitud_inicial=Decimal(longitud) if longitud else None
+                latitud_inicial=lat_decimal,
+                longitud_inicial=lon_decimal
             )
             
             messages.success(request, f'Recorrido iniciado correctamente para el pedido {entrega.pedido.id_pedido}')
             return redirect('pedidos:seguimiento_entrega', entrega_id=entrega.id)
             
         except Exception as e:
-            print(f"ERROR: {str(e)}")
+            import traceback
+            print(f"ERROR al iniciar recorrido: {str(e)}")
+            print(traceback.format_exc())
             messages.error(request, f'Error al iniciar el recorrido: {str(e)}')
             return redirect('pedidos:detalle_entrega', entrega_id=entrega.id)
     
@@ -139,8 +191,8 @@ def seguimiento_entrega(request, entrega_id):
     """Página de seguimiento en tiempo real de una entrega"""
     entrega = get_object_or_404(EntregaPedido, id=entrega_id)
     
-    # Verificar permisos
-    if request.user.rol == 'recibos_obra' and entrega.empleado_entrega != request.user:
+    # Verificar permisos - permitir a todos los empleados de recibos_obra ver cualquier entrega
+    if request.user.rol != 'recibos_obra' and request.user.rol != 'admin':
         messages.error(request, 'No tienes permisos para ver esta entrega.')
         return redirect('pedidos:panel_entregas')
     
@@ -195,8 +247,8 @@ def confirmar_entrega(request, entrega_id):
     """Confirmar la entrega del pedido"""
     entrega = get_object_or_404(EntregaPedido, id=entrega_id)
     
-    # Verificar permisos
-    if request.user.rol == 'recibos_obra' and entrega.empleado_entrega != request.user:
+    # Verificar permisos - permitir a todos los empleados de recibos_obra confirmar cualquier entrega
+    if request.user.rol != 'recibos_obra' and request.user.rol != 'admin':
         messages.error(request, 'No tienes permisos para esta entrega.')
         return redirect('pedidos:panel_entregas')
     
@@ -379,3 +431,46 @@ def pedidos_listos_entrega(request):
     }
     
     return render(request, 'entregas/pedidos_listos_entrega.html', context)
+
+@login_required
+@user_passes_test(es_admin)
+def seguimientos_admin(request):
+    """Vista para que el admin vea todos los seguimientos de envío"""
+    # Obtener todas las entregas con seguimiento activo
+    entregas_activas = EntregaPedido.objects.select_related(
+        'pedido', 'pedido__cliente', 'pedido__cliente__usuario'
+    ).filter(
+        estado_entrega__in=['programada', 'en_camino', 'entregada']
+    ).order_by('-fecha_programada')
+    
+    # Filtros opcionales
+    estado_filtro = request.GET.get('estado', 'todas')
+    if estado_filtro != 'todas':
+        entregas_activas = entregas_activas.filter(estado_entrega=estado_filtro)
+    
+    # Filtro por fecha
+    fecha_filtro = request.GET.get('fecha', 'todas')
+    if fecha_filtro == 'hoy':
+        hoy = timezone.now().date()
+        entregas_activas = entregas_activas.filter(fecha_programada=hoy)
+    elif fecha_filtro == 'semana':
+        desde = timezone.now().date()
+        hasta = desde + timedelta(days=7)
+        entregas_activas = entregas_activas.filter(fecha_programada__range=[desde, hasta])
+    
+    # Estadísticas rápidas
+    stats = {
+        'total': entregas_activas.count(),
+        'programadas': entregas_activas.filter(estado_entrega='programada').count(),
+        'en_camino': entregas_activas.filter(estado_entrega='en_camino').count(),
+        'entregadas': entregas_activas.filter(estado_entrega='entregada').count(),
+    }
+    
+    context = {
+        'entregas': entregas_activas,
+        'stats': stats,
+        'estado_filtro': estado_filtro,
+        'fecha_filtro': fecha_filtro,
+    }
+    
+    return render(request, 'entregas/seguimientos_admin.html', context)

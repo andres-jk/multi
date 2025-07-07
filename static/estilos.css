@@ -1,5 +1,5 @@
 /*
-Colores principales: negro y amarillo
+Colores principales: amarillo (#F9C552), azul oscuro (#1A1228), rosa (#FF99BA), azul claro (#AAD4EA), turquesa (#2FD5D5)
 Botones con tamaño definido
 Espacio para logo
 */
@@ -7,7 +7,7 @@ Espacio para logo
 body {
   font-family: 'Inter', sans-serif;
   background: #ffffff92;
-  color: #eee;
+  color: #1A1228;
   margin: 0; padding: 0;
   font-size: 0.875rem; /* más compacto (14px) */
   line-height: 1.25;
@@ -17,7 +17,7 @@ body {
 
 /* Estilos globales para los encabezados */
 h1, h2, h3, h4, h5, h6 {
-  color: #ffffff;
+  color: #1A1228;
   margin-top: 0.75rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
@@ -32,13 +32,16 @@ h5 { font-size: 0.875rem; } /* 14px */
 h6 { font-size: 0.75rem; } /* 12px */
 
 h1.highlight {
-  color: #ffffff;
+  color: #1A1228;
   font-weight: 700;
   font-size: 1.6rem;
+  border-bottom: 3px solid #F9C552;
+  padding-bottom: 5px;
+  display: inline-block;
 }
 
 header {
-    background: linear-gradient(90deg, #FFD600, #FFC400);
+    background: linear-gradient(90deg, #F9C552, #F9C552);
     padding: 0.5rem 1rem;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     position: sticky;
@@ -78,7 +81,7 @@ button, .btn {
     font-size: 0.8125rem; /* 13px */
     padding: 0.4em 1.2em;
     border-radius: 50px;
-    box-shadow: 0 2px 8px rgba(202, 219, 13, 0.15);
+    box-shadow: 0 2px 8px rgba(249, 197, 82, 0.25);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     transition: all 0.2s;
@@ -88,10 +91,15 @@ button, .btn {
     justify-content: center;
     gap: 4px;
     min-height: 32px;
+    background-color: #F9C552;
+    color: #1A1228;
+    border: none;
+    cursor: pointer;
 }
 button:hover, .btn:hover {
-   transform: scale(1.03);
-    background: #FFCA00;
+   transform: translateY(-2px);
+   box-shadow: 0 4px 12px rgba(249, 197, 82, 0.4);
+   background: #2FD5D5;
 }
 
 .card {
@@ -112,7 +120,7 @@ button:hover, .btn:hover {
 input, select, textarea {
     border-radius: 6px;
     border: 1px solid transparent;
-    background: #1e1e1e;
+    background: #ffffff;
     padding: 0.3rem 0.5rem;
     color: #fff;
     transition: border 0.2s, box-shadow 0.2s;
@@ -732,7 +740,8 @@ button, .btn, nav a, .card, .logo {
     text-align: center;
     margin-bottom: 3rem;
     overflow: hidden;
-    border-radius: 50px; /* Añadimos border-radius para que el fondo tenga un recuadro más circular */
+    border-radius: 30px; /* Redondeamos los bordes del hero */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 
 .hero-overlay {
@@ -933,6 +942,7 @@ button, .btn, nav a, .card, .logo {
     overflow: hidden;
     border-top-left-radius: 30px; /* Aplicamos el mismo border-radius a la imagen */
     border-top-right-radius: 30px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
 }
 
 .product-image img {
@@ -1116,8 +1126,8 @@ button, .btn, nav a, .card, .logo {
 
 .about-image {
     overflow: hidden;
-    border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 
 .about-image img {
@@ -1201,6 +1211,8 @@ button, .btn, nav a, .card, .logo {
     margin-bottom: 4rem;
     color: #fff;
     overflow: hidden;
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 
 .cta-overlay {
@@ -1672,4 +1684,99 @@ button, .btn, nav a, .card, .logo {
     border-color: #2c5530;
     outline: none;
     box-shadow: 0 0 0 2px rgba(44, 85, 48, 0.1);
+}
+
+/* Estilos para la página de detalle de producto */
+.product-detail .product-image {
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    margin-bottom: 20px;
+}
+
+.product-detail .product-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.5s ease;
+}
+
+.product-detail .product-image:hover img {
+    transform: scale(1.03);
+}
+
+/* Estilos globales para imágenes y contenedores de imágenes */
+.rounded-image-container {
+    border-radius: 25px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.rounded-image {
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease;
+}
+
+.rounded-image:hover {
+    transform: scale(1.03);
+}
+
+/* Asegurar que todas las imágenes en secciones principales tengan bordes redondeados */
+.hero-section img,
+.about-section img,
+.featured-products-section img,
+.services-section img {
+    border-radius: 25px;
+}
+
+/* Efectos de hover para elementos con bordes redondeados */
+.hero-section,
+.cta-section,
+.about-image,
+.product-image,
+.rounded-image-container {
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-radius 0.3s ease;
+}
+
+.hero-section:hover,
+.cta-section:hover {
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+/* Efectos especiales para la sección CTA al hacer hover */
+.cta-section:hover .cta-overlay {
+    background: rgba(0, 0, 0, 0.3);
+    transition: background 0.3s ease;
+}
+
+.cta-section:hover .cta-content {
+    transform: translateY(-5px);
+    transition: transform 0.3s ease;
+}
+
+/* Contenedor responsivo para mantener las imágenes con aspecto adecuado */
+.img-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+/* Para imágenes de fondo que necesitan mantener proporción */
+.bg-img-container {
+    position: relative;
+    padding-bottom: 56.25%; /* Proporción 16:9 */
+    overflow: hidden;
+    border-radius: 25px;
+}
+
+.bg-img-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 25px;
 }

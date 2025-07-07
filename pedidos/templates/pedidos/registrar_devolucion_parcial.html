@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Devolución Parcial{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-gradient-primary-to-secondary text-white">
+        <h1 class="mb-0">Registrar Devolución Parcial</h1>
+    </div>
+    
+    <div class="card-body">
+        <div class="info-box mb-4">
+            <h3>Información del Pedido</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Pedido #:</strong> {{ pedido.id_pedido }}</p>
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Dirección:</strong> {{ pedido.direccion_entrega|truncatechars:30 }}</p>
+                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <form method="post" class="form" id="devolucion-form">
+            {% csrf_token %}
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="bg-pastel-primary text-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad Total</th>
+                            <th>Ya Devuelto</th>
+                            <th>Pendiente</th>
+                            <th>Devolver Ahora</th>
+                            <th>Estado</th>
+                            <th>Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if detalle.producto.imagen %}
+                                    <img src="{{ detalle.producto.imagen.url }}" alt="{{ detalle.producto.nombre }}" 
+                                         class="product-mini-img rounded me-2">
+                                    {% endif %}
+                                    <span>{{ detalle.producto.nombre }}</span>
+                                </div>
+                            </td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>{{ detalle.cantidad_devuelta }}</td>
+                            <td>{{ detalle.cantidad_pendiente_devolucion }}</td>
+                            <td>
+                                <input type="number" name="cantidad_{{ detalle.id }}" 
+                                    id="cantidad_{{ detalle.id }}" 
+                                    class="form-control cantidad-input"
+                                    min="0" max="{{ detalle.cantidad_pendiente_devolucion }}" 
+                                    value="0">
+                            </td>
+                            <td>
+                                <select name="estado_{{ detalle.id }}" id="estado_{{ detalle.id }}" 
+                                        class="form-select">
+                                    <option value="buen_estado">Buen Estado</option>
+                                    <option value="danado">Dañado</option>
+                                    <option value="inservible">Inservible</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="text" name="notas_{{ detalle.id }}" 
+                                    id="notas_{{ detalle.id }}" 
+                                    class="form-control"
+                                    placeholder="Notas">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="form-group mt-4">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h4>¿Desea extender la renta para los productos restantes?</h4>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="extender_renta" 
+                                id="extender_renta_si" value="si">
+                            <label class="form-check-label" for="extender_renta_si">
+                                Sí, quiero extender la renta para los productos no devueltos
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="extender_renta" 
+                                id="extender_renta_no" value="no" checked>
+                            <label class="form-check-label" for="extender_renta_no">
+                                No, solo registrar la devolución parcial
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-secondary me-2">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Registrar Devolución Parcial
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.product-mini-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+}
+
+.info-box {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #4e73df;
+}
+
+.bg-pastel-primary {
+    background-color: rgba(78, 115, 223, 0.2);
+}
+
+.bg-gradient-primary-to-secondary {
+    background: linear-gradient(135deg, #4e73df 0%, #36b9cc 100%);
+}
+
+.form-control, .form-select {
+    border-radius: 4px;
+    border: 1px solid #d1d3e2;
+}
+
+.cantidad-input {
+    width: 80px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Validación del formulario
+    document.getElementById('devolucion-form').addEventListener('submit', function(e) {
+        let isValid = false;
+        let totalDevuelto = 0;
+        
+        // Verificar que al menos un producto tenga cantidad mayor a 0
+        {% for detalle in detalles %}
+        const cantidad{{ detalle.id }} = parseInt(document.getElementById('cantidad_{{ detalle.id }}').value) || 0;
+        totalDevuelto += cantidad{{ detalle.id }};
+        
+        // Validar que no exceda la cantidad pendiente
+        if (cantidad{{ detalle.id }} > {{ detalle.cantidad_pendiente_devolucion }}) {
+            alert('La cantidad devuelta para {{ detalle.producto.nombre }} no puede exceder la cantidad pendiente ({{ detalle.cantidad_pendiente_devolucion }}).');
+            e.preventDefault();
+            return false;
+        }
+        {% endfor %}
+        
+        if (totalDevuelto === 0) {
+            alert('Debe registrar al menos un producto para devolución parcial.');
+            e.preventDefault();
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

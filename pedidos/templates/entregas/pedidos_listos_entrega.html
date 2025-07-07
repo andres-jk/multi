@@ -7,22 +7,23 @@
 <link rel="stylesheet" href="{% static 'css/entregas.css' %}">
 <style>
     .pedidos-header {
-        background: linear-gradient(135deg, #17a2b8, #138496);
+        background: linear-gradient(135deg, #A099FF, #8A84E0);
         color: white;
         padding: 30px;
         border-radius: 15px;
         margin-bottom: 30px;
         text-align: center;
+        box-shadow: 0 4px 15px rgba(160, 153, 255, 0.3);
     }
     
     .pedido-card {
-        background: white;
+        background: #F8F9FE;
         border-radius: 15px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         padding: 25px;
         margin-bottom: 20px;
         transition: all 0.3s ease;
-        border-left: 5px solid #17a2b8;
+        border-left: 5px solid #A099FF;
     }
     
     .pedido-card:hover {
@@ -31,15 +32,18 @@
     }
     
     .pedido-card.pagado {
-        border-left-color: #28a745;
+        background-color: #E6F7E9;
+        border-left-color: #1ACA8F;
     }
     
     .pedido-card.en_preparacion {
-        border-left-color: #ffc107;
+        background-color: #FFF8E6;
+        border-left-color: #F9C552;
     }
     
     .pedido-card.listo_entrega {
-        border-left-color: #17a2b8;
+        background-color: #E6F1FF;
+        border-left-color: #A099FF;
     }
     
     .pedido-header {
@@ -67,18 +71,21 @@
     }
     
     .estado-pagado {
-        background: #e8f5e8;
-        color: #2e7d32;
+        background: #E6F7E9;
+        color: #1ACA8F;
+        border: 1px solid #1ACA8F;
     }
     
     .estado-preparacion {
-        background: #fff3e0;
-        color: #f57c00;
+        background: #FFF8E6;
+        color: #F9C552;
+        border: 1px solid #F9C552;
     }
     
     .estado-listo {
-        background: #e3f2fd;
-        color: #1976d2;
+        background: #E6F1FF;
+        color: #A099FF;
+        border: 1px solid #A099FF;
     }
     
     .pedido-info {
@@ -101,8 +108,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #f8f9fa;
-        color: #17a2b8;
+        background: rgba(160, 153, 255, 0.2);
+        color: #A099FF;
         font-size: 1rem;
     }
     
@@ -130,7 +137,7 @@
     }
     
     .btn-programar {
-        background: linear-gradient(135deg, #28a745, #20c997);
+        background: #1ACA8F;
         color: white;
         border: none;
         padding: 10px 20px;
@@ -145,13 +152,14 @@
     
     .btn-programar:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        box-shadow: 0 4px 15px rgba(26, 202, 143, 0.3);
         color: white;
         text-decoration: none;
+        background: #16B883;
     }
     
     .btn-ver {
-        background: linear-gradient(135deg, #007bff, #0056b3);
+        background: #A099FF;
         color: white;
         border: none;
         padding: 10px 20px;
@@ -166,23 +174,25 @@
     
     .btn-ver:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        box-shadow: 0 4px 15px rgba(160, 153, 255, 0.3);
         color: white;
         text-decoration: none;
+        background: #8A84E0;
     }
     
     .stats-card {
-        background: white;
+        background: #F8F9FE;
         border-radius: 15px;
         padding: 20px;
         text-align: center;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border-top: 5px solid #A099FF;
     }
     
     .stat-number {
         font-size: 2rem;
         font-weight: 700;
-        color: #17a2b8;
+        color: #A099FF;
         margin: 0;
     }
     
@@ -190,6 +200,7 @@
         color: #6c757d;
         font-size: 0.9rem;
         margin: 0;
+        font-weight: 500;
     }
     
     .no-pedidos {

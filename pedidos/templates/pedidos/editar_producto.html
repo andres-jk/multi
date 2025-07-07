@@ -10,13 +10,73 @@
     <h1 class="highlight">Editar Producto</h1>
     <form class="admin-productos-form" method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <input type="text" name="nombre" value="{{ producto.nombre }}" required>
-        <input type="text" name="descripcion" value="{{ producto.descripcion }}" required>
-        <input type="number" name="precio" value="{{ producto.precio }}" min="0" required>
-        <input type="text" name="tipo_renta" value="{{ producto.tipo_renta }}" required>        <input type="number" name="cantidad" value="{{ producto.cantidad_disponible }}" min="1" required>
+        <input type="text" name="nombre" value="{{ producto.nombre }}" placeholder="Nombre del producto" required>
+        <textarea name="descripcion" style="min-width:200px;" required>{{ producto.descripcion }}</textarea>
+        <input type="number" name="precio_diario" value="{{ producto.precio_diario }}" placeholder="Precio por día" min="0" step="0.01" required>
+        <input type="number" name="dias_minimos_renta" value="{{ producto.dias_minimos_renta }}" placeholder="Días mínimos de renta" min="1" required>
+        <input type="number" name="peso" value="{{ producto.peso }}" placeholder="Peso individual (kg)" min="0" step="0.01" required>
+        <input type="number" name="cantidad" value="{{ producto.cantidad_disponible }}" placeholder="Cantidad" min="1" required>
         <input type="file" name="imagen" accept="image/*">
-        <button class="btn" type="submit">Guardar Cambios</button>
-        <a href="{% url 'pedidos:admin_productos' %}" class="btn">Cancelar</a>
+        <button class="btn" type="submit" style="background-color: #F9C552; color: #1A1228; font-weight: bold;">Guardar Cambios</button>
+        <a href="{% url 'pedidos:admin_productos' %}" class="btn" style="background-color: #AAD4EA; color: #1A1228; font-weight: bold;">Cancelar</a>
     </form>
 </div>
+
+<style>
+.highlight {
+    color: #1A1228;
+    border-bottom: 3px solid #F9C552;
+    padding-bottom: 10px;
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+.card-admin-productos {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(26, 18, 40, 0.1);
+    padding: 25px;
+    background-color: white;
+}
+
+.admin-productos-form input,
+.admin-productos-form textarea,
+.admin-productos-form select {
+    border: 2px solid #AAD4EA;
+    border-radius: 6px;
+    padding: 8px 12px;
+    transition: all 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.admin-productos-form input:focus,
+.admin-productos-form textarea:focus,
+.admin-productos-form select:focus {
+    border-color: #F9C552;
+    outline: none;
+    box-shadow: 0 0 5px rgba(249, 197, 82, 0.5);
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 10px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.admin-productos-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+</style>
 {% endblock %}

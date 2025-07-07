@@ -5,6 +5,17 @@
 <div class="card card-pedidos">
     <h1 class="highlight">Pedido #{{ pedido.id_pedido }}</h1>
     
+    {% with has_devolucion_parcial=False %}
+    {% for detalle in pedido.detalles.all %}
+        {% if detalle.estado == 'devuelto_parcial' and not detalle.renta_extendida and not has_devolucion_parcial %}
+            {% with has_devolucion_parcial=True %}
+            <a href="{% url 'pedidos:extender_renta' pedido.id_pedido %}" class="btn btn-success">
+                <i class="fas fa-calendar-plus"></i> Extender Renta Productos Restantes
+            </a>
+            {% endwith %}
+        {% endif %}
+    {% endfor %}
+    {% endwith %}    
     {% if messages %}
     <div class="messages">
         {% for message in messages %}
@@ -197,8 +208,114 @@
 
     <div class="pedido-actions">
         <a href="{% url 'pedidos:lista_pedidos' %}" class="btn">Volver a la lista</a>
+        
+        {% if pedido.estado_pedido_general == 'entregado' or pedido.estado_pedido_general == 'recibido' %}
+        <!-- Botones para gestión de devoluciones -->
+        <div class="btn-group">
+            <a href="{% url 'pedidos:programar_devolucion' pedido.id_pedido %}" class="btn btn-outline-primary">
+                <i class="fas fa-calendar"></i> Programar Devolución Total
+            </a>
+            <a href="{% url 'pedidos:registrar_devolucion_parcial' pedido.id_pedido %}" class="btn btn-primary">
+                <i class="fas fa-undo"></i> Registrar Devolución Parcial
+            </a>
+            <a href="{% url 'pedidos:seleccion_devolucion_parcial' pedido.id_pedido %}" class="btn btn-success">
+                <i class="fas fa-sync-alt"></i> Devolución Parcial / Extensión
+            </a>
+        </div>
+        
+        <!-- Botón para crear recibo de obra para pedidos entregados (solo para staff) -->
+        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
+        <a href="{% url 'recibos:crear_recibo_multiple' pedido.id_pedido %}" class="btn btn-warning">
+            <i class="fas fa-file-contract"></i> Crear Recibo de Obra
+        </a>
+        {% endif %}
+        {% endif %}
+        
+        {% if pedido.estado_pedido_general == 'programado_devolucion' and user.is_staff or pedido.estado_pedido_general == 'programado_devolucion' and user.rol == 'admin' or pedido.estado_pedido_general == 'programado_devolucion' and user.rol == 'recibos_obra' %}
+        <!-- Botón para crear recibo de obra para devolución (solo para staff) -->
+        <a href="{% url 'recibos:crear_recibo_consolidado' pedido.id_pedido %}" class="btn btn-success">
+            <i class="fas fa-file-invoice"></i> Crear Recibo de Obra para Devolución
+        </a>
+        {% endif %}
+        
+        <!-- Botón para crear recibo de obra para pedidos pagados/en preparación (solo para staff) -->
+        {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'en_preparacion' or pedido.estado_pedido_general == 'listo_entrega' %}
+        {% if user.is_staff or user.rol == 'admin' or user.rol == 'recibos_obra' %}
+        <a href="{% url 'recibos:crear_recibo_multiple' pedido.id_pedido %}" class="btn btn-info">
+            <i class="fas fa-file-contract"></i> Crear Recibo de Obra
+        </a>
+        {% endif %}
+        {% endif %}
+        
+        {% for detalle in pedido.detalles.all %}
+            {% if detalle.estado == 'devuelto_parcial' and not detalle.renta_extendida %}
+                <a href="{% url 'pedidos:extender_renta' pedido.id_pedido %}" class="btn btn-success">
+                    <i class="fas fa-calendar-plus"></i> Extender Renta Productos Restantes
+                </a>
+            {% endif %}
+        {% endfor %}
+        
         <a href="{% url 'pedidos:generar_remision_pdf' pedido.id_pedido %}" class="btn" target="_blank">Descargar Remisión</a>
         <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn" target="_blank">Descargar Factura</a>
+    </div>
+</div>
+
+<!-- Tabla de productos devueltos parcialmente -->
+{% with mostrado=False %}
+{% for detalle in pedido.detalles.all %}
+    {% if detalle.estado == 'devuelto_parcial' and not mostrado %}
+        {% with mostrado=True %}
+        {% include 'pedidos/include/tabla_devoluciones_parciales.html' %}
+        {% endwith %}
+    {% endif %}
+{% endfor %}
+{% endwith %}
+
+<div class="card mt-4">
+    <div class="card-header bg-gradient-primary-to-secondary text-white">
+        <h3 class="mb-0"><i class="fas fa-history"></i> Historial de Devoluciones Parciales</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>Cantidad Inicial</th>
+                        <th>Devuelto</th>
+                        <th>Pendiente</th>
+                        <th>Estado</th>
+                        <th>Renta Extendida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detalle in pedido.detalles.all %}
+                    {% if detalle.cantidad_devuelta > 0 %}
+                    <tr>
+                        <td>{{ detalle.producto.nombre }}</td>
+                        <td>{{ detalle.cantidad }}</td>
+                        <td>{{ detalle.cantidad_devuelta }}</td>
+                        <td>{{ detalle.cantidad_pendiente_devolucion }}</td>
+                        <td>
+                            <span class="badge {% if detalle.estado == 'devuelto' %}bg-success
+                                               {% elif detalle.estado == 'devuelto_parcial' %}bg-warning
+                                               {% else %}bg-secondary{% endif %}">
+                                {{ detalle.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if detalle.renta_extendida %}
+                            <span class="badge bg-info">Renta Extendida</span>
+                            {% else %}
+                            <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

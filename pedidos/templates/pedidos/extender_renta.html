@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load pedidos_tags %}
+
+{% block title %}Extender Renta de Productos{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-gradient-primary-to-secondary text-white">
+        <h1 class="mb-0">Extender Renta de Productos</h1>
+    </div>
+    
+    <div class="card-body">
+        <div class="info-box mb-4">
+            <h3>Información del Pedido</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Pedido #:</strong> {{ pedido.id_pedido }}</p>
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Dirección:</strong> {{ pedido.direccion_entrega|truncatechars:30 }}</p>
+                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Estos productos han tenido devoluciones parciales y pueden extender su renta.
+        </div>
+        
+        <form method="post" class="form" id="extension-form">
+            {% csrf_token %}
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="bg-pastel-primary text-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad Inicial</th>
+                            <th>Devuelto</th>
+                            <th>Restante</th>
+                            <th>Precio por Día</th>
+                            <th>Extender</th>
+                            <th>Días Adicionales</th>
+                            <th>Subtotal</th>
+                            <th>Notas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if detalle.producto.imagen %}
+                                    <img src="{{ detalle.producto.imagen.url }}" alt="{{ detalle.producto.nombre }}" 
+                                         class="product-mini-img rounded me-2">
+                                    {% endif %}
+                                    <span>{{ detalle.producto.nombre }}</span>
+                                </div>
+                            </td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>{{ detalle.cantidad_devuelta }}</td>
+                            <td>{{ detalle.cantidad_pendiente_devolucion }}</td>
+                            <td>${{ detalle.precio_diario|floatformat:2 }}</td>
+                            <td>
+                                <div class="form-check">
+                                    <input class="form-check-input extender-check" type="checkbox" 
+                                           name="extender_{{ detalle.id }}" id="extender_{{ detalle.id }}" 
+                                           value="si" checked
+                                           data-detalle-id="{{ detalle.id }}"
+                                           data-precio="{{ detalle.precio_diario }}"
+                                           data-cantidad="{{ detalle.cantidad_pendiente_devolucion }}">
+                                </div>
+                            </td>
+                            <td>
+                                <input type="number" name="dias_{{ detalle.id }}" 
+                                       id="dias_{{ detalle.id }}" 
+                                       class="form-control dias-input"
+                                       min="1" value="7"
+                                       data-detalle-id="{{ detalle.id }}">
+                            </td>
+                            <td>
+                                <span id="subtotal_{{ detalle.id }}" class="subtotal-display">
+                                    ${% with amount=detalle.precio_diario|multiply:detalle.cantidad_pendiente_devolucion|multiply:7 %}
+                                        {{ amount|floatformat:2 }}
+                                    {% endwith %}
+                                </span>
+                            </td>
+                            <td>
+                                <input type="text" name="notas_{{ detalle.id }}" 
+                                       id="notas_{{ detalle.id }}" 
+                                       class="form-control"
+                                       placeholder="Notas">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-light">
+                            <td colspan="7" class="text-end"><strong>Total a Pagar:</strong></td>
+                            <td colspan="2"><strong id="total-display">$0.00</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-secondary me-2">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Confirmar Extensión de Renta
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.product-mini-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+}
+
+.info-box {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #4e73df;
+}
+
+.bg-pastel-primary {
+    background-color: rgba(78, 115, 223, 0.2);
+}
+
+.bg-gradient-primary-to-secondary {
+    background: linear-gradient(135deg, #4e73df 0%, #36b9cc 100%);
+}
+
+.form-control {
+    border-radius: 4px;
+    border: 1px solid #d1d3e2;
+}
+
+.dias-input {
+    width: 80px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para calcular subtotal
+    function calcularSubtotal(detalleId) {
+        const checkbox = document.getElementById(`extender_${detalleId}`);
+        const diasInput = document.getElementById(`dias_${detalleId}`);
+        const subtotalDisplay = document.getElementById(`subtotal_${detalleId}`);
+        
+        if (!checkbox || !diasInput || !subtotalDisplay) return;
+        
+        const isChecked = checkbox.checked;
+        const dias = parseInt(diasInput.value) || 0;
+        const precio = parseFloat(checkbox.dataset.precio) || 0;
+        const cantidad = parseInt(checkbox.dataset.cantidad) || 0;
+        
+        const subtotal = isChecked ? (precio * cantidad * dias) : 0;
+        subtotalDisplay.textContent = `$${subtotal.toFixed(2)}`;
+        
+        return subtotal;
+    }
+    
+    // Función para calcular el total
+    function calcularTotal() {
+        let total = 0;
+        
+        // Obtener todos los checkboxes
+        const checkboxes = document.querySelectorAll('.extender-check');
+        checkboxes.forEach(checkbox => {
+            const detalleId = checkbox.dataset.detalleId;
+            total += calcularSubtotal(detalleId);
+        });
+        
+        // Actualizar total en pantalla
+        const totalDisplay = document.getElementById('total-display');
+        if (totalDisplay) {
+            totalDisplay.textContent = `$${total.toFixed(2)}`;
+        }
+    }
+    
+    // Asignar evento a los checkboxes
+    const checkboxes = document.querySelectorAll('.extender-check');
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const detalleId = this.dataset.detalleId;
+            calcularSubtotal(detalleId);
+            calcularTotal();
+        });
+    });
+    
+    // Asignar evento a los inputs de días
+    const diasInputs = document.querySelectorAll('.dias-input');
+    diasInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const detalleId = this.dataset.detalleId;
+            calcularSubtotal(detalleId);
+            calcularTotal();
+        });
+    });
+    
+    // Calcular total inicial
+    calcularTotal();
+    
+    // Validación del formulario
+    document.getElementById('extension-form').addEventListener('submit', function(e) {
+        let alMenosUno = false;
+        
+        // Verificar que al menos un producto esté seleccionado
+        checkboxes.forEach(checkbox => {
+            if (checkbox.checked) {
+                alMenosUno = true;
+                
+                // Verificar que tenga días válidos
+                const detalleId = checkbox.dataset.detalleId;
+                const dias = parseInt(document.getElementById(`dias_${detalleId}`).value) || 0;
+                
+                if (dias <= 0) {
+                    alert('Los días adicionales deben ser mayores a 0.');
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+        
+        if (!alMenosUno) {
+            alert('Debe seleccionar al menos un producto para extender la renta.');
+            e.preventDefault();
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

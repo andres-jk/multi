@@ -29,8 +29,9 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm, inch, cm
 
 from datetime import datetime, timedelta
-import os
 import uuid
+import json
+import os
 import io
 
 # --- Funciones de Ayuda ---
@@ -215,7 +216,7 @@ def actualizar_carrito(request):
     {
         "detalle_pedido_id": <int>,
         "cantidad": <int, opcional>,
-        "meses_renta": <int, opcional>
+        "dias_renta": <int, opcional>
     }
     Si la cantidad es 0, el DetallePedido será eliminado.
     """
@@ -224,7 +225,7 @@ def actualizar_carrito(request):
             data = json.loads(request.body)
             detalle_pedido_id = data.get('detalle_pedido_id')
             nueva_cantidad = data.get('cantidad')
-            nuevos_meses_renta = data.get('meses_renta')
+            nuevos_dias_renta = data.get('dias_renta')
 
             if not detalle_pedido_id:
                 return JsonResponse({'success': False, 'message': 'Se requiere el ID del detalle del pedido.'}, status=400)
@@ -243,11 +244,11 @@ def actualizar_carrito(request):
                         return JsonResponse({'success': False, 'message': 'Cantidad inválida. Debe ser un número entero no negativo.'}, status=400)
                     detalle_pedido.cantidad = nueva_cantidad
 
-                # 2. Actualizar los meses de renta si se proporcionan y son válidos
-                if nuevos_meses_renta is not None:
-                    if not isinstance(nuevos_meses_renta, int) or nuevos_meses_renta < 1:
-                        return JsonResponse({'success': False, 'message': 'Meses de renta inválidos. Debe ser un número entero positivo.'}, status=400)
-                    detalle_pedido.meses_renta = nuevos_meses_renta
+                # 2. Actualizar los días de renta si se proporcionan y son válidos
+                if nuevos_dias_renta is not None:
+                    if not isinstance(nuevos_dias_renta, int) or nuevos_dias_renta < 1:
+                        return JsonResponse({'success': False, 'message': 'Días de renta inválidos. Debe ser un número entero positivo.'}, status=400)
+                    detalle_pedido.dias_renta = nuevos_dias_renta
 
                 # Validar la cantidad contra el stock disponible ANTES de guardar
                 # Esto es importante si el modelo DetallePedido.clean() no lo maneja completamente antes del save.
@@ -288,7 +289,7 @@ def actualizar_carrito(request):
                 return JsonResponse({'success': True, 'message': 'Carrito actualizado exitosamente.',
                                      'detalle_pedido_id': detalle_pedido.id,
                                      'nueva_cantidad': detalle_pedido.cantidad,
-                                     'nuevos_meses_renta': detalle_pedido.meses_renta,
+                                     'nuevos_dias_renta': detalle_pedido.dias_renta,
                                      'nuevo_subtotal_item': str(detalle_pedido.subtotal), # Convertir Decimal a str
                                      'pedido_id': pedido_afectado.id_pedido,
                                      'nuevo_subtotal_pedido': str(pedido_afectado.subtotal), # Convertir Decimal a str
@@ -316,215 +317,154 @@ EMISOR_INFO = {
     'email': 'info@multiandamios.co'
 }
 
-def _draw_pdf_header(p, width, height, title):
-    """Dibuja el encabezado de la página para cotizaciones y remisiones."""
-    p.setFillColor(colors.HexColor("#FFD600"))
-    p.rect(0, height - 60, width, 60, fill=1, stroke=0)
-    
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 22)
-    p.drawCentredString(width / 2, height - 40, title)
-    
-    p.setFont("Helvetica", 10)
-    p.drawRightString(width - 50, height - 55, "MULTIANDAMIOS S.A.S.")
-
-def _draw_info_section(p, y_start, width, emisor, receptor):
-    """Dibuja la sección de datos del proveedor y cliente."""
-    p.setLineWidth(0.5)
-    p.rect(40, y_start - 160, width - 80, 140, stroke=1, fill=0) # Marco para información
-    
-    # Títulos de secciones
-    p.setFont("Helvetica-Bold", 11)
-    p.drawString(50, y_start - 15, "DATOS DEL PROVEEDOR")
-    p.drawString(width / 2 + 10, y_start - 15, "DATOS DEL CLIENTE")
-    
-    # Información del emisor
-    current_y_emisor = y_start - 35
-    p.setFont("Helvetica", 10)
-    for key, value in emisor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(50, current_y_emisor, label)
-        p.setFont("Helvetica", 9)
-        p.drawString(50 + p.stringWidth(label, "Helvetica-Bold", 9), current_y_emisor, value)
-        current_y_emisor -= 15
-    
-    # Información del receptor
-    current_y_receptor = y_start - 115
-    for key, value in receptor.items():
-        label = key.upper() + ": "
-        p.setFont("Helvetica-Bold", 9)
-        p.drawString(width / 2 + 10, current_y_receptor, label)
-        p.setFont("Helvetica", 9)
-        str_value = str(value) if value is not None else "N/A"
-        p.drawString(width / 2 + 10 + p.stringWidth(label, "Helvetica-Bold", 9), current_y_receptor, str_value)
-        current_y_receptor -= 15
-    return current_y_emisor # Retorna la Y actual después de dibujar la sección
-
-def _draw_table_header(p, headers, x, y, col_widths, row_height=20):
-    """Dibuja el encabezado de la tabla."""
-    p.setFillColor(colors.HexColor("#F5F5F5"))
-    p.rect(x, y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-    
-    p.setFillColor(colors.black)
-    p.setFont("Helvetica-Bold", 10)
-    current_x = x
-    for i, header in enumerate(headers):
-        p.drawString(current_x + 5, y - 15, header)
-        current_x += col_widths[i]
-    return y - row_height
+# FUNCIONES OBSOLETAS REMOVIDAS - SE USAN LAS VERSIONES V2
 
 def _generate_common_pdf(request, document_type, items_to_include):
     """
     Función genérica para generar PDFs de cotización o remisión.
+    VERSIÓN OPTIMIZADA - 2025-01-06 - LOGGING REDUCIDO
     :param document_type: 'cotizacion' o 'remision'
     :param items_to_include: QuerySet de CarritoItem (para cotización) o items reservados (para remisión)
     """
-    if not items_to_include.exists():
+    
+    if not items_to_include or not items_to_include.exists():
         messages.error(request, f'El carrito está vacío o no hay items reservados para la {document_type}.')
-        return redirect('usuarios:ver_carrito') # O a donde sea más apropiado
+        return redirect('usuarios:ver_carrito')
 
     response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="{document_type}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="{document_type}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
     
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
 
-    # Información del receptor (cliente)
+    # Información del receptor (cliente) - Mejorado para obtener datos completos
     user = request.user
+    direccion_principal = None
+    telefono_usuario = ""
+    direccion_completa = ""
+    
+    # Intentar obtener datos más completos del usuario con verificaciones de seguridad
+    try:
+        if hasattr(user, 'direcciones'):
+            direccion_principal = user.direcciones.filter(principal=True).first()
+            
+            if direccion_principal and hasattr(direccion_principal, 'direccion'):
+                direccion_partes = []
+                if direccion_principal.direccion:
+                    direccion_partes.append(str(direccion_principal.direccion))
+                if hasattr(direccion_principal, 'municipio') and direccion_principal.municipio and hasattr(direccion_principal.municipio, 'nombre'):
+                    direccion_partes.append(str(direccion_principal.municipio.nombre))
+                if hasattr(direccion_principal, 'departamento') and direccion_principal.departamento and hasattr(direccion_principal.departamento, 'nombre'):
+                    direccion_partes.append(str(direccion_principal.departamento.nombre))
+                direccion_completa = ", ".join(direccion_partes) if direccion_partes else "N/A"
+            else:
+                direccion_completa = getattr(user, 'direccion_texto', getattr(user, 'direccion', 'N/A'))
+        else:
+            direccion_completa = getattr(user, 'direccion_texto', getattr(user, 'direccion', 'N/A'))
+        
+        telefono_usuario = getattr(user, 'telefono', 'N/A')
+        if hasattr(user, 'cliente') and user.cliente:
+            telefono_usuario = getattr(user.cliente, 'telefono', telefono_usuario)
+            
+    except Exception as e:
+        print(f"[ERROR PDF] Error obteniendo datos del usuario: {e}")
+        direccion_completa = "N/A"
+        telefono_usuario = "N/A"
+
     receptor_info = {
-        'nombre': f"{user.first_name} {user.last_name}".strip() or "N/A",
+        'nombre': f"{user.first_name} {user.last_name}".strip() or "Cliente",
         'nif': str(getattr(user, 'numero_identidad', 'N/A')),
-        'direccion': str(getattr(user, 'direccion', 'N/A')), # Asumiendo que 'direccion' está en el modelo Usuario
-        'telefono': str(getattr(user, 'telefono', 'N/A')), # Asumiendo que 'telefono' está en el modelo Usuario
+        'direccion': str(direccion_completa),
+        'telefono': str(telefono_usuario),
         'email': str(user.email or 'N/A')
     }
 
-    # Primera página
-    _draw_pdf_header(p, width, height, document_type.upper())
-    y = height - 80 # Posición inicial para la sección de información
+    # Dibujar todas las secciones con espaciado optimizado y verificaciones de seguridad
+    current_y = height - 10  # Comenzar muy cerca del borde superior
     
-    _draw_info_section(p, y, width, EMISOR_INFO, receptor_info)
-
-    # Información del documento (cotización/remisión)
-    y_after_info_box = height - 200 # Ajustar la Y después de la caja de información
-    p.setFont("Helvetica", 10)
-    fecha = datetime.now()
-    p.drawString(50, y_after_info_box, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
-    p.drawString(width - 200, y_after_info_box, f"{document_type.capitalize()} #: {uuid.uuid4().hex[:8].upper()}") # Número aleatorio
-
-    # Tabla de productos
-    y_table_start = y_after_info_box - 40
-    headers = ["Descripción", "Cant.", "Período", "Precio Unit.", "Subtotal"]
-    col_widths = [250, 60, 60, 80, 80]
-    row_height = 20
-
-    current_y = _draw_table_header(p, headers, 40, y_table_start, col_widths)
-    
-    p.setFont("Helvetica", 9)
-    total_sin_iva = Decimal('0.00')
-    peso_total = Decimal('0.00')
-
-    for item in items_to_include:
-        if current_y < 100: # Nueva página si no hay espacio suficiente para una fila y el pie
-            p.showPage()
-            _draw_pdf_header(p, width, height, document_type.upper())
-            current_y = height - 100 # Reinicia Y para el encabezado de la tabla en la nueva página
-            current_y = _draw_table_header(p, headers, 40, current_y, col_widths)
-            p.setFont("Helvetica", 9)
-
-        subtotal = item.subtotal
-        total_sin_iva += subtotal
-        peso_total += item.peso_total  # Now both are Decimal types
+    try:
+        # 1. Encabezado
+        current_y = _draw_pdf_header_v2(p, width, current_y, document_type.upper())
         
-        # Dibujar fondo de la fila
-        p.setFillColor(colors.white)
-        p.rect(40, current_y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
-        p.setFillColor(colors.black)
+        # 2. Información de empresa y cliente en diseño compacto
+        current_y = _draw_company_client_info_v2(p, current_y, width, EMISOR_INFO, receptor_info)
         
-        # Datos de la fila
-        x = 40
-        precio_unitario = item.producto.precio_diario
-        duracion_texto = item.get_descripcion_dias()
+        # 3. Información del documento
+        current_y = _draw_document_info_v2(p, current_y, width, document_type)
         
-        row_data = [
-            item.producto.nombre[:40],
-            str(item.cantidad),
-            duracion_texto,
-            f"${precio_unitario:,.2f}",
-            f"${subtotal:,.2f}"
-        ]
+        # 4. Tabla de productos con verificaciones de seguridad ultra-robustas
+        headers = ["Descripción", "Cant.", "Período", "Precio Unit.", "Subtotal"]
+        col_widths = [280, 50, 80, 80, 80]
         
-        for i, text in enumerate(row_data):
-            p.drawString(x + 5, current_y - 15, text)
-            x += col_widths[i]
+        # Verificaciones ultra-robustas antes de procesar
+        if not headers or not isinstance(headers, (list, tuple)):
+            print(f"[ERROR PDF] Headers inválido: {headers}")
+            raise ValueError("Headers debe ser una lista válida")
+            
+        if not col_widths or not isinstance(col_widths, (list, tuple)):
+            print(f"[ERROR PDF] Col_widths inválido: {col_widths}")
+            raise ValueError("Col_widths debe ser una lista válida")
+            
+        if len(headers) != len(col_widths):
+            print(f"[ERROR PDF] Longitudes no coinciden: headers={len(headers)}, col_widths={len(col_widths)}")
+            raise ValueError("Headers y col_widths deben tener la misma longitud")
+            
+        # Verificar que no hay elementos None en las listas
+        for i, header in enumerate(headers):
+            if header is None:
+                headers[i] = f"Col_{i}"
+                
+        for i, width in enumerate(col_widths):
+            if width is None:
+                col_widths[i] = 50  # Ancho por defecto
         
-        current_y -= row_height
-
-    # Totales y Peso Total
-    current_y -= 20
-    p.setFont("Helvetica-Bold", 10)
-    
-    if document_type == 'remision':
-        p.drawString(50, current_y, f"Peso total: {peso_total:.2f} kg")
-        current_y -= 20 # Espacio para el peso total en remisión
-
-    iva = (total_sin_iva * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    total_con_iva = total_sin_iva + iva
-
-    # Dibujar recuadro para totales
-    p.setFillColor(colors.HexColor("#F5F5F5"))
-    totals_x = width - 250
-    p.rect(totals_x, current_y - 60, 200, 60, fill=1, stroke=1)
-    p.setFillColor(colors.black)
-
-    # Mostrar totales
-    p.drawString(totals_x + 10, current_y - 20, f"Subtotal: ${total_sin_iva:,.2f}")
-    p.drawString(totals_x + 10, current_y - 40, f"IVA (19%): ${iva:,.2f}")
-    p.setFillColor(colors.HexColor("#FFD600"))
-    p.rect(totals_x, current_y - 60, 200, 20, fill=1, stroke=1)
-    p.setFillColor(colors.black)
-    p.drawString(totals_x + 10, current_y - 55, f"Total: ${total_con_iva:,.2f}")
-
-    # Observaciones (Solo para cotización)
-    if document_type == 'cotizacion':
-        current_y -= 90
-        p.setFont("Helvetica", 9)
-        p.drawString(40, current_y, "OBSERVACIONES:")
-        current_y -= 15
-        p.drawString(40, current_y, "• Esta cotización tiene validez de 15 días.")
-        current_y -= 15
-        p.drawString(40, current_y, "• Los precios incluyen IVA del 19%.")
-        current_y -= 15
-        p.drawString(40, current_y, "• El costo del transporte no está incluido y depende de la zona de entrega.")
-        current_y -= 15
-        p.drawString(40, current_y, "• Forma de pago: Contra entrega o transferencia bancaria.")
-    else: # Espacio para remisión si no hay observaciones
-        current_y -= 60
-
-
-    # Firmas
-    current_y -= 40
-    p.line(50, current_y, 250, current_y)
-    p.line(width-250, current_y, width-50, current_y)
-    p.setFont("Helvetica", 10)
-    p.drawCentredString(150, current_y - 20, "Firma del Cliente")
-    p.drawCentredString(width - 150, current_y - 20, "Firma del Proveedor")
-
-    # Pie de página
-    p.setFont("Helvetica", 8)
-    p.drawString(40, 30, "MULTIANDAMIOS S.A.S. - Servicio al cliente: +57 310 574 2020")
-    p.drawString(40, 20, "Email: info@multiandamios.co | www.multiandamios.co")
-    
-    p.save()
-    return response
+        current_y, total_sin_iva, peso_total = _draw_products_table_v2(
+            p, items_to_include, headers, col_widths, 40, current_y, document_type
+        )
+        
+        # 5. Cálculo de costos de envío
+        costo_transporte = _calculate_shipping_cost(request.user)
+        
+        # 6. Totales
+        current_y = _draw_totals_section_v2(
+            p, width, current_y, total_sin_iva, costo_transporte, document_type
+        )
+        
+        # 7. Observaciones
+        current_y = _draw_observations_section_v2(p, current_y, width, document_type, costo_transporte)
+        
+        # 8. Firmas
+        current_y = _draw_signatures_section_v2(p, width, current_y)
+        
+        # 9. Pie de página
+        _draw_footer_v2(p, width)
+        
+        p.save()
+        return response
+        
+    except Exception as e:
+        print(f"[ERROR PDF] Error generando PDF: {e}")
+        import traceback
+        traceback.print_exc()
+        messages.error(request, f'Error interno al generar la {document_type}: {str(e)}')
+        return redirect('usuarios:ver_carrito')
 
 @login_required
 def generar_cotizacion_pdf(request):
     try:
+        # Obtener items del carrito
         items_carrito = CarritoItem.objects.filter(usuario=request.user)
+        
+        if not items_carrito.exists():
+            messages.warning(request, 'No hay productos en el carrito para generar la cotización.')
+            return redirect('usuarios:ver_carrito')
+
         return _generate_common_pdf(request, 'cotizacion', items_carrito)
+        
     except Exception as e:
+        print(f"[ERROR COTIZACION] Error en generar_cotizacion_pdf: {str(e)}")
+        import traceback
+        traceback.print_exc()
         messages.error(request, f'Error al generar la cotización: {str(e)}')
         return redirect('usuarios:ver_carrito')
 
@@ -733,21 +673,34 @@ def eliminar_direccion(request, direccion_id):
 
 @login_required
 def checkout(request):
-    carrito_items = CarritoItem.objects.filter(usuario=request.user).select_related('producto')
+    # Filtrar items del carrito con productos válidos (no None)
+    carrito_items = CarritoItem.objects.filter(
+        usuario=request.user,
+        producto__isnull=False
+    ).select_related('producto')
+    
+    # Limpiar items del carrito que tengan productos None (por si acaso)
+    CarritoItem.objects.filter(
+        usuario=request.user,
+        producto__isnull=True
+    ).delete()
+    
     if not carrito_items.exists():
         messages.error(request, 'Tu carrito está vacío. Agrega productos antes de proceder al pago.')
         return redirect('usuarios:ver_carrito')
     
     departamentos = Departamento.objects.all().order_by('nombre')
 
-    subtotal = sum(item.subtotal for item in carrito_items)
+    # Calcular subtotal con validación adicional
+    subtotal = Decimal('0.00')
+    for item in carrito_items:
+        if item.producto:  # Verificar que el producto existe
+            subtotal += item.subtotal
+    
     iva = (subtotal * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
     
-    # Get transport cost from first item's municipality (assuming all items to same location)
-    costo_transporte = Decimal('0.00')
-    if carrito_items.first() and hasattr(carrito_items.first().producto, 'categoria'):
-        # Default transport cost if not specified
-        costo_transporte = Decimal('10000.00')  # Default 10,000 COP
+    # Get transport cost from user's main address or default
+    costo_transporte = _calculate_shipping_cost(request.user)
     
     total_pedido = subtotal + iva + costo_transporte
 
@@ -823,6 +776,10 @@ def checkout(request):
 
                 # 4. Procesar los items del carrito para crear DetallePedido y actualizar inventario
                 for item in carrito_items:
+                    # Verificar que el producto existe
+                    if not item.producto:
+                        continue  # Saltar items sin producto válido
+                        
                     # Descontar del inventario
                     producto = item.producto
                     if producto.cantidad_disponible < item.cantidad:
@@ -886,13 +843,61 @@ def checkout(request):
     # Para la primera carga del formulario o si hay errores de validación
     return render(request, 'usuarios/checkout.html', context)
 
+@login_required
+def calcular_costo_envio_ajax(request):
+    """Vista AJAX para calcular el costo de envío basado en el municipio seleccionado"""
+    if request.method == 'GET':
+        municipio_id = request.GET.get('municipio_id')
+        
+        if not municipio_id:
+            return JsonResponse({'error': 'ID de municipio requerido'}, status=400)
+        
+        try:
+            municipio = Municipio.objects.get(id=municipio_id)
+            costo_transporte = municipio.costo_transporte or Decimal('15000.00')
+            
+            # Recalcular totales del carrito
+            carrito_items = CarritoItem.objects.filter(
+                usuario=request.user,
+                producto__isnull=False
+            ).select_related('producto')
+            
+            subtotal = Decimal('0.00')
+            for item in carrito_items:
+                if item.producto:
+                    subtotal += item.subtotal
+            
+            iva = (subtotal * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            total_con_transporte = subtotal + iva + costo_transporte
+            
+            return JsonResponse({
+                'success': True,
+                'costo_transporte': float(costo_transporte),
+                'costo_transporte_formatted': f"${costo_transporte:,.0f}",
+                'subtotal': float(subtotal),
+                'subtotal_formatted': f"${subtotal:,.0f}",
+                'iva': float(iva),
+                'iva_formatted': f"${iva:,.0f}",
+                'total': float(total_con_transporte),
+                'total_formatted': f"${total_con_transporte:,.0f}",
+                'municipio_nombre': municipio.nombre,
+                'departamento_nombre': municipio.departamento.nombre
+            })
+            
+        except Municipio.DoesNotExist:
+            return JsonResponse({'error': 'Municipio no encontrado'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': f'Error interno: {str(e)}'}, status=500)
+    
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
 # Vista para cargar municipios basada en el departamento seleccionado (AJAX)
 def cargar_municipios(request):
     departamento_id = request.GET.get('departamento_id')
     municipios = []
     if departamento_id:
         try:
-            municipios = Municipio.objects.filter(departamento_id=departamento_id).order_by('nombre').values('id', 'nombre', 'codigo_divipola')
+            municipios = Municipio.objects.filter(departamento_id=departamento_id).order_by('nombre').values('id', 'nombre', 'codigo')
         except Exception as e:
             # Manejo de error si el ID del departamento no es válido
             return JsonResponse({'error': str(e)}, status=400)
@@ -1211,3 +1216,464 @@ def procesar_pago(request, pedido_id):
             return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})
     
     return render(request, 'usuarios/procesar_pago.html', {'pedido': pedido})
+
+# === FUNCIONES AUXILIARES PARA GENERACIÓN DE PDF V2 (DISEÑO MEJORADO) ===
+
+def _draw_pdf_header_v2(p, width, current_y, title):
+    """Encabezado mejorado y más compacto."""
+    header_height = 40  # Reducido de 50 a 40
+    
+    # Fondo del encabezado
+    p.setFillColor(colors.HexColor("#1A1228"))
+    p.rect(0, current_y - header_height, width, header_height, fill=1, stroke=0)
+    
+    # Título principal
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 18)  # Reducido de 20 a 18
+    p.drawCentredString(width / 2, current_y - 20, title)
+    
+    # Nombre de la empresa
+    p.setFont("Helvetica-Bold", 10)  # Reducido de 12 a 10
+    p.drawCentredString(width / 2, current_y - 35, "MULTIANDAMIOS S.A.S.")
+    
+    return current_y - header_height - 5  # Reducido el espaciado de 15 a 5
+
+def _draw_company_client_info_v2(p, current_y, width, emisor, receptor):
+    """Información de empresa y cliente en diseño horizontal compacto."""
+    
+    # Dimensiones para toda la sección (más compacta)
+    section_height = 70  # Reducido de 80 a 70
+    margin = 30
+    section_width = width - (2 * margin)
+    
+    # Marco principal
+    p.setLineWidth(1.5)
+    p.setStrokeColor(colors.HexColor("#333333"))
+    p.rect(margin, current_y - section_height, section_width, section_height, stroke=1, fill=0)
+    
+    # Dividir en dos columnas iguales
+    col_width = section_width / 2
+    divider_x = margin + col_width
+    
+    # Línea divisoria
+    p.setStrokeColor(colors.HexColor("#CCCCCC"))
+    p.line(divider_x, current_y - section_height, divider_x, current_y)
+    
+    # COLUMNA IZQUIERDA - PROVEEDOR
+    # Encabezado proveedor (más pequeño)
+    p.setFillColor(colors.HexColor("#1A1228"))
+    p.rect(margin, current_y - 18, col_width, 18, fill=1, stroke=0)  # Reducido de 20 a 18
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 9)  # Reducido de 10 a 9
+    p.drawCentredString(margin + col_width/2, current_y - 12, "DATOS DEL PROVEEDOR")
+    
+    # Datos del proveedor en formato compacto
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica", 7)  # Reducido de 8 a 7
+    y_pos = current_y - 28  # Ajustado
+    
+    provider_lines = [
+        f"{emisor['nombre']} | NIT: {emisor['nif']}",
+        f"Dir: {emisor['direccion'][:40]}",
+        f"Tel: {emisor['telefono']} | Email: {emisor['email'][:25]}"
+    ]
+    
+    for line in provider_lines:
+        p.drawString(margin + 20, y_pos, line)  # Aumentado margen de 15 a 20 para mejor centrado
+        y_pos -= 10  # Reducido de 12 a 10
+    
+    # COLUMNA DERECHA - CLIENTE
+    # Encabezado cliente (más pequeño)
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(divider_x, current_y - 18, col_width, 18, fill=1, stroke=0)  # Reducido de 20 a 18
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 9)  # Reducido de 10 a 9
+    p.drawCentredString(divider_x + col_width/2, current_y - 12, "DATOS DEL CLIENTE")
+    
+    # Datos del cliente en formato compacto
+    p.setFont("Helvetica", 7)  # Reducido de 8 a 7
+    y_pos = current_y - 28  # Ajustado
+    
+    client_lines = [
+        f"{receptor['nombre']} | Doc: {receptor['nif']}",
+        f"Dir: {receptor['direccion'][:40]}",
+        f"Tel: {receptor['telefono']} | Email: {receptor['email'][:25]}"
+    ]
+    
+    for line in client_lines:
+        p.drawString(divider_x + 30, y_pos, line)  # Aumentado margen de 15 a 20 para mejor centrado
+        y_pos -= 10  # Reducido de 12 a 10
+    
+    return current_y - section_height - 5  # Reducido el espaciado de 15 a 5
+
+def _draw_document_info_v2(p, current_y, width, document_type):
+    """Información del documento en diseño horizontal."""
+    
+    info_height = 25  # Reducido de 30 a 25
+    margin = 30
+    info_width = width - (2 * margin)
+    
+    # Marco
+    p.setLineWidth(1)
+    p.setStrokeColor(colors.HexColor("#FFD600"))
+    p.setFillColor(colors.HexColor("#FFFBCC"))
+    p.rect(margin, current_y - info_height, info_width, info_height, stroke=1, fill=1)
+    
+    # Información en una línea
+    fecha = datetime.now()
+    numero_documento = f"{document_type.upper()[:3]}-{uuid.uuid4().hex[:8].upper()}"
+    
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 8)  # Reducido de 9 a 8
+    
+    # Fecha (izquierda)
+    p.drawString(margin + 10, current_y - 16, f"Fecha: {fecha.strftime('%d/%m/%Y %H:%M')}")
+    
+    # Número (centro)
+    p.drawCentredString(width / 2, current_y - 16, f"Número: {numero_documento}")
+    
+    # Validez/Hora (derecha)
+    validez_text = "Validez: 15 días" if document_type == 'cotizacion' else f"Hora: {fecha.strftime('%H:%M:%S')}"
+    p.drawRightString(margin + info_width - 10, current_y - 16, validez_text)
+    
+    return current_y - info_height - 5  # Reducido el espaciado de 15 a 5
+
+def _draw_products_table_v2(p, items, headers, col_widths, x_start, current_y, document_type):
+    """Tabla de productos con diseño mejorado y espaciado correcto."""
+    
+    # Verificaciones de seguridad
+    if not headers or not col_widths:
+        raise ValueError("Headers o col_widths no pueden ser None")
+    
+    if len(headers) != len(col_widths):
+        raise ValueError("Headers y col_widths deben tener la misma longitud")
+    
+    if not items:
+        raise ValueError("Items no puede ser None")
+    
+    # Encabezado de la tabla
+    row_height = 25
+    header_y = current_y
+    
+    # Fondo del encabezado
+    p.setFillColor(colors.HexColor("#1A1228"))
+    p.rect(x_start, header_y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+    
+    # Texto del encabezado
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica-Bold", 10)
+    
+    x = x_start
+    for i, header in enumerate(headers):
+        if i < len(col_widths):  # Verificación adicional de seguridad
+            header_x = x + col_widths[i] / 2
+            p.drawCentredString(header_x, header_y - 16, str(header))
+            x += col_widths[i]
+    
+    # Filas de productos
+    current_y = header_y - row_height
+    row_height = 22
+    total_sin_iva = Decimal('0.00')
+    peso_total = Decimal('0.00')
+    row_count = 0
+    
+    p.setStrokeColor(colors.HexColor("#DDDDDD"))
+    
+    for item in items:
+        # Verificar si necesitamos nueva página
+        if current_y < 120:
+            p.showPage()
+            current_y = 700
+            current_y = _draw_pdf_header_v2(p, 612, current_y, document_type.upper())
+            # Redibujar encabezado de tabla
+            p.setFillColor(colors.HexColor("#1A1228"))
+            p.rect(x_start, current_y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+            p.setFillColor(colors.white)
+            p.setFont("Helvetica-Bold", 10)
+            x = x_start
+            for i, header in enumerate(headers):
+                if i < len(col_widths):
+                    header_x = x + col_widths[i] / 2
+                    p.drawCentredString(header_x, current_y - 16, str(header))
+                    x += col_widths[i]
+            current_y -= row_height
+            row_count = 0
+        
+        # Verificaciones de seguridad para el item
+        try:
+            # Verificar que el item tenga los atributos necesarios
+            if not hasattr(item, 'producto') or not item.producto:
+                print(f"[DEBUG] Item sin producto: {item}")
+                continue
+                
+            if not hasattr(item, 'cantidad') or item.cantidad is None:
+                print(f"[DEBUG] Item sin cantidad: {item}")
+                continue
+            
+            # Cálculos del item con verificaciones
+            subtotal = getattr(item, 'subtotal', Decimal('0.00'))
+            if subtotal is None:
+                subtotal = Decimal('0.00')
+            
+            total_sin_iva += subtotal
+            
+            # Peso total con verificación
+            try:
+                if hasattr(item, 'peso_total'):
+                    peso_item = item.peso_total
+                    if peso_item is not None:
+                        peso_total += peso_item
+            except Exception as e:
+                print(f"[DEBUG] Error calculando peso: {e}")
+            
+            # Fondo alternado
+            if row_count % 2 == 0:
+                p.setFillColor(colors.HexColor("#F9F9F9"))
+            else:
+                p.setFillColor(colors.white)
+            
+            p.rect(x_start, current_y - row_height, sum(col_widths), row_height, fill=1, stroke=1)
+            
+            # Contenido de la fila
+            p.setFillColor(colors.black)
+            p.setFont("Helvetica", 9)
+            
+            # Obtener datos del item con verificaciones
+            precio_unitario = getattr(item.producto, 'precio_diario', Decimal('0.00'))
+            if precio_unitario is None:
+                precio_unitario = Decimal('0.00')
+            
+            # Descripción de días con verificación
+            try:
+                if hasattr(item, 'get_descripcion_dias'):
+                    duracion_texto = item.get_descripcion_dias()
+                elif hasattr(item, 'dias_renta'):
+                    duracion_texto = f"{item.dias_renta} días"
+                else:
+                    duracion_texto = "N/A"
+            except Exception as e:
+                print(f"[DEBUG] Error obteniendo descripción días: {e}")
+                duracion_texto = "N/A"
+            
+            # Preparar datos de la fila
+            row_data = [
+                str(item.producto.nombre)[:45] if item.producto.nombre else "Sin nombre",
+                str(item.cantidad),
+                str(duracion_texto),
+                f"${precio_unitario:,.0f}",
+                f"${subtotal:,.0f}"
+            ]
+            
+            # Dibujar datos con verificaciones ultra-seguras
+            x = x_start
+            for i, text in enumerate(row_data):
+                # Triple verificación para evitar 'NoneType' object is not subscriptable
+                if (i < len(col_widths) and 
+                    col_widths is not None and 
+                    isinstance(col_widths, (list, tuple)) and 
+                    i < len(col_widths) and 
+                    col_widths[i] is not None):
+                    
+                    try:
+                        if i == 0:  # Descripción alineada a la izquierda
+                            p.drawString(x + 5, current_y - 14, str(text))
+                        else:  # Números centrados
+                            text_width = p.stringWidth(str(text), "Helvetica", 9)
+                            x_centered = x + (col_widths[i] - text_width) / 2
+                            p.drawString(x_centered, current_y - 14, str(text))
+                        x += col_widths[i]
+                    except Exception as cell_error:
+                        print(f"[DEBUG] Error dibujando celda {i}: {cell_error}")
+                        # Usar ancho por defecto si hay error
+                        x += 50
+                        continue
+            
+            current_y -= row_height
+            row_count += 1
+            
+        except Exception as e:
+            print(f"[DEBUG] Error procesando item: {e}")
+            # Continuar con el siguiente item en caso de error
+            continue
+    
+    return current_y - 10, total_sin_iva, peso_total  # Reducido el espaciado de 15 a 10
+
+def _calculate_shipping_cost(user):
+    """Calcula el costo de envío basado en la ubicación del usuario."""
+    from .models_divipola import Municipio
+    
+    try:
+        # Intentar obtener el costo de transporte del municipio del usuario
+        # Aquí asumimos que el usuario tiene una dirección principal
+        if hasattr(user, 'direcciones') and user.direcciones.filter(principal=True).exists():
+            direccion_principal = user.direcciones.filter(principal=True).first()
+            if direccion_principal and direccion_principal.municipio:
+                return direccion_principal.municipio.costo_transporte
+        
+        # Si no tiene dirección o municipio definido, usar costo por defecto
+        return Decimal('15000.00')  # Costo base por defecto
+        
+    except Exception:
+        return Decimal('15000.00')  # Costo por defecto en caso de error
+
+def _draw_totals_section_v2(p, width, current_y, total_sin_iva, costo_transporte, document_type):
+    """Sección de totales mejorada y más compacta."""
+    
+    totals_width = 250
+    totals_x = width - totals_width - 30
+    
+    if document_type == 'cotizacion':
+        totals_height = 85  # Reducido de 100 a 85
+    else:
+        totals_height = 60  # Reducido de 70 a 60
+    
+    # Marco principal
+    p.setLineWidth(1.5)
+    p.setStrokeColor(colors.HexColor("#333333"))
+    p.rect(totals_x, current_y - totals_height, totals_width, totals_height, stroke=1, fill=0)
+    
+    # Encabezado (más pequeño)
+    p.setFillColor(colors.HexColor("#F0F0F0"))
+    p.rect(totals_x, current_y - 18, totals_width, 18, fill=1, stroke=1)  # Reducido de 20 a 18
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 9)  # Reducido de 10 a 9
+    p.drawCentredString(totals_x + totals_width/2, current_y - 12, "RESUMEN DE COSTOS")
+    
+    # Líneas de totales
+    y_line = current_y - 32  # Ajustado
+    p.setFont("Helvetica", 8)  # Reducido de 9 a 8
+    
+    # Subtotal productos
+    p.drawString(totals_x + 10, y_line, "Subtotal productos:")
+    p.drawRightString(totals_x + totals_width - 10, y_line, f"${total_sin_iva:,.0f}")
+    y_line -= 15  # Reducido de 18 a 15
+    
+    if document_type == 'cotizacion':
+        # Costo de envío
+        p.drawString(totals_x + 10, y_line, "Costo de envío:")
+        p.drawRightString(totals_x + totals_width - 10, y_line, f"${costo_transporte:,.0f}")
+        y_line -= 15  # Reducido de 18 a 15
+        
+        # IVA con transporte
+        subtotal_con_transporte = total_sin_iva + costo_transporte
+        iva_total = (subtotal_con_transporte * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        total_final = subtotal_con_transporte + iva_total
+    else:
+        # IVA sin transporte
+        iva_total = (total_sin_iva * Decimal('0.19')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        total_final = total_sin_iva + iva_total
+    
+    # IVA
+    p.drawString(totals_x + 10, y_line, "IVA (19%):")
+    p.drawRightString(totals_x + totals_width - 10, y_line, f"${iva_total:,.0f}")
+    y_line -= 17  # Reducido de 20 a 17
+    
+    # Total final destacado
+    p.setFillColor(colors.HexColor("#FFD600"))
+    p.rect(totals_x, y_line - 3, totals_width, 16, fill=1, stroke=1)  # Reducido de 18 a 16
+    p.setFillColor(colors.black)
+    p.setFont("Helvetica-Bold", 10)  # Reducido de 11 a 10
+    p.drawString(totals_x + 10, y_line + 4, "TOTAL:")
+    p.drawRightString(totals_x + totals_width - 10, y_line + 4, f"${total_final:,.0f}")
+    
+    return current_y - totals_height - 10  # Reducido el espaciado de 20 a 10
+
+def _draw_observations_section_v2(p, current_y, width, document_type, costo_transporte):
+    """Sección de observaciones con diseño compacto."""
+    
+    if document_type == 'cotizacion':
+        obs_height = 80
+        margin = 30
+        totals_width = 250  # Definir aquí también
+        obs_width = width - totals_width - 60  # Al lado de los totales
+        
+        # Marco
+        p.setLineWidth(1)
+        p.setStrokeColor(colors.HexColor("#CCCCCC"))
+        p.rect(margin, current_y - obs_height, obs_width, obs_height, stroke=1, fill=0)
+        
+        # Encabezado
+        p.setFillColor(colors.HexColor("#F8F8F8"))
+        p.rect(margin, current_y - 18, obs_width, 18, fill=1, stroke=1)
+        p.setFillColor(colors.black)
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(margin + 8, current_y - 12, "CONDICIONES Y OBSERVACIONES")
+        
+        # Observaciones compactas
+        p.setFont("Helvetica", 8)
+        observations = [
+            "• Cotización válida por 15 días calendario",
+            "• Precios NO incluyen IVA (19%)",
+            f"• Envío estimado: ${costo_transporte:,.0f}",
+            "• Pago: 50% anticipo, 50% contra entrega",
+            "• Entrega: 1-3 días hábiles",
+            "• Devolución en mismo estado"
+        ]
+        
+        y_obs = current_y - 30
+        for obs in observations:
+            p.drawString(margin + 8, y_obs, obs)
+            y_obs -= 9
+        
+        return current_y - obs_height - 15
+    else:
+        return current_y - 20
+
+def _draw_signatures_section_v2(p, width, current_y):
+    """Sección de firmas compacta."""
+    
+    sig_height = 60
+    margin = 30
+    sig_width = width - (2 * margin)
+    
+    # Marco
+    p.setLineWidth(1)
+    p.setStrokeColor(colors.HexColor("#CCCCCC"))
+    p.rect(margin, current_y - sig_height, sig_width, sig_height, stroke=1, fill=0)
+    
+    # Dividir en dos columnas
+    col_width = sig_width / 2
+    divider_x = margin + col_width
+    
+    # Línea divisoria
+    p.line(divider_x, current_y - sig_height, divider_x, current_y)
+    
+    # Firmas
+    p.setFont("Helvetica", 8)
+    
+    # Firma del proveedor
+    p.drawString(margin + 10, current_y - 25, "Firma y Sello Proveedor:")
+    p.line(margin + 10, current_y - 45, divider_x - 10, current_y - 45)
+    
+    # Firma del cliente
+    p.drawString(divider_x + 10, current_y - 25, "Firma Cliente:")
+    p.line(divider_x + 10, current_y - 45, margin + sig_width - 10, current_y - 45)
+    
+    return current_y - sig_height - 15
+
+def _draw_footer_v2(p, width):
+    """Pie de página corporativo."""
+    
+    footer_height = 25
+    
+    # Fondo del pie
+    p.setFillColor(colors.HexColor("#1A1228"))
+    p.rect(0, 0, width, footer_height, fill=1, stroke=0)
+    
+    # Texto del pie
+    p.setFillColor(colors.white)
+    p.setFont("Helvetica", 8)
+    footer_text = "MULTIANDAMIOS S.A.S. - Soluciones en alquiler de andamios y equipos industriales"
+    p.drawCentredString(width / 2, 12, footer_text)
+
+def test_divipola_view(request):
+    """Vista simple para probar DIVIPOLA en el navegador"""
+    from django.http import HttpResponse
+    import os
+    
+    # Leer el archivo HTML de test
+    html_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'test_divipola_browser.html')
+    with open(html_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    
+    return HttpResponse(html_content)

@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% load pedidos_tags %}
+
+{% block title %}Selección de Devolución Parcial{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-gradient-primary-to-secondary text-white">
+        <h1 class="mb-0">Selección de Devolución Parcial</h1>
+    </div>
+    
+    <div class="card-body">
+        <div class="info-box mb-4">
+            <h3>Información del Pedido</h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Pedido #:</strong> {{ pedido.id_pedido }}</p>
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Fecha:</strong> {{ pedido.fecha|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Estado:</strong> {{ pedido.get_estado_pedido_general_display }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Dirección:</strong> {{ pedido.direccion_entrega|truncatechars:30 }}</p>
+                    <p><strong>Total:</strong> ${{ pedido.total|floatformat:2 }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> Selecciona los productos que deseas devolver ahora y los que deseas extender su período de renta.
+        </div>
+        
+        <form method="post" class="form" id="devolucion-parcial-form">
+            {% csrf_token %}
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="bg-pastel-primary text-dark">
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio/Día</th>
+                            <th>Acción</th>
+                            <th>Cantidad a Devolver</th>
+                            <th>Cantidad a Extender</th>
+                            <th>Días Adicionales</th>
+                            <th>Subtotal Extensión</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detalle in detalles %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    {% if detalle.producto.imagen %}
+                                    <img src="{{ detalle.producto.imagen.url }}" alt="{{ detalle.producto.nombre }}" 
+                                         class="product-mini-img rounded me-2">
+                                    {% endif %}
+                                    <span>{{ detalle.producto.nombre }}</span>
+                                </div>
+                            </td>
+                            <td>{{ detalle.cantidad }}</td>
+                            <td>${{ detalle.precio_diario|floatformat:2 }}</td>
+                            <td>
+                                <select class="form-select accion-select" 
+                                        name="accion_{{ detalle.id }}" 
+                                        id="accion_{{ detalle.id }}"
+                                        data-detalle-id="{{ detalle.id }}">
+                                    <option value="devolver_todo">Devolver Todo</option>
+                                    <option value="extender_todo">Extender Todo</option>
+                                    <option value="mixto">Devolver Parcial y Extender</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" 
+                                       class="form-control cantidad-devolver" 
+                                       name="devolver_{{ detalle.id }}" 
+                                       id="devolver_{{ detalle.id }}"
+                                       data-detalle-id="{{ detalle.id }}"
+                                       data-max="{{ detalle.cantidad }}"
+                                       min="0" max="{{ detalle.cantidad }}" 
+                                       value="{{ detalle.cantidad }}">
+                            </td>
+                            <td>
+                                <input type="number" 
+                                       class="form-control cantidad-extender" 
+                                       name="extender_{{ detalle.id }}" 
+                                       id="extender_{{ detalle.id }}"
+                                       data-detalle-id="{{ detalle.id }}"
+                                       data-max="{{ detalle.cantidad }}"
+                                       min="0" max="{{ detalle.cantidad }}" 
+                                       value="0">
+                            </td>
+                            <td>
+                                <input type="number" 
+                                       class="form-control dias-adicionales" 
+                                       name="dias_{{ detalle.id }}" 
+                                       id="dias_{{ detalle.id }}"
+                                       data-detalle-id="{{ detalle.id }}"
+                                       min="7" value="7" 
+                                       disabled>
+                            </td>
+                            <td>
+                                <span id="subtotal_{{ detalle.id }}" class="subtotal-display">
+                                    $0.00
+                                </span>
+                                <input type="hidden" name="precio_{{ detalle.id }}" value="{{ detalle.precio_diario }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-light">
+                            <td colspan="7" class="text-end"><strong>Total Extensión:</strong></td>
+                            <td><strong id="total-extension">$0.00</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            <!-- Sección para notas y estado de los productos devueltos -->
+            <div class="card mt-4">
+                <div class="card-header bg-pastel-primary text-dark">
+                    <h4 class="mb-0">Condición de los Productos Devueltos</h4>
+                </div>
+                <div class="card-body">
+                    <div class="form-group mb-3">
+                        <label for="estado_devolucion">Estado general de los productos devueltos:</label>
+                        <select class="form-select" name="estado_devolucion" id="estado_devolucion">
+                            <option value="buen_estado">Buen Estado</option>
+                            <option value="danado">Dañado</option>
+                            <option value="inservible">Inservible</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="notas_devolucion">Notas sobre la devolución:</label>
+                        <textarea class="form-control" name="notas_devolucion" id="notas_devolucion" rows="3" 
+                                 placeholder="Observaciones sobre el estado de los productos devueltos"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex justify-content-end mt-4">
+                <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn btn-secondary me-2">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    Confirmar Selección
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.product-mini-img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+}
+
+.info-box {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #4e73df;
+}
+
+.bg-pastel-primary {
+    background-color: rgba(78, 115, 223, 0.2);
+}
+
+.bg-gradient-primary-to-secondary {
+    background: linear-gradient(135deg, #4e73df 0%, #36b9cc 100%);
+}
+
+.form-control, .form-select {
+    border-radius: 4px;
+    border: 1px solid #d1d3e2;
+}
+
+.cantidad-devolver, .cantidad-extender, .dias-adicionales {
+    width: 80px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para calcular subtotal de extensión
+    function calcularSubtotal(detalleId) {
+        const diasInput = document.getElementById(`dias_${detalleId}`);
+        const cantidadExtender = document.getElementById(`extender_${detalleId}`);
+        const subtotalElement = document.getElementById(`subtotal_${detalleId}`);
+        const precioInput = document.querySelector(`input[name="precio_${detalleId}"]`);
+        
+        if (!diasInput || !cantidadExtender || !subtotalElement || !precioInput) return 0;
+        
+        const dias = parseInt(diasInput.value) || 0;
+        const cantidad = parseInt(cantidadExtender.value) || 0;
+        const precio = parseFloat(precioInput.value) || 0;
+        
+        const subtotal = precio * cantidad * dias;
+        subtotalElement.textContent = `$${subtotal.toFixed(2)}`;
+        
+        return subtotal;
+    }
+    
+    // Función para calcular el total de extensión
+    function calcularTotalExtension() {
+        let total = 0;
+        document.querySelectorAll('.cantidad-extender').forEach(input => {
+            const detalleId = input.getAttribute('data-detalle-id');
+            total += calcularSubtotal(detalleId);
+        });
+        
+        document.getElementById('total-extension').textContent = `$${total.toFixed(2)}`;
+    }
+    
+    // Función para manejar los cambios en la acción seleccionada
+    function manejarCambioAccion(select) {
+        const detalleId = select.getAttribute('data-detalle-id');
+        const accion = select.value;
+        
+        const cantidadDevolver = document.getElementById(`devolver_${detalleId}`);
+        const cantidadExtender = document.getElementById(`extender_${detalleId}`);
+        const diasInput = document.getElementById(`dias_${detalleId}`);
+        const cantidadMaxima = parseInt(cantidadDevolver.getAttribute('data-max'));
+        
+        // Resetear los campos
+        cantidadDevolver.readOnly = true;
+        cantidadExtender.readOnly = true;
+        diasInput.disabled = true;
+        
+        // Configurar según la acción seleccionada
+        if (accion === 'devolver_todo') {
+            cantidadDevolver.value = cantidadMaxima;
+            cantidadExtender.value = 0;
+            diasInput.disabled = true;
+        } 
+        else if (accion === 'extender_todo') {
+            cantidadDevolver.value = 0;
+            cantidadExtender.value = cantidadMaxima;
+            diasInput.disabled = false;
+        } 
+        else if (accion === 'mixto') {
+            // Permitir editar ambas cantidades
+            cantidadDevolver.value = Math.floor(cantidadMaxima / 2);
+            cantidadExtender.value = Math.ceil(cantidadMaxima / 2);
+            cantidadDevolver.readOnly = false;
+            cantidadExtender.readOnly = false;
+            diasInput.disabled = false;
+        }
+        
+        // Recalcular subtotales
+        calcularSubtotal(detalleId);
+        calcularTotalExtension();
+    }
+    
+    // Asignar eventos a los selectores de acción
+    document.querySelectorAll('.accion-select').forEach(select => {
+        select.addEventListener('change', function() {
+            manejarCambioAccion(this);
+        });
+        
+        // Inicializar con los valores por defecto
+        manejarCambioAccion(select);
+    });
+    
+    // Asignar eventos a las cantidades a devolver
+    document.querySelectorAll('.cantidad-devolver').forEach(input => {
+        input.addEventListener('input', function() {
+            const detalleId = this.getAttribute('data-detalle-id');
+            const cantidadExtender = document.getElementById(`extender_${detalleId}`);
+            const cantidadMaxima = parseInt(this.getAttribute('data-max'));
+            
+            // Asegurarse que la suma no exceda el máximo
+            const cantidadDevolver = parseInt(this.value) || 0;
+            cantidadExtender.value = Math.max(0, cantidadMaxima - cantidadDevolver);
+            
+            // Recalcular subtotales
+            calcularSubtotal(detalleId);
+            calcularTotalExtension();
+        });
+    });
+    
+    // Asignar eventos a las cantidades a extender
+    document.querySelectorAll('.cantidad-extender').forEach(input => {
+        input.addEventListener('input', function() {
+            const detalleId = this.getAttribute('data-detalle-id');
+            const cantidadDevolver = document.getElementById(`devolver_${detalleId}`);
+            const cantidadMaxima = parseInt(this.getAttribute('data-max'));
+            
+            // Asegurarse que la suma no exceda el máximo
+            const cantidadExtender = parseInt(this.value) || 0;
+            cantidadDevolver.value = Math.max(0, cantidadMaxima - cantidadExtender);
+            
+            // Recalcular subtotales
+            calcularSubtotal(detalleId);
+            calcularTotalExtension();
+        });
+    });
+    
+    // Asignar eventos a los días adicionales
+    document.querySelectorAll('.dias-adicionales').forEach(input => {
+        input.addEventListener('input', function() {
+            const detalleId = this.getAttribute('data-detalle-id');
+            
+            // Recalcular subtotales
+            calcularSubtotal(detalleId);
+            calcularTotalExtension();
+        });
+    });
+    
+    // Validación del formulario
+    document.getElementById('devolucion-parcial-form').addEventListener('submit', function(e) {
+        let tieneDevolucion = false;
+        let tieneExtension = false;
+        let hayErrores = false;
+        
+        // Verificar que las cantidades sean coherentes
+        document.querySelectorAll('.cantidad-devolver').forEach(input => {
+            const detalleId = input.getAttribute('data-detalle-id');
+            const cantidadDevolver = parseInt(input.value) || 0;
+            const cantidadExtender = parseInt(document.getElementById(`extender_${detalleId}`).value) || 0;
+            const cantidadMaxima = parseInt(input.getAttribute('data-max'));
+            
+            if (cantidadDevolver + cantidadExtender !== cantidadMaxima) {
+                alert(`Error en el producto #${detalleId}: La suma de la cantidad a devolver y a extender debe ser igual a la cantidad total (${cantidadMaxima}).`);
+                hayErrores = true;
+                e.preventDefault();
+                return false;
+            }
+            
+            if (cantidadDevolver > 0) tieneDevolucion = true;
+            if (cantidadExtender > 0) tieneExtension = true;
+        });
+        
+        if (hayErrores) return false;
+        
+        // Verificar que haya al menos un producto para devolver o extender
+        if (!tieneDevolucion && !tieneExtension) {
+            alert('Debes seleccionar al menos un producto para devolver o extender.');
+            e.preventDefault();
+            return false;
+        }
+        
+        // Verificar que los días sean válidos para productos que se extenderán
+        if (tieneExtension) {
+            document.querySelectorAll('.cantidad-extender').forEach(input => {
+                const detalleId = input.getAttribute('data-detalle-id');
+                const cantidadExtender = parseInt(input.value) || 0;
+                
+                if (cantidadExtender > 0) {
+                    const diasInput = document.getElementById(`dias_${detalleId}`);
+                    const dias = parseInt(diasInput.value) || 0;
+                    
+                    if (dias < 7) {
+                        alert(`Error: La extensión mínima es de 7 días para cada producto.`);
+                        hayErrores = true;
+                        e.preventDefault();
+                        return false;
+                    }
+                }
+            });
+        }
+        
+        return !hayErrores;
+    });
+});
+</script>
+{% endblock %}

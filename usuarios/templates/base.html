@@ -12,6 +12,7 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'estilos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme-colors.css' %}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     
     {% block extra_css %}{% endblock %}
@@ -57,7 +58,8 @@
             opacity: 0.8;
         }
 
-        /* Estilos para el chatbot de IA - Mejorados */          .chat-bot-container {
+        /* Estilos para el chatbot de IA - Mejorados */
+        .chat-bot-container {
             position: fixed;
             bottom: 25px;
             right: 25px;
@@ -66,7 +68,8 @@
             flex-direction: column;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-          .chat-bot-button {
+        
+        .chat-bot-button {
             width: 70px;
             height: 70px;
             border-radius: 50%;
@@ -82,10 +85,10 @@
             align-self: flex-end;
             border: 3px solid #fff;
             position: relative;
-            animation: pulse 2s infinite;
-            filter: drop-shadow(0 0 8px rgba(255, 214, 0, 0.3));
+            animation: pulse 2s infinite;            filter: drop-shadow(0 0 8px rgba(255, 214, 0, 0.3));
         }
-          .chat-notification {
+        
+        .chat-notification {
             position: absolute;
             top: -5px;
             right: -5px;
@@ -129,10 +132,10 @@
         
         .chat-bot-button:hover {
             transform: scale(1.1) rotate(10deg);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-            background-color: #FFDE4C;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);            background-color: #FFDE4C;
         }
-          .chat-bot-window {
+        
+        .chat-bot-window {
             display: none;
             width: 380px;
             height: 550px;
@@ -212,10 +215,10 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            background-color: #f9f9f9;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffe372' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            background-color: #f9f9f9;            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffe372' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
         }
-          .message {
+        
+        .message {
             margin-bottom: 15px;
             max-width: 85%;
             padding: 14px 18px;
@@ -268,10 +271,10 @@
             border-bottom-right-radius: 5px;
             font-weight: 500;
             border-right: 3px solid #333;
-            position: relative;
-            box-shadow: 0 2px 6px rgba(255, 214, 0, 0.25);
+            position: relative;            box-shadow: 0 2px 6px rgba(255, 214, 0, 0.25);
         }
-          .chat-input-container {
+        
+        .chat-input-container {
             display: flex;
             padding: 16px;
             border-top: 1px solid #e0e0e0;
@@ -363,10 +366,10 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.18);
         }
         
-        .send-button:active {
-            transform: scale(0.95);
+        .send-button:active {            transform: scale(0.95);
         }
-          .typing-indicator {
+        
+        .typing-indicator {
             padding: 12px 18px 12px 48px;
             background: linear-gradient(135deg, #f1f1f1 0%, #ffffff 100%);
             color: #666;
@@ -441,7 +444,8 @@
             0%, 60%, 100% { transform: scale(0.8); opacity: 0.5; }
             30% { transform: scale(1.2); opacity: 1; }
         }
-          /* Estilos para botones de respuesta rápida */
+        
+        /* Estilos para botones de respuesta rápida */
         .quick-replies {
             display: flex;
             flex-wrap: wrap;
@@ -587,7 +591,9 @@
             min-width: 10px;
             margin-left: auto;
             position: relative;
-        }        /* --- DROPDOWN --- */
+        }
+        
+        /* --- DROPDOWN --- */
         .dropdown {
             position: relative;
             display: inline-block;
@@ -717,17 +723,6 @@
         .notification .close-btn:hover {
             opacity: 1;
         }
-        #carrito-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background-color: #FFD600;
-            color: black;
-            border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 12px;
-            font-weight: bold;
-        }
         @media (max-width: 900px) {
             .nav-bar, .nav-links, .nav-right {
                 flex-direction: column;
@@ -797,8 +792,9 @@
                 <img src="{% static 'logo_multiandamios.png' %}" alt="Logo" class="logo">
             </div>
             <div class="nav-links">
-                <a href="{% url 'usuarios:inicio_cliente' %}" {% if request.path == '/' %}class="active"{% endif %}><i class="fas fa-home"></i> Inicio</a>                <a href="{% url 'productos:catalogo_productos' %}" {% if '/productos/' in request.path %}class="active"{% endif %}><i class="fas fa-toolbox"></i> Productos</a>
-                  {% if user.is_authenticated %}
+                <a href="{% url 'usuarios:inicio_cliente' %}" {% if request.path == '/' %}class="active"{% endif %}><i class="fas fa-home"></i> Inicio</a>
+                <a href="{% url 'productos:catalogo_productos' %}" {% if '/productos/' in request.path %}class="active"{% endif %}><i class="fas fa-toolbox"></i> Productos</a>
+                {% if user.is_authenticated %}
                     {% if user.is_staff or user.rol == 'admin' or user.rol == 'empleado' %}
                     <a href="{% url 'pedidos:lista_pedidos' %}" {% if '/panel/' in request.path and not '/panel/admin/' in request.path %}class="active"{% endif %}><i class="fas fa-list-ul"></i> Pedidos</a>
                     {% endif %}
@@ -816,9 +812,9 @@
                         <span id="carrito-count" class="{% get_carrito_total as total_items %}{% if total_items > 0 %}has-items{% endif %}">
                             {% get_carrito_total %}
                         </span>
-                        <span id="carrito-total" class="cart-total">${% get_carrito_monto_total %}</span>
+                        <span id="carrito-total" class="cart-total">{% get_carrito_monto_total %}</span>
                     </a>
-                      {% if user.is_staff %}
+                    {% if user.is_staff %}
                         <div class="dropdown">
                             <a href="#" class="dropdown-toggle {% if '/panel/admin/' in request.path or '/recibos/lista/' in request.path or '/recibos/resumen/' in request.path or '/empleados/' in request.path %}active{% endif %}">
                                 <i class="fas fa-cogs"></i> Administración <i class="fas fa-chevron-down"></i>
@@ -827,6 +823,7 @@
                                 <a href="{% url 'pedidos:lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
                                 {% if user.rol == 'admin' or user.is_superuser %}
                                 <a href="{% url 'usuarios:lista_empleados' %}"><i class="fas fa-user-tie"></i> Empleados</a>
+                                <a href="{% url 'pedidos:seguimientos_admin' %}"><i class="fas fa-truck"></i> Seguimientos GPS</a>
                                 {% endif %}
                                 <a href="{% url 'recibos:lista_recibos' %}"><i class="fas fa-clipboard-list"></i> Recibos de Obra</a>
                                 <a href="{% url 'recibos:resumen_sistema' %}"><i class="fas fa-chart-line"></i> Resumen</a>
@@ -843,18 +840,18 @@
                 {% else %}
                     <a href="{% url 'usuarios:login' %}" {% if '/login/' in request.path %}class="active"{% endif %}><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a>
                 {% endif %}
-            </div>
-        </nav>
-    </header>
-      <main class="container">
+            </div>                </nav>
+            </header>
+            
+            <main class="container">
         <div class="main-content">
             {% block content %}
             {% endblock %}
-        </div>
-    </main>
-    
-    <footer class="main-footer">
-        <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>    </footer>
+        </div>            </main>
+            
+            <footer class="main-footer">
+                <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>
+            </footer>
 
     <script>
         // Improve dropdown accessibility and mobile support
@@ -1017,7 +1014,8 @@
             <i class="fas fa-comment-dots"></i>
             <span class="chat-notification">1</span>
         </div>
-    </div>    {% endif %}
+    </div>
+    {% endif %}
     
     <!-- Script del chatbot -->
     <script src="{% static 'chatbot.js' %}"></script>

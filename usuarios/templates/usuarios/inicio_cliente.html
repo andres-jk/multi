@@ -38,8 +38,8 @@
                 <div class="product-card">
                     <div class="ribbon">Popular</div>
                     {% if producto.imagen %}
-                    <div class="product-image">
-                        <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}">
+                    <div class="product-image rounded-image-container">
+                        <img src="{{ producto.imagen.url }}" alt="{{ producto.nombre }}" class="rounded-image">
                     </div>
                     {% endif %}
                     <div class="product-info">
@@ -114,8 +114,8 @@
         </div>
     </section>    <section class="about-section">
         <div class="about-container">
-            <div class="about-image">
-                <img src="/media/productos/Logo-Teinco-Color.webp" alt="MultiAndamios Equipo">
+            <div class="about-image rounded-image-container">
+                <img src="/media/productos/Logo-Teinco-Color.webp" alt="MultiAndamios Equipo" class="rounded-image">
             </div>
             <div class="about-content">
                 <h2 class="section-title">Sobre Nosotros</h2>

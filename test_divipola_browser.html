@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test DIVIPOLA - MultiAndamios</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container my-5">
+        <h1>Test del Sistema DIVIPOLA</h1>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3>Selector de Departamento y Municipio</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <label for="departamento" class="form-label">Departamento:</label>
+                        <select name="departamento" id="departamento" class="form-select" required>
+                            <option value="">Seleccione un departamento</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="municipio" class="form-label">Municipio:</label>
+                        <select name="municipio" id="municipio" class="form-select" required disabled>
+                            <option value="">Primero seleccione un departamento</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label for="codigo_divipola" class="form-label">Código DIVIPOLA:</label>
+                        <input type="text" id="codigo_divipola" name="codigo_divipola" class="form-control" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="costo_transporte" class="form-label">Costo de Transporte:</label>
+                        <input type="text" id="costo_transporte" name="costo_transporte" class="form-control" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3>Log de Actividad</h3>
+            </div>
+            <div class="card-body">
+                <div id="log" class="bg-light p-3" style="height: 200px; overflow-y: auto; font-family: monospace;">
+                    Cargando departamentos...<br>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('log');
+        const departamentoSelect = document.getElementById('departamento');
+        const municipioSelect = document.getElementById('municipio');
+        const codigoDivipolaInput = document.getElementById('codigo_divipola');
+        const costoTransporteInput = document.getElementById('costo_transporte');
+
+        function addLog(message) {
+            const now = new Date().toLocaleTimeString();
+            log.innerHTML += `[${now}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateCodigoDivipola() {
+            if (departamentoSelect.value && municipioSelect.value) {
+                const departamentoCodigo = departamentoSelect.options[departamentoSelect.selectedIndex].dataset.codigo;
+                const municipioCodigo = municipioSelect.options[municipioSelect.selectedIndex].dataset.codigo;
+                codigoDivipolaInput.value = municipioCodigo;
+                addLog(`Código DIVIPOLA actualizado: ${municipioCodigo}`);
+            } else {
+                codigoDivipolaInput.value = '';
+                costoTransporteInput.value = '';
+            }
+        }
+
+        // Cargar departamentos
+        fetch('/api/departamentos/')
+            .then(response => response.json())
+            .then(data => {
+                addLog(`✅ Departamentos cargados: ${data.departamentos.length}`);
+                data.departamentos.forEach(departamento => {
+                    const option = new Option(departamento.nombre, departamento.id);
+                    option.dataset.codigo = departamento.codigo;
+                    departamentoSelect.add(option);
+                });
+            })
+            .catch(error => {
+                addLog(`❌ Error cargando departamentos: ${error}`);
+            });
+
+        departamentoSelect.addEventListener('change', function() {
+            const departamentoId = this.value;
+            const departamentoNombre = this.options[this.selectedIndex].text;
+            
+            municipioSelect.disabled = !departamentoId;
+            municipioSelect.innerHTML = '<option value="">Seleccione un municipio</option>';
+            codigoDivipolaInput.value = '';
+            costoTransporteInput.value = '';
+            
+            if (departamentoId) {
+                addLog(`Cargando municipios para: ${departamentoNombre}`);
+                
+                fetch(`/ajax/cargar-municipios/?departamento_id=${departamentoId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        addLog(`✅ Municipios cargados: ${data.length}`);
+                        data.forEach(municipio => {
+                            const option = new Option(municipio.nombre, municipio.id);
+                            option.dataset.codigo = municipio.codigo;
+                            municipioSelect.add(option);
+                        });
+                    })
+                    .catch(error => {
+                        addLog(`❌ Error cargando municipios: ${error}`);
+                        municipioSelect.disabled = true;
+                        municipioSelect.innerHTML = '<option value="">Error al cargar municipios</option>';
+                    });
+            } else {
+                addLog('Departamento deseleccionado');
+            }
+        });
+
+        municipioSelect.addEventListener('change', function() {
+            const municipioId = this.value;
+            const municipioNombre = this.options[this.selectedIndex].text;
+            
+            updateCodigoDivipola();
+            
+            if (municipioId) {
+                addLog(`Calculando costo de transporte para: ${municipioNombre}`);
+                
+                fetch(`/ajax/calcular-costo-envio/?municipio_id=${municipioId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            costoTransporteInput.value = `$${data.costo_transporte.toLocaleString()}`;
+                            addLog(`✅ Costo calculado: $${data.costo_transporte.toLocaleString()}`);
+                        } else {
+                            addLog(`❌ Error calculando costo: ${data.error}`);
+                        }
+                    })
+                    .catch(error => {
+                        addLog(`❌ Error en cálculo de costo: ${error}`);
+                    });
+            } else {
+                addLog('Municipio deseleccionado');
+            }
+        });
+    </script>
+</body>
+</html>

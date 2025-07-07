@@ -40,7 +40,11 @@ class Producto(models.Model):
         if dias_renta % self.dias_minimos_renta != 0:
             raise ValueError(f"Los días de renta deben ser múltiplos de {self.dias_minimos_renta}")
         
-        return (self.precio_diario * Decimal(str(dias_renta)) * Decimal(str(cantidad))).quantize(
+        # Convertir todos los valores a Decimal para evitar problemas de tipos
+        dias_decimal = Decimal(str(dias_renta))
+        cantidad_decimal = Decimal(str(cantidad))
+        
+        return (self.precio_diario * dias_decimal * cantidad_decimal).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
         )
     

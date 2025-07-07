@@ -8,6 +8,9 @@ urlpatterns = [
     path('detalle/<int:entrega_id>/', views_entregas.detalle_entrega, name='detalle_entrega'),
     path('programar/<int:pedido_id>/', views_entregas.programar_entrega, name='programar_entrega'),
     
+    # Vista de seguimientos para administradores
+    path('admin/seguimientos/', views_entregas.seguimientos_admin, name='seguimientos_admin'),
+    
     # Gestión de recorridos
     path('iniciar/<int:entrega_id>/', views_entregas.iniciar_recorrido, name='iniciar_recorrido'),
     path('seguimiento/<int:entrega_id>/', views_entregas.seguimiento_entrega, name='seguimiento_entrega'),

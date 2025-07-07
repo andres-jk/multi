@@ -13,8 +13,7 @@ def catalogo(request):
     if query:
         productos_list = productos_list.filter(
             Q(nombre__icontains=query) |
-            Q(descripcion__icontains=query) |
-            Q(tipo_renta__icontains=query)
+            Q(descripcion__icontains=query)
         )
     
     # Configuración de paginación

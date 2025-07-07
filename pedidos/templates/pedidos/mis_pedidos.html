@@ -31,13 +31,43 @@
                     <td>{{ pedido.id_pedido }}</td>
                     <td>{{ pedido.fecha|date:"d/m/Y H:i" }}</td>
                     <td>
-                        <span class="badge {% if pedido.estado_pedido_general == 'PENDIENTE' %}badge-warning{% elif pedido.estado_pedido_general == 'EN_PROCESO' %}badge-primary{% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success{% else %}badge-secondary{% endif %}">
+                        <span class="badge 
+                            {% if pedido.estado_pedido_general == 'pendiente_pago' %}badge-warning
+                            {% elif pedido.estado_pedido_general == 'procesando_pago' %}badge-warning
+                            {% elif pedido.estado_pedido_general == 'pagado' %}badge-success
+                            {% elif pedido.estado_pedido_general == 'pago_vencido' %}badge-danger
+                            {% elif pedido.estado_pedido_general == 'pago_rechazado' %}badge-danger
+                            {% elif pedido.estado_pedido_general == 'en_preparacion' %}badge-primary
+                            {% elif pedido.estado_pedido_general == 'listo_entrega' %}badge-primary
+                            {% elif pedido.estado_pedido_general == 'en_camino' %}badge-primary
+                            {% elif pedido.estado_pedido_general == 'entregado' %}badge-primary
+                            {% elif pedido.estado_pedido_general == 'recibido' %}badge-success
+                            {% elif pedido.estado_pedido_general == 'programado_devolucion' %}badge-info
+                            {% elif pedido.estado_pedido_general == 'CERRADO' %}badge-success
+                            {% else %}badge-secondary
+                            {% endif %}">
                             {{ pedido.get_estado_pedido_general_display }}
                         </span>
                     </td>
                     <td>{{ pedido.direccion_entrega }}</td>
                     <td>
                         <a href="{% url 'pedidos:detalle_mi_pedido' pedido.id_pedido %}" class="btn btn-info">Ver Detalles</a>
+                        
+                        <!-- Botones de descarga para pedidos con pago aprobado -->
+                        {% if pedido.estado_pedido_general == 'pagado' or pedido.estado_pedido_general == 'en_preparacion' or pedido.estado_pedido_general == 'listo_entrega' or pedido.estado_pedido_general == 'en_camino' or pedido.estado_pedido_general == 'entregado' or pedido.estado_pedido_general == 'recibido' or pedido.estado_pedido_general == 'programado_devolucion' or pedido.estado_pedido_general == 'CERRADO' %}
+                            <a href="{% url 'pedidos:generar_remision_pdf' pedido.id_pedido %}" class="btn btn-outline-primary btn-sm" target="_blank" title="Descargar Remisión">
+                                <i class="fas fa-file-pdf"></i> Remisión
+                            </a>
+                            <a href="{% url 'pedidos:generar_factura_pdf' pedido.id_pedido %}" class="btn btn-outline-success btn-sm" target="_blank" title="Descargar Factura">
+                                <i class="fas fa-file-invoice"></i> Factura
+                            </a>
+                        {% endif %}
+                        
+                        {% if pedido.entrega and pedido.estado_pedido_general in 'en_camino,entregado,recibido' %}
+                            <a href="{% url 'pedidos:seguimiento_cliente' pedido.id_pedido %}" class="btn btn-warning btn-sm">
+                                🚛 GPS
+                            </a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
@@ -73,6 +103,14 @@
 }
 .badge-success {
     background-color: #28a745;
+    color: #fff;
+}
+.badge-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+.badge-info {
+    background-color: #17a2b8;
     color: #fff;
 }
 .badge-secondary {

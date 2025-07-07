@@ -1,10 +1,20 @@
 {% extends 'base.html' %}
 
-{% block title %}Crear Recibo de Obra Consolidado{% endblock %}
+{% block title %}
+    {% if es_devolucion %}
+        Crear Recibo de Obra para Devolución
+    {% else %}
+        Crear Recibo de Obra Consolidado
+    {% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="card">
-    <h1 class="highlight">Crear Recibo de Obra Consolidado</h1>
+    {% if es_devolucion %}
+        <h1 class="highlight">Crear Recibo de Obra para Devolución</h1>
+    {% else %}
+        <h1 class="highlight">Crear Recibo de Obra Consolidado</h1>
+    {% endif %}
     <h2>Pedido #{{ pedido.id_pedido }}</h2>
     
     <div class="info-box">
@@ -12,6 +22,9 @@
         <p><strong>Cliente:</strong> {{ pedido.cliente.usuario.get_full_name }}</p>
         <p><strong>Fecha del Pedido:</strong> {{ pedido.fecha|date:"d/m/Y" }}</p>
         <p><strong>Dirección de Entrega:</strong> {{ pedido.direccion_entrega }}</p>
+        {% if es_devolucion %}
+            <p><strong>Fecha Programada para Devolución:</strong> {{ pedido.fecha_devolucion_programada|date:"d/m/Y" }}</p>
+        {% endif %}
     </div>
     
     <form method="post" class="form">
@@ -26,7 +39,7 @@
                         <th>Seleccionar</th>
                         <th>Producto</th>
                         <th>Disponible en Pedido</th>
-                        <th>Cantidad a Entregar</th>
+                        <th>{% if es_devolucion %}Cantidad a Devolver{% else %}Cantidad a Entregar{% endif %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,8 +65,14 @@
         </div>
         
         <div class="form-group">
-            <label for="condicion_general">Condición General del Equipo:</label>
-            <textarea name="condicion_general" id="condicion_general" rows="3" required placeholder="Describe el estado general de los equipos..."></textarea>
+            <label for="condicion_general">
+                {% if es_devolucion %}
+                    Condición de Devolución:
+                {% else %}
+                    Condición General del Equipo:
+                {% endif %}
+            </label>
+            <textarea name="condicion_general" id="condicion_general" rows="3" required placeholder="{% if es_devolucion %}Describe el estado de los equipos que se devolverán...{% else %}Describe el estado general de los equipos...{% endif %}"></textarea>
         </div>
         
         <div class="form-group">
@@ -62,7 +81,13 @@
         </div>
         
         <div class="form-buttons">
-            <button type="submit" class="btn btn-primary" id="submit-btn" disabled>Generar Recibo Consolidado</button>
+            <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
+                {% if es_devolucion %}
+                    Generar Recibo para Devolución
+                {% else %}
+                    Generar Recibo Consolidado
+                {% endif %}
+            </button>
             <a href="{% url 'pedidos:detalle_pedido' pedido.id_pedido %}" class="btn">Cancelar</a>
         </div>
     </form>

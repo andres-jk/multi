@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, views_divipola, views_empleados, views_empleados_temp
+from . import views, views_divipola, views_empleados
 
 app_name = 'usuarios'  # Agregar namespace
 
@@ -44,14 +44,20 @@ urlpatterns = [
     path('pedido/<int:pedido_id>/generar-remision/', views.generar_remision_admin, name='generar_remision_admin'),
 
     # URLs para gestión de empleados (solo para administradores)
-    path('empleados/', views_empleados_temp.lista_empleados, name='lista_empleados'),
-    path('empleados/nuevo/', views_empleados_temp.crear_empleado, name='crear_empleado'),
-    path('empleados/<int:empleado_id>/', views_empleados_temp.detalle_empleado, name='detalle_empleado'),
-    path('empleados/<int:empleado_id>/editar/', views_empleados_temp.editar_empleado, name='editar_empleado'),
-    path('empleados/<int:empleado_id>/cambiar-password/', views_empleados_temp.cambiar_password_empleado, name='cambiar_password_empleado'),
-    path('empleados/<int:empleado_id>/activar-desactivar/', views_empleados_temp.activar_desactivar_empleado, name='activar_desactivar_empleado'),
-    path('empleados/<int:empleado_id>/eliminar/', views_empleados_temp.eliminar_empleado, name='eliminar_empleado'),
+    path('empleados/', views_empleados.lista_empleados, name='lista_empleados'),
+    # path('empleados/nuevo/', views_empleados.crear_empleado, name='crear_empleado'),
+    # path('empleados/<int:empleado_id>/', views_empleados.detalle_empleado, name='detalle_empleado'),
+    # path('empleados/<int:empleado_id>/editar/', views_empleados.editar_empleado, name='editar_empleado'),
+    # path('empleados/<int:empleado_id>/cambiar-password/', views_empleados.cambiar_password_empleado, name='cambiar_password_empleado'),
+    # path('empleados/<int:empleado_id>/activar-desactivar/', views_empleados.activar_desactivar_empleado, name='activar_desactivar_empleado'),
+    # path('empleados/<int:empleado_id>/eliminar/', views_empleados.eliminar_empleado, name='eliminar_empleado'),
 
     # AJAX endpoints
     path('carrito/precio/<int:item_id>/', views.get_precio_carrito_item, name='get_precio_carrito_item'),
+    path('ajax/cargar-municipios/', views.cargar_municipios, name='cargar_municipios'),
+    path('ajax/codigo-divipola/', views.obtener_codigo_divipola, name='obtener_codigo_divipola'),
+    path('ajax/calcular-costo-envio/', views.calcular_costo_envio_ajax, name='calcular_costo_envio_ajax'),
+
+    # Test DIVIPOLA
+    path('test-divipola/', views.test_divipola_view, name='test_divipola'),
 ]

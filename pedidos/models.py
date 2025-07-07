@@ -20,6 +20,7 @@ class Pedido(models.Model):
         ('listo_entrega', 'Listo para Entrega'),
         ('en_camino', 'En Camino'),
         ('entregado', 'Entregado'),
+        ('recibido', 'Recibido'),
         ('programado_devolucion', 'Programado para Devolución'),
         ('cancelado', 'Cancelado'),
         ('CERRADO', 'Cerrado'),  # Agregar este estado que se usa en las vistas
@@ -280,6 +281,7 @@ class DetallePedido(models.Model):
         ('en_preparacion', 'En Preparación'),
         ('listo_entrega', 'Listo para Entrega'),
         ('entregado', 'Entregado'),
+        ('devuelto_parcial', 'Devuelto Parcialmente'),
         ('devuelto', 'Devuelto'),
         ('cancelado', 'Cancelado'),
     ]
@@ -294,6 +296,15 @@ class DetallePedido(models.Model):
     fecha_devolucion = models.DateTimeField(null=True, blank=True)
     estado = models.CharField(max_length=50, choices=ESTADO_CHOICES, default='pendiente')
     notas = models.TextField(blank=True, null=True)
+    cantidad_devuelta = models.PositiveIntegerField(default=0, help_text="Cantidad de productos que ya han sido devueltos")
+    renta_extendida = models.BooleanField(default=False, help_text="Indica si la renta ha sido extendida para los productos restantes")
+
+    @property
+    def cantidad_pendiente_devolucion(self):
+        """
+        Calcula la cantidad de productos pendientes por devolver
+        """
+        return self.cantidad - self.cantidad_devuelta
 
     def get_estado_display(self):
         """Método para obtener el display del estado"""
@@ -369,6 +380,8 @@ class DetallePedido(models.Model):
         if not tiempo_restante:
             if self.estado in ['devuelto']:
                 return "Devuelto"
+            elif self.estado in ['devuelto_parcial']:
+                return f"Devuelto parcialmente ({self.cantidad_devuelta}/{self.cantidad})"
             elif self.estado in ['cancelado']:
                 return "Cancelado"
             else:
@@ -401,6 +414,97 @@ class DetallePedido(models.Model):
         Calcula el costo total para este detalle
         """
         return self.precio_diario * self.cantidad * self.dias_renta
+        
+    @property
+    def cantidad_pendiente_devolucion(self):
+        """
+        Calcula la cantidad pendiente de devolución
+        """
+        return self.cantidad - self.cantidad_devuelta
+
+
+class DevolucionParcial(models.Model):
+    """
+    Modelo para registrar devoluciones parciales de productos en un pedido
+    """
+    ESTADO_CHOICES = [
+        ('buen_estado', 'Buen Estado'),
+        ('danado', 'Dañado'),
+        ('inservible', 'Inservible'),
+    ]
+    
+    detalle_pedido = models.ForeignKey(DetallePedido, related_name='devoluciones', on_delete=models.CASCADE)
+    cantidad = models.PositiveIntegerField(help_text="Cantidad de productos devueltos en esta devolución")
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='buen_estado')
+    fecha_devolucion = models.DateTimeField(auto_now_add=True)
+    notas = models.TextField(blank=True, null=True)
+    procesado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='devoluciones_procesadas')
+    
+    class Meta:
+        verbose_name = 'Devolución Parcial'
+        verbose_name_plural = 'Devoluciones Parciales'
+        ordering = ['-fecha_devolucion']
+        
+    def __str__(self):
+        return f"Devolución de {self.cantidad} {self.detalle_pedido.producto.nombre} - {self.get_estado_display()}"
+    
+    def save(self, *args, **kwargs):
+        nuevo_registro = not self.pk  # Verificar si es un nuevo registro
+        
+        # Ejecutar el guardado normal
+        super().save(*args, **kwargs)
+        
+        # Solo actualizar el detalle si es un nuevo registro
+        if nuevo_registro:
+            # Actualizar el detalle del pedido
+            detalle = self.detalle_pedido
+            detalle.cantidad_devuelta += self.cantidad
+            
+            # Actualizar el estado del detalle
+            if detalle.cantidad_devuelta >= detalle.cantidad:
+                detalle.estado = 'devuelto'
+            else:
+                detalle.estado = 'devuelto_parcial'
+                
+            detalle.save()
+            
+            # Devolver al inventario si está en buen estado
+            if self.estado == 'buen_estado':
+                self.detalle_pedido.producto.devolver_de_renta(self.cantidad)
+
+
+class ExtensionRenta(models.Model):
+    """
+    Modelo para registrar extensiones de renta para productos que han sido devueltos parcialmente
+    """
+    detalle_pedido = models.ForeignKey(DetallePedido, related_name='extensiones', on_delete=models.CASCADE)
+    fecha_extension = models.DateTimeField(auto_now_add=True)
+    dias_adicionales = models.PositiveIntegerField(help_text="Días adicionales de renta")
+    cantidad = models.PositiveIntegerField(help_text="Cantidad de productos para los que se extiende la renta")
+    precio_diario = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
+    notas = models.TextField(blank=True, null=True)
+    procesado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='extensiones_procesadas')
+    
+    class Meta:
+        verbose_name = 'Extensión de Renta'
+        verbose_name_plural = 'Extensiones de Renta'
+        ordering = ['-fecha_extension']
+        
+    def __str__(self):
+        return f"Extensión de renta para {self.cantidad} {self.detalle_pedido.producto.nombre} por {self.dias_adicionales} días"
+    
+    def save(self, *args, **kwargs):
+        # Calcular subtotal antes de guardar
+        self.subtotal = self.precio_diario * self.cantidad * self.dias_adicionales
+        
+        # Guardar el objeto
+        super().save(*args, **kwargs)
+        
+        # Actualizar el detalle del pedido
+        detalle = self.detalle_pedido
+        detalle.renta_extendida = True
+        detalle.save()
 
 class EntregaPedido(models.Model):
     """Modelo para gestionar las entregas de pedidos con seguimiento GPS"""
@@ -415,7 +519,7 @@ class EntregaPedido(models.Model):
     
     pedido = models.OneToOneField(Pedido, on_delete=models.CASCADE, related_name='entrega')
     empleado_entrega = models.ForeignKey(
-        User, 
+        'usuarios.Usuario', 
         on_delete=models.CASCADE, 
         limit_choices_to={'rol': 'recibos_obra'},
         verbose_name='Empleado de Entrega'
@@ -523,7 +627,7 @@ class EntregaPedido(models.Model):
         self.fecha_entrega_real = timezone.now()
         
         # Actualizar estado del pedido y iniciar contador de devolución
-        self.pedido.estado_pedido_general = 'entregado'
+        self.pedido.estado_pedido_general = 'recibido'  # Cambiado a 'recibido' en lugar de 'entregado'
         self.pedido.fecha_entrega = timezone.now()
         self.pedido.save()
         self.save()

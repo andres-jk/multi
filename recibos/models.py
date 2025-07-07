@@ -29,6 +29,7 @@ class ReciboObra(models.Model):
         blank=True
     )
     condicion_devolucion = models.TextField(null=True, blank=True, help_text='Estado del equipo al momento de la devolución')
+    es_recibo_devolucion = models.BooleanField(default=False, help_text='Indica si este recibo es para devolución de productos')
 
     class Meta:
         verbose_name = "Recibo de Obra"

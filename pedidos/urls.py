@@ -1,5 +1,7 @@
 from django.urls import path, include
 from . import views
+from . import views_entregas
+from . import views_devoluciones
 
 app_name = 'pedidos'  # Agregar namespace
 
@@ -23,6 +25,12 @@ urlpatterns = [
     path('mis-pedidos/<int:pedido_id>/', views.detalle_mi_pedido, name='detalle_mi_pedido'),  # Detalle para el cliente
     path('crear/', views.crear_pedido, name='crear_pedido'),  # Crear pedido (disponible para clientes)
     path('<int:pedido_id>/programar-devolucion/', views.programar_devolucion, name='programar_devolucion'),  # Programar devolución
+    
+    # URLs para devoluciones parciales y extensiones de renta
+    path('<int:pedido_id>/devolucion-parcial/', views_devoluciones.registrar_devolucion_parcial, name='registrar_devolucion_parcial'),
+    path('<int:pedido_id>/extender-renta/', views_devoluciones.extender_renta, name='extender_renta'),
+    path('<int:pedido_id>/seleccion-devolucion-parcial/', views_devoluciones.seleccion_devolucion_parcial, name='seleccion_devolucion_parcial'),
+    path('<int:pedido_id>/cambiar-estado-productos/', views_devoluciones.cambiar_estado_productos_pedido, name='cambiar_estado_productos_pedido'),
     
     # URLs para reportes de tiempo de renta
     path('mis-pedidos/tiempo/', views.mis_pedidos_tiempo, name='mis_pedidos_tiempo'),  # Tiempo restante para clientes

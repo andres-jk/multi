@@ -14,20 +14,20 @@
         {% csrf_token %}
         <input type="text" name="nombre" placeholder="Nombre del producto" required>
         <textarea name="descripcion" placeholder="Descripción" style="min-width:200px;" required></textarea>
-        <input type="number" name="precio_diario" placeholder="Precio diario" min="0" step="0.01" required>
-        <input type="number" name="dias_minimos_renta" placeholder="Días mínimos de renta" min="1" step="1" value="1" required>
+        <input type="number" name="precio_diario" placeholder="Precio por día" min="0" step="0.01" required>
+        <input type="number" name="dias_minimos_renta" placeholder="Días mínimos de renta" min="1" value="1" required>
         <input type="number" name="peso" placeholder="Peso individual (kg)" min="0" step="0.01" required>
         <input type="number" name="cantidad" placeholder="Cantidad" min="1" required>
         <input type="file" name="imagen" accept="image/*">
-        <button class="btn" type="submit">AGREGAR</button>
+        <button class="btn" type="submit">Agregar</button>
     </form>
     <div class="table-responsive">
-        <table class="table">
+        <table class="table table-lista-productos" style="background-color: #E0EDF4 !important; border: 1px solid #AAD4EA !important;">
             <thead>
                 <tr>
                     <th>Nombre</th>
                     <th>Descripción</th>
-                    <th>Precio Diario</th>
+                    <th>Precio por Día</th>
                     <th>Días Mínimos</th>
                     <th>Peso (kg)</th>
                     <th>Cantidad</th>
@@ -41,22 +41,26 @@
                 <tr>
                     <td>{{ producto.nombre }}</td>
                     <td>{{ producto.descripcion }}</td>
-                    <td>${{ producto.precio_diario|floatformat:2 }}/día</td>
-                    <td>{{ producto.dias_minimos_renta }} día{{ producto.dias_minimos_renta|pluralize }}</td>
+                    <td>${{ producto.precio_diario|floatformat:2 }}</td>
+                    <td>
+                        <span class="dias-minimos-badge">
+                            {{ producto.dias_minimos_renta }} día{% if producto.dias_minimos_renta != 1 %}s{% endif %}
+                        </span>
+                    </td>
                     <td>{{ producto.peso|floatformat:2 }} kg</td>
                     <td>{{ producto.cantidad_disponible }}</td>
                     <td>
                         {% if producto.imagen %}
                             <img src="{{ producto.imagen.url }}" width="60" height="40" style="object-fit:cover;">
                         {% else %}
-                            <span style="color:#FFD600;">Sin imagen</span>
+                            <span style="color:#F9C552;">Sin imagen</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if producto.activo %}
-                            <span style="color: green; font-weight: bold;">✓ Activo</span>
+                            <span style="color: #2FD5D5; font-weight: bold;">✓ Activo</span>
                         {% else %}
-                            <span style="color: red; font-weight: bold;">✗ Inactivo</span>
+                            <span style="color: #FF99BA; font-weight: bold;">✗ Inactivo</span>
                         {% endif %}
                     </td>
                     <td>
@@ -64,7 +68,7 @@
                             <!-- Botón Editar -->
                             <a href="{% url 'pedidos:editar_producto' producto.id_producto %}" 
                                class="btn btn-edit" 
-                               style="background-color: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px;">
+                               style="background-color: #AAD4EA; color: #1A1228; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px;">
                                 ✏️ Editar
                             </a>
                             
@@ -74,7 +78,7 @@
                                 <button type="submit" 
                                         class="btn btn-toggle {% if producto.activo %}btn-deactivate{% else %}btn-activate{% endif %}"
                                         style="padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; 
-                                               {% if producto.activo %}background-color: #ffc107; color: #000;{% else %}background-color: #28a745; color: white;{% endif %}">
+                                               {% if producto.activo %}background-color: #F9C552; color: #1A1228;{% else %}background-color: #2FD5D5; color: #1A1228;{% endif %}">
                                     {% if producto.activo %}
                                         🔒 Desactivar
                                     {% else %}
@@ -89,7 +93,7 @@
                                 <button class="btn btn-delete" 
                                         type="submit" 
                                         onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?')"
-                                        style="background-color: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                        style="background-color: #FF99BA; color: #1A1228; padding: 5px 10px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer;">
                                     🗑️ Eliminar
                                 </button>
                             </form>
@@ -111,28 +115,53 @@
     min-width: 200px;
 }
 
+/* Nuevos estilos de botones con la paleta de colores */
+.btn-edit {
+    background-color: #AAD4EA !important;
+    color: #1A1228 !important;
+    border: none;
+}
+
 .btn-edit:hover {
-    background-color: #0056b3 !important;
+    background-color: #2FD5D5 !important;
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-activate {
+    background-color: #2FD5D5 !important;
+    color: #1A1228 !important;
+    border: none;
 }
 
 .btn-activate:hover {
-    background-color: #218838 !important;
+    background-color: #AAD4EA !important;
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-deactivate {
+    background-color: #F9C552 !important;
+    color: #1A1228 !important;
+    border: none;
 }
 
 .btn-deactivate:hover {
-    background-color: #e0a800 !important;
+    background-color: #FF99BA !important;
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-delete {
+    background-color: #FF99BA !important;
+    color: #1A1228 !important;
+    border: none;
 }
 
 .btn-delete:hover {
-    background-color: #c82333 !important;
+    background-color: #dc3545 !important;
     transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .action-buttons button, .action-buttons a {
@@ -141,19 +170,22 @@
     white-space: nowrap;
 }
 
+/* Tablas con color oscuro y texto blanco */
 .table th {
-    background-color: #f8f9fa;
-    border-bottom: 2px solid #dee2e6;
+    background-color: #1A1228;
+    color: white;
+    border-bottom: 2px solid #F9C552;
     font-weight: 600;
 }
 
 .table td {
     vertical-align: middle;
     padding: 12px 8px;
+    color: #1A1228;
 }
 
 .table tbody tr:hover {
-    background-color: #f8f9fa;
+    background-color: rgba(249, 197, 82, 0.1);
 }
 
 /* Responsive para móviles */
@@ -177,23 +209,91 @@
 
 /* Estados visuales mejorados */
 .table td span[style*="color: green"] {
-    background-color: rgba(40, 167, 69, 0.1);
+    background-color: rgba(47, 213, 213, 0.2);
     padding: 4px 8px;
     border-radius: 20px;
-    border: 1px solid #28a745;
+    border: 1px solid #2FD5D5;
+    color: #1A1228 !important;
 }
 
 .table td span[style*="color: red"] {
-    background-color: rgba(220, 53, 69, 0.1);
+    background-color: rgba(255, 153, 186, 0.2);
     padding: 4px 8px;
     border-radius: 20px;
-    border: 1px solid #dc3545;
+    border: 1px solid #FF99BA;
+    color: #1A1228 !important;
 }
 
-/* Estilos para el selector de tipo de renta */
+/* Estilos para los días mínimos badge */
+.dias-minimos-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #F9C552;
+    color: #1A1228;
+    border: 1px solid #F9C552;
+}
+
+/* Estilos para el formulario */
+.admin-productos-form input,
+.admin-productos-form textarea,
+.admin-productos-form select {
+    border: 2px solid #AAD4EA;
+    border-radius: 6px;
+    padding: 8px 12px;
+    transition: all 0.3s ease;
+}
+
+.admin-productos-form input:focus,
+.admin-productos-form textarea:focus,
+.admin-productos-form select:focus {
+    border-color: #F9C552;
+    outline: none;
+    box-shadow: 0 0 5px rgba(249, 197, 82, 0.5);
+}
+
+/* Estilo para el botón principal */
+.admin-productos-form .btn {
+    background-color: #F9C552;
+    color: #1A1228;
+    font-weight: bold;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.admin-productos-form .btn:hover {
+    background-color: #2FD5D5;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Título con highlight */
+.highlight {
+    color: #1A1228;
+    border-bottom: 3px solid #F9C552;
+    padding-bottom: 10px;
+    display: inline-block;
+    margin-bottom: 20px;
+}
+
+/* Card styling */
+.card-admin-productos {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(26, 18, 40, 0.1);
+    padding: 25px;
+    background-color: white;
+}
+
+/* Estilos para el selector de tipo de renta (mantener por compatibilidad) */
 .admin-productos-form select[name="tipo_renta"] {
     padding: 8px 12px;
-    border: 2px solid #ddd;
+    border: 2px solid #AAD4EA;
     border-radius: 6px;
     background-color: white;
     font-size: 14px;
@@ -203,9 +303,9 @@
 }
 
 .admin-productos-form select[name="tipo_renta"]:focus {
-    border-color: #007bff;
+    border-color: #F9C552;
     outline: none;
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 0 5px rgba(249, 197, 82, 0.3);
 }
 
 .admin-productos-form select[name="tipo_renta"] option {
@@ -224,36 +324,38 @@
 }
 
 .tipo-renta-mensual {
-    background-color: #e8f5e8;
-    color: #2d5930;
-    border: 1px solid #5cb85c;
+    background-color: rgba(47, 213, 213, 0.2);
+    color: #1A1228;
+    border: 1px solid #2FD5D5;
 }
 
 .tipo-renta-semanal {
-    background-color: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffc107;
+    background-color: rgba(249, 197, 82, 0.2);
+    color: #1A1228;
+    border: 1px solid #F9C552;
 }
 
 /* Mejoras para los campos de precio */
 .admin-productos-form input[name="precio"],
-.admin-productos-form input[name="precio_semanal"] {
+.admin-productos-form input[name="precio_semanal"],
+.admin-productos-form input[name="precio_diario"] {
     position: relative;
 }
 
-.admin-productos-form input[name="precio"]::before {
+.admin-productos-form input[name="precio"]::before,
+.admin-productos-form input[name="precio_diario"]::before {
     content: "$";
     position: absolute;
     left: 8px;
     top: 50%;
     transform: translateY(-50%);
-    color: #666;
+    color: #1A1228;
 }
 
 /* Estilo para precio calculado automáticamente */
 .precio-calculado {
     font-style: italic;
-    color: #666;
+    color: #1A1228;
     font-size: 0.9em;
 }
 
@@ -311,14 +413,15 @@ document.addEventListener('DOMContentLoaded', function() {
             top: 20px;
             right: 20px;
             padding: 12px 20px;
-            background-color: ${type === 'info' ? '#d1ecf1' : '#d4edda'};
-            border: 1px solid ${type === 'info' ? '#bee5eb' : '#c3e6cb'};
-            color: ${type === 'info' ? '#0c5460' : '#155724'};
+            background-color: ${type === 'info' ? '#AAD4EA' : '#F9C552'};
+            border: 1px solid ${type === 'info' ? '#2FD5D5' : '#F9C552'};
+            color: #1A1228;
             border-radius: 4px;
             z-index: 1000;
             max-width: 300px;
             font-size: 14px;
             animation: slideIn 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         `;
         notification.textContent = message;
         

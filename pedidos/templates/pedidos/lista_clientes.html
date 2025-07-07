@@ -54,9 +54,9 @@
         {% if estado_filtro or rol_filtro or busqueda %}
             (filtrado{{ estado_filtro|yesno:", por estado" }}{{ rol_filtro|yesno:", por rol" }}{{ busqueda|yesno:", por búsqueda" }})
         {% endif %}
-    </div>
+    </div>    
     <div class="table-responsive">
-        <table class="table">
+        <table class="table table-lista-clientes" style="background-color: #E0EDF4 !important; border: 1px solid #AAD4EA !important;">
             <thead>
                 <tr>
                     <th>N° Identidad</th>
