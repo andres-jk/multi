@@ -51,9 +51,6 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 4. CARGAR DATOS DIVIPOLA:
    python3.10 cargar_divipola_produccion.py
 
-4. CARGAR DATOS DIVIPOLA:
-   python3.10 cargar_divipola_produccion.py
-
 5. VERIFICAR QUE TODO FUNCIONA:
    python3.10 verificar_api_divipola.py
    python3.10 test_divipola_completo.py
