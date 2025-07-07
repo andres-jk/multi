@@ -3,7 +3,7 @@ INSTRUCCIONES FINALES PARA REPOSITORIO GITHUB.COM/ANDRES-JK/MULTI.GIT
 ===================================================================
 
 🎯 REPOSITORIO CORRECTO: https://github.com/andres-jk/multi.git
-📁 RUTA EN PYTHONANYWHERE: /home/TU-USUARIO/multi
+📁 RUTA EN PYTHONANYWHERE: /home/Dalej/multi
 
 🚀 COMANDOS EXACTOS PARA EJECUTAR EN PYTHONANYWHERE:
 
@@ -12,8 +12,7 @@ INSTRUCCIONES FINALES PARA REPOSITORIO GITHUB.COM/ANDRES-JK/MULTI.GIT
    - Hacer clic en "Bash"
 
 2. NAVEGAR AL REPOSITORIO
-   cd /home/TU-USUARIO/multi
-   # Reemplaza "TU-USUARIO" por tu usuario real de PythonAnywhere
+   cd /home/Dalej/multi
 
 3. ACTUALIZAR CÓDIGO DESDE GITHUB
    git pull origin main
@@ -40,7 +39,7 @@ El archivo wsgi.py debe contener:
 import os
 import sys
 
-path = '/home/TU-USUARIO/multi'  # Cambiar TU-USUARIO por tu usuario real
+path = '/home/Dalej/multi'
 if path not in sys.path:
     sys.path.insert(0, path)
 

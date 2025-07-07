@@ -4,11 +4,11 @@
 
 echo "=== ACTUALIZANDO REPOSITORIO MULTI ==="
 echo "Repositorio: https://github.com/andres-jk/multi.git"
-echo "Ruta: /home/TU-USUARIO/multi"
+echo "Ruta: /home/Dalej/multi"
 echo
 
 echo "1. Navegando al repositorio..."
-cd /home/TU-USUARIO/multi
+cd /home/Dalej/multi
 
 echo "2. Verificando estado del repositorio..."
 git status

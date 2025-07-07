@@ -2,7 +2,7 @@
 # COMANDOS PARA EJECUTAR EN PYTHONANYWHERE
 
 echo "=== ACTUALIZACIÓN DE CÓDIGO ==="
-cd /home/tu-usuario/multi
+cd /home/Dalej/multi
 git pull origin main
 
 echo "=== CARGA DE DATOS DIVIPOLA ==="
