@@ -1,4 +1,16 @@
-from django import forms
+#!/usr/bin/env python3
+"""
+Script para verificar y sincronizar el archivo usuarios/forms.py
+con todas las clases de formularios necesarias.
+"""
+
+import os
+import sys
+
+def create_complete_forms_file():
+    """Crea o reemplaza el archivo usuarios/forms.py con todo el contenido necesario."""
+    
+    forms_content = '''from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import Usuario, MetodoPago, Cliente, Direccion
 from .models_divipola import Departamento, Municipio
@@ -275,3 +287,49 @@ class EmpleadoForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+'''
+
+    forms_file = 'usuarios/forms.py'
+    
+    try:
+        # Crear respaldo del archivo actual si existe
+        if os.path.exists(forms_file):
+            backup_file = f"{forms_file}.backup"
+            with open(forms_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            with open(backup_file, 'w', encoding='utf-8') as f:
+                f.write(content)
+            print(f"✅ Respaldo creado: {backup_file}")
+        
+        # Escribir el nuevo contenido
+        with open(forms_file, 'w', encoding='utf-8') as f:
+            f.write(forms_content)
+        
+        print(f"✅ Archivo {forms_file} actualizado correctamente")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error al actualizar el archivo: {e}")
+        return False
+
+if __name__ == "__main__":
+    print("🔧 Actualizando usuarios/forms.py con todas las clases necesarias...")
+    success = create_complete_forms_file()
+    
+    if success:
+        print("\n✅ Actualización completada exitosamente")
+        print("📋 El archivo usuarios/forms.py ahora incluye:")
+        print("   - RegistroForm")
+        print("   - PerfilForm") 
+        print("   - ClienteForm")
+        print("   - DireccionForm")
+        print("   - MetodoPagoForm")
+        print("   - EmpleadoForm (con validación de contraseñas)")
+        print("\n📋 Próximos pasos:")
+        print("1. git add usuarios/forms.py")
+        print("2. git commit -m 'Fix: Actualizar forms.py con EmpleadoForm completo'")
+        print("3. git push")
+        print("4. En PythonAnywhere: git pull && reload web app")
+    else:
+        print("\n❌ La actualización falló")
+        sys.exit(1)
