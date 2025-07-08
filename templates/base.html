@@ -1,49 +1,984 @@
 {% load static %}
+{% load carrito_tags %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MultiAndamios{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{% static 'estilos.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme-colors.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    
     {% block extra_css %}{% endblock %}
+    <style>
+        /* --- NAV BAR LAYOUT --- */
+        .nav-bar {
+            width: 75%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 60px;
+            background: transparent;
+            position: relative;
+        }
+
+        /* Estilos del carrito */
+        .carrito-link {
+            position: relative;
+            padding-right: 45px !important;
+        }
+        
+        #carrito-count {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #FFD600;
+            color: black;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            display: none;
+        }
+        
+        #carrito-count.has-items {
+            display: inline-block;
+        }
+        
+        .cart-total {
+            position: absolute;
+            right: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        /* Estilos para el chatbot de IA - Mejorados */
+        .chat-bot-container {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .chat-bot-button {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #FFD600 0%, #FFC107 100%);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), inset 0 -3px 0 rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            align-self: flex-end;
+            border: 3px solid #fff;
+            position: relative;
+            animation: pulse 2s infinite;
+            filter: drop-shadow(0 0 8px rgba(255, 214, 0, 0.3));
+        }
+        
+        .chat-notification {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: #ff3b30;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 214, 0, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 214, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 214, 0, 0);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-8px);
+            }
+            60% {
+                transform: translateY(-4px);
+            }
+        }
+        
+        .chat-bot-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), inset 0 -3px 0 rgba(0,0,0,0.1);
+        }
+        
+        .chat-bot-button:active {
+            transform: scale(0.95);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 0 2px 0 rgba(0,0,0,0.1);
+        }
+        
+        .chat-bot-window {
+            width: 400px;
+            height: 550px;
+            background: white;
+            border-radius: 20px 20px 20px 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: none;
+            flex-direction: column;
+            margin-bottom: 20px;
+            overflow: hidden;
+            animation: slideInUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 3px solid #FFD600;
+        }
+        
+        @keyframes slideInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.8);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #FFD600 0%, #FFE14C 100%);
+            color: #333;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 20px 20px 0 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .chat-header h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .close-chat {
+            background: rgba(0,0,0,0.1);
+            border: none;
+            color: #333;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        
+        .close-chat:hover {
+            background-color: rgba(0,0,0,0.1);
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background-color: #f9f9f9;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffe372' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 18px;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            animation: fadeInMessage 0.5s;
+            line-height: 1.5;
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+        
+        .message:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+        }
+        
+        @keyframes fadeInMessage {
+            0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+            50% { opacity: 1; transform: translateY(-5px) scale(1.01); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        .bot-message {
+            align-self: flex-start;
+            background: linear-gradient(135deg, #f8f8f8 0%, #ffffff 100%);
+            color: #333;
+            border-bottom-left-radius: 5px;
+            border-left: 3px solid #FFD600;
+            margin-left: 28px;
+        }
+        
+        .bot-message::before {
+            content: '';
+            position: absolute;
+            left: -30px;
+            top: 0;
+            width: 26px;
+            height: 26px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23FFD600"><path d="M12 1C8.686 1 6 3.686 6 7v2H5c-1.105 0-2 .895-2 2v8c0 1.105.895 2 2 2h14c1.105 0 2-.895 2-2v-8c0-1.105-.895-2-2-2h-1V7c0-3.314-2.686-6-6-6zm0 2c2.205 0 4 1.795 4 4v2H8V7c0-2.205 1.795-4 4-4zm-3 10a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>');
+            background-size: contain;
+            background-repeat: no-repeat;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+        }
+        
+        .user-message {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #FFD600 0%, #FFE14C 100%);
+            color: #333;
+            border-bottom-right-radius: 5px;
+            font-weight: 500;
+            border-right: 3px solid #333;
+            position: relative;
+            box-shadow: 0 2px 6px rgba(255, 214, 0, 0.25);
+        }
+        
+        .chat-input-container {
+            display: flex;
+            padding: 16px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #fff;
+            position: relative;
+            align-items: center;
+        }
+        
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input-wrapper {
+            flex: 1;
+            position: relative;
+            margin-right: 10px;
+        }
+        
+        .chat-input {
+            width: 100%;
+            padding: 13px 45px 13px 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            resize: none;
+            background-color: #f8f9fa;
+        }
+        
+        .chat-input:focus {
+            border-color: #FFD600;
+            box-shadow: 0 0 0 3px rgba(255, 214, 0, 0.2);
+            background-color: #fff;
+        }
+        
+        .mic-button {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .mic-button:hover {
+            background-color: #FFD600;
+            color: #333;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .mic-button.recording {
+            background-color: #ff3b30;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        
+        .send-button {
+            background: linear-gradient(135deg, #FFD600 0%, #FFE14C 100%);
+            color: #333;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 2px 8px rgba(255, 214, 0, 0.3);
+        }
+        
+        .send-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(255, 214, 0, 0.5);
+        }
+        
+        .send-button:active {
+            transform: scale(0.95);
+        }
+        
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .typing-indicator {
+            align-self: flex-start;
+            background: #f0f0f0;
+            padding: 15px 20px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            border-left: 3px solid #FFD600;
+        }
+        
+        .typing-indicator-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-indicator .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #666;
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite both;
+        }
+        
+        .typing-indicator .dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator .dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typingBounce {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        /* Respuestas rápidas mejoradas */
+        .quick-replies {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 0 5px;
+        }
+        
+        .quick-reply-btn {
+            background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+            color: #333;
+            border: 1px solid #FFD600;
+            padding: 8px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .quick-reply-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 214, 0, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .quick-reply-btn:hover {
+            background: linear-gradient(135deg, #FFD600 0%, #FFE14C 100%);
+            color: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 214, 0, 0.3);
+        }
+        
+        .quick-reply-btn:active::after {
+            width: 120px;
+            height: 120px;
+            transition: 0s;
+        }
+        
+        .quick-reply-btn:active::after {
+            transform: scale(0, 0);
+            opacity: .3;
+            transition: 0s;
+        }
+        
+        /* Mensaje con reacciones */
+        .message-reactions {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+            justify-content: flex-end;
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .bot-message:hover .message-reactions {
+            opacity: 1;
+            height: 24px;
+        }
+        
+        .reaction-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 2px 6px;
+            border-radius: 12px;
+            transition: all 0.2s;
+            color: #888;
+        }
+        
+        .reaction-btn:hover {
+            background-color: #f0f0f0;
+            color: #333;
+            transform: scale(1.2);
+        }
+        
+        .reaction-btn.active {
+            color: #FFD600;
+        }
+        
+        /* Estilo global para ocultar elementos de pedidos para clientes */
+        {% if user.is_authenticated and user.rol == 'cliente' %}
+        a[href*="pedidos:"], .pedido-button, .pedido-link, .pedidos-section {
+            display: none !important;
+        }
+        {% endif %}
+        
+        .nav-links {
+            display: flex;
+            gap: 2.2rem;
+            flex: 1;
+            justify-content: flex-start;
+            align-items: center;
+        }
+        .nav-btn-space {
+            min-width: 90px;
+            text-align: center;
+        }
+        .nav-btn-space a, .nav-btn-space .dropdown {
+            width: 100%;
+            display: inline-block;
+        }
+        .nav-btn-link {
+            background: #FFD600;
+            color: #111;
+            padding: 0.25rem 0.7rem;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 0.95rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            margin: 0;
+            border: 2px solid transparent;
+            display: inline-block;
+        }
+        .nav-btn-link:hover, .nav-btn-link:focus {
+            background: #FFC400;
+            color: #111;
+            text-decoration: none;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            min-width: 10px;
+            margin-left: auto;
+            position: relative;
+        }
+        
+        /* --- DROPDOWN --- */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-toggle {
+            background: #FFD600;
+            color: #111;
+            padding: 0.25rem 0.7rem;
+            border-radius: 8px;
+            font-weight: bold;
+            text-decoration: none;
+            font-size: 0.95rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            margin: 0;
+            border: 2px solid transparent;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .dropdown-toggle:hover {
+            background: #FFC400;
+            color: #111;
+            text-decoration: none;
+        }
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            min-width: 200px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            padding: 0.5rem 0;
+            margin-top: 2px;
+        }
+        .dropdown:hover .dropdown-menu {
+            display: block;
+        }
+        .dropdown-menu a {
+            display: block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .dropdown-menu a:hover {
+            background: #f8f9fa;
+            color: #333;
+        }
+        .dropdown-menu a i {
+            margin-right: 0.5rem;
+            width: 16px;
+        }
+        
+        /* --- NOTIFICATION STYLES --- */
+        #notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
+        }
+        
+        .notification {
+            background: white;
+            border-left: 4px solid #28a745;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(100%);
+            opacity: 0;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .notification.error {
+            border-left-color: #dc3545;
+        }
+        
+        .notification i {
+            font-size: 18px;
+            color: #28a745;
+        }
+        
+        .notification.error i {
+            color: #dc3545;
+        }
+        
+        .notification span {
+            flex: 1;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .close-btn {
+            cursor: pointer;
+            font-size: 18px;
+            color: #999;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        
+        .close-btn:hover {
+            color: #333;
+        }
+        
+        /* --- PENDING ORDERS BADGE --- */
+        .pending-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            display: none;
+            min-width: 18px;
+            height: 18px;
+            line-height: 14px;
+            text-align: center;
+        }
+        
+        .pending-badge.has-pending {
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+    </style>
 </head>
 <body>
-    <!-- Header with navigation -->
-    <header>
-        <div class="logo">🏗️ MultiAndamios</div>
-        <nav>
-            {% block nav %}
-            <a href="{% url 'usuarios:inicio_cliente' %}">🏠 Inicio</a>
-            <a href="{% url 'productos:catalogo_productos' %}">🚧 Productos</a>
-            {% if user.is_authenticated %}
-                <a href="{% url 'usuarios:ver_carrito' %}">🛒 Carrito</a>
-                <a href="{% url 'usuarios:logout' %}">🚪 Cerrar Sesión</a>
-            {% else %}
-                <a href="{% url 'usuarios:login' %}">🔐 Iniciar Sesión</a>
-            {% endif %}
-            {% endblock %}
+    <div id="notification-container"></div>
+    
+    <header class="main-header">
+        <nav class="nav-bar">
+            <div class="header-logo-space">
+                <img src="{% static 'logo_multiandamios.png' %}" alt="Logo" class="logo">
+            </div>
+            <div class="nav-links">
+                <a href="{% url 'usuarios:inicio_cliente' %}" {% if request.path == '/' %}class="active"{% endif %}><i class="fas fa-home"></i> Inicio</a>
+                <a href="{% url 'productos:catalogo_productos' %}" {% if '/productos/' in request.path %}class="active"{% endif %}><i class="fas fa-toolbox"></i> Productos</a>
+                {% if user.is_authenticated %}
+                    {% if user.is_staff or user.rol == 'admin' or user.rol == 'empleado' %}
+                    <a href="{% url 'pedidos:lista_pedidos' %}" {% if '/panel/' in request.path and not '/panel/admin/' in request.path %}class="active"{% endif %}><i class="fas fa-list-ul"></i> Pedidos</a>
+                    {% endif %}
+                    
+                    {% if user.rol == 'cliente' %}
+                    <a href="{% url 'pedidos:mis_pedidos' %}" {% if '/panel/mis-pedidos/' in request.path %}class="active"{% endif %}><i class="fas fa-clipboard-check"></i> Mis Pedidos</a>
+                    <a href="{% url 'usuarios:pedidos_pendientes' %}" {% if '/pedidos-pendientes/' in request.path %}class="active"{% endif %} class="nav-btn-link pending-orders-link">
+                        <i class="fas fa-clock"></i> Pedidos Pendientes
+                        <span class="pending-badge"></span>
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'usuarios:ver_carrito' %}" {% if '/carrito/' in request.path %}class="active"{% endif %} class="carrito-link">
+                        <i class="fas fa-shopping-cart"></i> Carrito
+                        <span id="carrito-count" class="{% get_carrito_total as total_items %}{% if total_items > 0 %}has-items{% endif %}">
+                            {% get_carrito_total %}
+                        </span>
+                        <span id="carrito-total" class="cart-total">{% get_carrito_monto_total %}</span>
+                    </a>
+                    {% if user.is_staff %}
+                        <div class="dropdown">
+                            <a href="#" class="dropdown-toggle {% if '/panel/admin/' in request.path or '/recibos/lista/' in request.path or '/recibos/resumen/' in request.path or '/empleados/' in request.path %}active{% endif %}">
+                                <i class="fas fa-cogs"></i> Administración <i class="fas fa-chevron-down"></i>
+                            </a>
+                            <div class="dropdown-menu">
+                                <a href="{% url 'pedidos:lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
+                                {% if user.rol == 'admin' or user.is_superuser %}
+                                <a href="{% url 'usuarios:lista_empleados' %}"><i class="fas fa-user-tie"></i> Empleados</a>
+                                <a href="{% url 'pedidos:seguimientos_admin' %}"><i class="fas fa-truck"></i> Seguimientos GPS</a>
+                                {% endif %}
+                                <a href="{% url 'recibos:lista_recibos' %}"><i class="fas fa-clipboard-list"></i> Recibos de Obra</a>
+                                <a href="{% url 'recibos:resumen_sistema' %}"><i class="fas fa-chart-line"></i> Resumen</a>
+                                <a href="{% url 'pedidos:admin_productos' %}"><i class="fas fa-tools"></i> Productos</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if user.rol == 'recibos_obra' %}
+                        <a href="{% url 'recibos:lista_recibos' %}" {% if '/recibos/lista/' in request.path %}class="active"{% endif %}><i class="fas fa-clipboard-list"></i> Recibos de Obra</a>
+                    {% endif %}
+                    
+                    <a href="{% url 'usuarios:logout' %}"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a>
+                {% else %}
+                    <a href="{% url 'usuarios:login' %}" {% if '/login/' in request.path %}class="active"{% endif %}><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a>
+                {% endif %}
+            </div>
         </nav>
     </header>
+            
+    <main class="container">
+        <div class="main-content">
+            {% block content %}
+            {% endblock %}
+        </div>
+    </main>
+            
+    <footer class="main-footer">
+        <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>
+    </footer>
+
+    <script>
+        // Improve dropdown accessibility and mobile support
+        document.addEventListener('DOMContentLoaded', function() {
+            // Make dropdowns accessible via keyboard
+            const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            
+            dropdownToggles.forEach(toggle => {
+                toggle.addEventListener('keydown', function(e) {
+                    // Enter or Space key
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        const dropdown = this.closest('.dropdown');
+                        const menu = dropdown.querySelector('.dropdown-menu');
+                        const isVisible = menu.style.display === 'block';
+                        
+                        // Toggle menu visibility
+                        menu.style.display = isVisible ? 'none' : 'block';
+                        
+                        // If opening the menu, focus the first item
+                        if (!isVisible) {
+                            const firstItem = menu.querySelector('a');
+                            if (firstItem) {
+                                firstItem.focus();
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.dropdown')) {
+                    const menus = document.querySelectorAll('.dropdown-menu');
+                    menus.forEach(menu => {
+                        menu.style.display = 'none';
+                    });
+                }
+            });
+        });
+    </script>
     
-    <!-- Main Content -->
-    <main>
+    <script>
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('notification-container');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            const icon = document.createElement('i');
+            icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+            
+            const text = document.createElement('span');
+            text.textContent = message;
+            
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'close-btn';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = () => {
+                notification.remove();
+            };
+            
+            notification.appendChild(icon);
+            notification.appendChild(text);
+            notification.appendChild(closeBtn);
+            container.appendChild(notification);
+            
+            // Trigger animation
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 5000);
+        }
+
+        // Show Django messages if any
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
+                showNotification("{{ message }}", "{{ message.tags }}");
             {% endfor %}
         {% endif %}
         
-        {% block content %}{% endblock %}
-    </main>
+        {% if user.is_authenticated and user.rol == 'cliente' %}
+        // Ocultar todos los elementos relacionados con pedidos para clientes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Ocultar todos los enlaces a pedidos
+            const pedidoLinks = document.querySelectorAll('a[href*="pedidos:"]');
+            pedidoLinks.forEach(function(link) {
+                link.style.display = 'none';
+            });
+            
+            // Ocultar todos los elementos con clases relacionadas con pedidos
+            const pedidoElements = document.querySelectorAll('.pedido-button, .pedido-link, .pedidos-section');
+            pedidoElements.forEach(function(element) {
+                element.style.display = 'none';
+            });
+        });
+        {% endif %}
+    </script>
     
-    <!-- Footer -->
-    <footer>
-        <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>
-    </footer>
+    <!-- Chat Bot de IA - Solo visible para clientes o usuarios no autenticados -->
+    {% if not user.is_authenticated or user.rol == 'cliente' %}
+    <div class="chat-bot-container">
+        <div class="chat-bot-window" id="chatWindow">
+            <div class="chat-header">
+                <h3><i class="fas fa-robot"></i> Asistente MultiAndamios</h3>
+                <button class="close-chat" id="closeChat">&times;</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    ¡Hola! Soy tu asistente virtual de MultiAndamios. Puedo ayudarte con información sobre nuestros productos, servicios y proceso de alquiler.
+                    <div class="message-reactions">
+                        <button class="reaction-btn" data-reaction="like"><i class="fas fa-thumbs-up"></i></button>
+                        <button class="reaction-btn" data-reaction="dislike"><i class="fas fa-thumbs-down"></i></button>
+                    </div>
+                </div>
+                <div class="message bot-message">
+                    ¿En qué puedo ayudarte hoy? Puedes seleccionar una opción o escribir tu pregunta.
+                    <div class="message-reactions">
+                        <button class="reaction-btn" data-reaction="like"><i class="fas fa-thumbs-up"></i></button>
+                        <button class="reaction-btn" data-reaction="dislike"><i class="fas fa-thumbs-down"></i></button>
+                    </div>
+                </div>
+                <!-- Botones de respuesta rápida -->
+                <div class="quick-replies" id="initialQuickReplies">
+                    <button class="quick-reply-btn" data-query="¿Qué tipos de andamios ofrecen?">Andamios</button>
+                    <button class="quick-reply-btn" data-query="¿Qué formaletas tienen disponibles?">Formaletas</button>
+                    <button class="quick-reply-btn" data-query="¿Cómo funciona el proceso de alquiler?">Alquiler</button>
+                    <button class="quick-reply-btn" data-query="¿Cuáles son sus precios?">Precios</button>
+                    <button class="quick-reply-btn" data-query="¿Hacen entregas?">Entregas</button>
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-indicator-dots">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </div>
+                    <span>Escribiendo...</span>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input type="text" class="chat-input" id="chatInput" placeholder="Escribe tu mensaje aquí..." />
+                    <button class="mic-button" id="micButton" title="Usar entrada de voz">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                <button class="send-button" id="sendMessage">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div id="chatHistory" style="display: none;"></div>
+        </div>
+        <div class="chat-bot-button" id="chatButton">
+            <i class="fas fa-comment-dots"></i>
+            <span class="chat-notification">1</span>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Script del chatbot -->
+    <script src="{% static 'chatbot.js' %}"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if user.is_authenticated and user.rol == 'cliente' %}
+            // Function to update the pending orders badge
+            function updatePendingOrdersBadge() {
+                fetch('{% url "usuarios:pedidos_pendientes" %}')
+                    .then(response => response.text())
+                    .then(html => {
+                        // Create a temporary element to parse the HTML
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = html;
+                        
+                        // Count the number of pending orders
+                        const pendingOrders = tempDiv.querySelectorAll('.card').length;
+                        
+                        // Update the badge
+                        const badge = document.querySelector('.pending-badge');
+                        if (badge) {
+                            if (pendingOrders > 0) {
+                                badge.textContent = pendingOrders;
+                                badge.classList.add('has-pending');
+                            } else {
+                                badge.classList.remove('has-pending');
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error updating pending orders badge:', error));
+            }
+
+            // Update badge on page load
+            updatePendingOrdersBadge();
+
+            // Update badge every 5 minutes
+            setInterval(updatePendingOrdersBadge, 5 * 60 * 1000);
+            {% endif %}
+        });
+    </script>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     {% block extra_js %}{% endblock %}
 </body>
