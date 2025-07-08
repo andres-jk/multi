@@ -7,23 +7,11 @@
     <title>{% block title %}MultiAndamios{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme-colors.css' %}">
-    
-    <!-- CSS Móvil: Solo se activa en dispositivos móviles -->
-    <link rel="stylesheet" href="{% static 'css/mobile-responsive.css' %}">
-    
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Botón hamburguesa (solo visible en móviles) -->
-    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú" aria-expanded="false" style="display: none;">
-        <span class="hamburger-icon">☰</span>
-    </button>
-    
-    <!-- Overlay para cerrar menú -->
-    <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
-    
-    <!-- Navigation - funciona normal en desktop, se oculta en móvil -->
-    <nav class="navigation main-navigation" id="main-navigation">
+    <!-- Navigation -->
+    <nav class="navigation">
         {% block nav %}
         <a href="{% url 'usuarios:inicio_cliente' %}">Inicio</a>
         <a href="{% url 'productos:catalogo_productos' %}">Productos</a>
@@ -54,8 +42,6 @@
         <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>
     </footer>
     
-    <!-- JavaScript para menú móvil -->
-    <script src="{% static 'js/mobile-menu.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
