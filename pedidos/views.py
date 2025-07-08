@@ -20,7 +20,7 @@ from usuarios.models import Cliente, Usuario
 from productos.models import Producto
 from django.db.models import Q
 from django.db import transaction
-from usuarios.forms import ClienteForm, ClienteCompletoForm
+from usuarios.forms import ClienteForm, ClienteCompletoForm, ClienteCompletoForm
 
 def es_staff(user):
     """Verifica si un usuario es staff, admin o empleado"""

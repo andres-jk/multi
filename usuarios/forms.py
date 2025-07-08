@@ -273,7 +273,7 @@ class UsuarioAdminChangeForm(UserChangeForm):
                  'puede_procesar_pagos', 'activo', 'last_login', 'date_joined')
 
 class ClienteCompletoForm(forms.Form):
-    """Formulario para crear un cliente completo con usuario desde el panel admin."""
+    """Formulario para crear un cliente completo desde el panel admin."""
     
     # Datos del usuario
     username = forms.CharField(
@@ -281,14 +281,20 @@ class ClienteCompletoForm(forms.Form):
         max_length=150,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
+    password = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
     first_name = forms.CharField(
         label='Nombre',
         max_length=150,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     last_name = forms.CharField(
         label='Apellido',
         max_length=150,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     email = forms.EmailField(
@@ -301,10 +307,6 @@ class ClienteCompletoForm(forms.Form):
         max_length=20,
         required=False,
         widget=forms.TextInput(attrs={'class': 'form-control'})
-    )
-    password = forms.CharField(
-        label='Contraseña',
-        widget=forms.PasswordInput(attrs={'class': 'form-control'})
     )
     
     # Datos del cliente
@@ -323,5 +325,5 @@ class ClienteCompletoForm(forms.Form):
     def clean_username(self):
         username = self.cleaned_data['username']
         if Usuario.objects.filter(username=username).exists():
-            raise forms.ValidationError('Este nombre de usuario ya existe.')
+            raise forms.ValidationError('Este nombre de usuario ya está en uso.')
         return username
