@@ -16,8 +16,8 @@ from django.views.decorators.csrf import csrf_exempt
 from pedidos.models import Pedido, DetallePedido
 from productos.models import Producto
 from recibos.models import ReciboObra
-from .forms import (UsuarioForm, ClienteForm, DireccionForm, EmpleadoCreationForm,
-                    EmpleadoUpdateForm, CambiarPasswordEmpleadoForm, RegistroForm) # Asegúrate de que RegistroForm venga de aquí o defínelo aquí.
+from .forms import (PerfilForm, ClienteForm, DireccionForm, EmpleadoForm,
+                    RegistroForm) # Asegúrate de que RegistroForm venga de aquí o defínelo aquí.
 from .models import Usuario, Cliente, MetodoPago, Direccion, CarritoItem
 from .models_divipola import Departamento, Municipio
 

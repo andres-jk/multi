@@ -20,7 +20,7 @@ from usuarios.models import Cliente, Usuario
 from productos.models import Producto
 from django.db.models import Q
 from django.db import transaction
-from usuarios.forms import ClienteAdminForm
+from usuarios.forms import ClienteForm
 
 def es_staff(user):
     """Verifica si un usuario es staff, admin o empleado"""
@@ -1252,7 +1252,7 @@ def programar_devolucion(request, pedido_id):
 def agregar_cliente(request):
     """Vista para agregar un nuevo cliente desde el panel de administración"""
     if request.method == 'POST':
-        form = ClienteAdminForm(request.POST)
+        form = ClienteForm(request.POST)
         if form.is_valid():
             # Crear el usuario
             usuario = Usuario.objects.create_user(
@@ -1276,7 +1276,7 @@ def agregar_cliente(request):
             messages.success(request, f'Cliente {usuario.username} creado exitosamente.')
             return redirect('pedidos:lista_clientes')
     else:
-        form = ClienteAdminForm()
+        form = ClienteForm()
         
     return render(request, 'pedidos/agregar_cliente.html', {'form': form})
 

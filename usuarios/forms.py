@@ -4,16 +4,7 @@ from .models import Usuario, MetodoPago, Cliente, Direccion
 from .models_divipola import Departamento, Municipio
 
 class RegistroForm(UserCreationForm):
-    telefono = forms.CharField(
-        label='Teléfono', 
-        max_length=50, 
-        required=False,
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Ej: 3001234567'
-        })
-    )
-    direccion = forms.CharField(
+    direccion_texto = forms.CharField(
         label='Dirección', 
         max_length=255, 
         required=False,
@@ -54,7 +45,7 @@ class RegistroForm(UserCreationForm):
 class PerfilForm(forms.ModelForm):
     class Meta:
         model = Usuario
-        fields = ['first_name', 'last_name', 'email', 'telefono', 'direccion']
+        fields = ['first_name', 'last_name', 'email', 'direccion_texto']
         widgets = {
             'first_name': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -68,11 +59,7 @@ class PerfilForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'tu@email.com'
             }),
-            'telefono': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Ej: 3001234567'
-            }),
-            'direccion': forms.TextInput(attrs={
+            'direccion_texto': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ej: Carrera 7 # 123-45'
             }),
@@ -92,23 +79,11 @@ class ClienteForm(forms.ModelForm):
 
     class Meta:
         model = Cliente
-        fields = ['nombre', 'cedula', 'telefono', 'email', 'direccion', 'departamento', 'municipio']
+        fields = ['telefono', 'direccion']
         widgets = {
-            'nombre': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Nombre completo del cliente'
-            }),
-            'cedula': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Número de cédula'
-            }),
             'telefono': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Teléfono de contacto'
-            }),
-            'email': forms.EmailInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'correo@ejemplo.com'
             }),
             'direccion': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -139,21 +114,25 @@ class DireccionForm(forms.ModelForm):
 
     class Meta:
         model = Direccion
-        fields = ['nombre', 'direccion', 'departamento', 'municipio', 'telefono', 'es_principal']
+        fields = ['calle', 'numero', 'complemento', 'departamento', 'municipio', 'codigo_postal', 'principal']
         widgets = {
-            'nombre': forms.TextInput(attrs={
+            'calle': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Ej: Casa, Oficina, etc.'
+                'placeholder': 'Nombre de la calle'
             }),
-            'direccion': forms.TextInput(attrs={
+            'numero': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Dirección completa'
+                'placeholder': 'Número'
             }),
-            'telefono': forms.TextInput(attrs={
+            'complemento': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Teléfono opcional'
+                'placeholder': 'Apartamento, oficina, etc.'
             }),
-            'es_principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'codigo_postal': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Código postal'
+            }),
+            'principal': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -170,27 +149,25 @@ class DireccionForm(forms.ModelForm):
 class MetodoPagoForm(forms.ModelForm):
     class Meta:
         model = MetodoPago
-        fields = ['tipo', 'nombre_titular', 'numero_tarjeta', 'fecha_vencimiento', 'codigo_seguridad']
+        fields = ['tipo', 'monto', 'numero_referencia', 'comprobante', 'notas']
         widgets = {
             'tipo': forms.Select(attrs={'class': 'form-control'}),
-            'nombre_titular': forms.TextInput(attrs={
+            'monto': forms.NumberInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Nombre como aparece en la tarjeta'
+                'placeholder': 'Monto del pago',
+                'step': '0.01'
             }),
-            'numero_tarjeta': forms.TextInput(attrs={
+            'numero_referencia': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': '1234 5678 9012 3456',
-                'maxlength': '19'
+                'placeholder': 'Número de referencia o transacción'
             }),
-            'fecha_vencimiento': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'MM/AA',
-                'maxlength': '5'
+            'comprobante': forms.FileInput(attrs={
+                'class': 'form-control-file'
             }),
-            'codigo_seguridad': forms.TextInput(attrs={
+            'notas': forms.Textarea(attrs={
                 'class': 'form-control',
-                'placeholder': 'CVV',
-                'maxlength': '4'
+                'placeholder': 'Notas adicionales',
+                'rows': 3
             }),
         }
 
@@ -211,7 +188,7 @@ class EmpleadoForm(forms.ModelForm):
     
     class Meta:
         model = Usuario
-        fields = ['username', 'first_name', 'last_name', 'email', 'telefono', 'direccion', 'is_staff', 'is_active']
+        fields = ['username', 'first_name', 'last_name', 'email', 'direccion_texto', 'rol', 'is_staff', 'is_active']
         widgets = {
             'username': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -229,13 +206,12 @@ class EmpleadoForm(forms.ModelForm):
                 'class': 'form-control',
                 'placeholder': 'correo@empresa.com'
             }),
-            'telefono': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Teléfono de contacto'
-            }),
-            'direccion': forms.TextInput(attrs={
+            'direccion_texto': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Dirección del empleado'
+            }),
+            'rol': forms.Select(attrs={
+                'class': 'form-control'
             }),
             'is_staff': forms.CheckboxInput(attrs={
                 'class': 'form-check-input'
@@ -249,8 +225,8 @@ class EmpleadoForm(forms.ModelForm):
             'first_name': 'Nombre',
             'last_name': 'Apellido',
             'email': 'Correo electrónico',
-            'telefono': 'Teléfono',
-            'direccion': 'Dirección',
+            'direccion_texto': 'Dirección',
+            'rol': 'Rol del empleado',
             'is_staff': 'Es empleado/administrador',
             'is_active': 'Usuario activo',
         }
@@ -275,3 +251,23 @@ class EmpleadoForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+# Formularios para el admin de Django
+class UsuarioAdminCreationForm(UserCreationForm):
+    """Formulario para crear usuarios en el admin de Django."""
+
+    class Meta:
+        model = Usuario
+        fields = ('username', 'email', 'first_name', 'last_name', 'rol', 'is_staff', 'is_active')
+
+
+class UsuarioAdminChangeForm(UserChangeForm):
+    """Formulario para editar usuarios en el admin de Django."""
+
+    class Meta:
+        model = Usuario
+        fields = ('username', 'email', 'first_name', 'last_name', 'direccion_texto', 'rol', 
+                 'is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions',
+                 'puede_gestionar_productos', 'puede_gestionar_pedidos', 'puede_gestionar_recibos',
+                 'puede_gestionar_clientes', 'puede_ver_reportes', 'puede_gestionar_inventario',
+                 'puede_procesar_pagos', 'activo', 'last_login', 'date_joined')
