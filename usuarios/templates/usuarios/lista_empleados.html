@@ -234,24 +234,24 @@
                                 <td>
                                     <div class="btn-group">
                                         <a href="{% url 'usuarios:detalle_empleado' empleado.id %}" 
-                                           class="btn btn-sm btn-info" title="Ver detalles">
-                                            👁️
+                                           class="btn btn-sm btn-info" 
+                                           title="Ver detalles de {{ empleado.first_name }} {{ empleado.last_name }}">
+                                            👁️ Ver
                                         </a>
                                         <a href="{% url 'usuarios:editar_empleado' empleado.id %}" 
-                                           class="btn btn-sm btn-primary" title="Editar">
+                                           class="btn btn-sm btn-primary" 
+                                           title="Editar empleado {{ empleado.first_name }} {{ empleado.last_name }}">
                                             ✏️ Editar
                                         </a>
                                         <form method="post" action="{% url 'usuarios:eliminar_empleado' empleado.id %}" 
                                               style="display: inline;">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-danger" 
-                                                    title="Eliminar empleado"
-                                                    onclick="return confirm('¿Está seguro de eliminar a {{ empleado.username }}? Esta acción no se puede deshacer.')">
+                                                    title="Eliminar empleado {{ empleado.first_name }} {{ empleado.last_name }}"
+                                                    onclick="return confirm('¿Está seguro de eliminar al empleado {{ empleado.first_name }} {{ empleado.last_name }} ({{ empleado.username }})? Esta acción no se puede deshacer.')">
                                                 🗑️ Eliminar
                                             </button>
-                                        </form> 
-                                                    title="Eliminar"
-                                                    onclick="return confirm('¿Está seguro de eliminar al empleado {{ empleado.username }}? Esta acción no se puede deshacer.')">
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
