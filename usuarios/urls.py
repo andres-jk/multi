@@ -45,9 +45,10 @@ urlpatterns = [
 
     # URLs para gestión de empleados (solo para administradores)
     path('empleados/', views_empleados.lista_empleados, name='lista_empleados'),
-    # path('empleados/nuevo/', views_empleados.crear_empleado, name='crear_empleado'),
-    # path('empleados/<int:empleado_id>/', views_empleados.detalle_empleado, name='detalle_empleado'),
-    # path('empleados/<int:empleado_id>/editar/', views_empleados.editar_empleado, name='editar_empleado'),
+    path('empleados/nuevo/', views_empleados.crear_empleado, name='crear_empleado'),
+    path('empleados/<int:empleado_id>/', views_empleados.detalle_empleado, name='detalle_empleado'),
+    path('empleados/<int:empleado_id>/editar/', views_empleados.editar_empleado, name='editar_empleado'),
+    path('empleados/<int:empleado_id>/eliminar/', views_empleados.eliminar_empleado, name='eliminar_empleado'),
     # path('empleados/<int:empleado_id>/cambiar-password/', views_empleados.cambiar_password_empleado, name='cambiar_password_empleado'),
     # path('empleados/<int:empleado_id>/activar-desactivar/', views_empleados.activar_desactivar_empleado, name='activar_desactivar_empleado'),
     # path('empleados/<int:empleado_id>/eliminar/', views_empleados.eliminar_empleado, name='eliminar_empleado'),
