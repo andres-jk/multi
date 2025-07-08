@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo - Interfaz Móvil MultiAndamios</title>
+    <style>
+        /* Simulación de la interfaz móvil */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #F9C552 0%, #E6B84A 100%);
+            min-height: 100vh;
+        }
+        
+        .demo-container {
+            max-width: 375px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .phone-header {
+            background: #F9C552;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .hamburger-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #1A1228;
+            color: #F9C552;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .content-area {
+            padding: 20px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+        }
+        
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        
+        .status {
+            margin-left: auto;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .demo-note {
+            background: #1A1228;
+            color: #F9C552;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .before-after {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px;
+            gap: 10px;
+        }
+        
+        .before, .after {
+            flex: 1;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+        
+        .before {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .after {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        
+        .cta-button {
+            background: #1A1228;
+            color: #F9C552;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <div class="phone-header">
+            <h1>🏗️ MultiAndamios</h1>
+            <button class="hamburger-btn" title="Menú hamburguesa - ¡Ahora los botones están aquí!">☰</button>
+        </div>
+        
+        <div class="content-area">
+            <h2>✅ Problema Resuelto!</h2>
+            <p><strong>Los botones ya no ocupan demasiado espacio en móviles</strong></p>
+            
+            <ul class="feature-list">
+                <li>
+                    <span class="icon">☰</span>
+                    Menú hamburguesa
+                    <span class="status">✅</span>
+                </li>
+                <li>
+                    <span class="icon">📱</span>
+                    Menú lateral deslizable
+                    <span class="status">✅</span>
+                </li>
+                <li>
+                    <span class="icon">👆</span>
+                    Touch-friendly
+                    <span class="status">✅</span>
+                </li>
+                <li>
+                    <span class="icon">🎨</span>
+                    Animaciones suaves
+                    <span class="status">✅</span>
+                </li>
+                <li>
+                    <span class="icon">🖥️</span>
+                    Desktop preservado
+                    <span class="status">✅</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="demo-note">
+        <strong>👆 Toca el botón hamburguesa (☰)</strong><br>
+        En la app real, esto abriría el menú lateral con todos los botones
+    </div>
+    
+    <div class="before-after">
+        <div class="before">
+            <strong>❌ ANTES</strong><br>
+            Botones ocupaban toda la pantalla
+        </div>
+        <div class="after">
+            <strong>✅ DESPUÉS</strong><br>
+            Menú oculto, más espacio
+        </div>
+    </div>
+    
+    <div style="text-align: center;">
+        <button class="cta-button" onclick="window.open('https://dalej.pythonanywhere.com/', '_blank')">
+            🚀 Ver en Vivo
+        </button>
+    </div>
+    
+    <div class="demo-note">
+        <strong>🎉 Implementación Completa</strong><br>
+        Solo falta aplicar los comandos en PythonAnywhere
+    </div>
+</body>
+</html>
