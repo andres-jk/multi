@@ -5,24 +5,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}MultiAndamios{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+    <link rel="stylesheet" href="{% static 'estilos.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme-colors.css' %}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navigation">
-        {% block nav %}
-        <a href="{% url 'usuarios:inicio_cliente' %}">Inicio</a>
-        <a href="{% url 'productos:catalogo_productos' %}">Productos</a>
-        {% if user.is_authenticated %}
-            <a href="{% url 'usuarios:ver_carrito' %}">Carrito</a>
-            <a href="{% url 'usuarios:logout' %}">Cerrar Sesión</a>
-        {% else %}
-            <a href="{% url 'usuarios:login' %}">Iniciar Sesión</a>
-        {% endif %}
-        {% endblock %}
-    </nav>
+    <!-- Header with navigation -->
+    <header>
+        <div class="logo">🏗️ MultiAndamios</div>
+        <nav>
+            {% block nav %}
+            <a href="{% url 'usuarios:inicio_cliente' %}">🏠 Inicio</a>
+            <a href="{% url 'productos:catalogo_productos' %}">🚧 Productos</a>
+            {% if user.is_authenticated %}
+                <a href="{% url 'usuarios:ver_carrito' %}">🛒 Carrito</a>
+                <a href="{% url 'usuarios:logout' %}">🚪 Cerrar Sesión</a>
+            {% else %}
+                <a href="{% url 'usuarios:login' %}">🔐 Iniciar Sesión</a>
+            {% endif %}
+            {% endblock %}
+        </nav>
+    </header>
     
     <!-- Main Content -->
     <main>

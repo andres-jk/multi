@@ -1,10 +1,5 @@
 {% extends 'base.html' %}
 {% block title %}Iniciar Sesión{% endblock %}
-{% block nav %}
-<a href="/">Inicio</a>
-<a href="{% url 'productos:catalogo_productos' %}">Productos</a>
-<a href="{% url 'usuarios:ver_carrito' %}">Carrito</a>
-{% endblock %}
 {% block content %}
 <div class="card card-login">
     <h1 class="highlight">Iniciar Sesión</h1>

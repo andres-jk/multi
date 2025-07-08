@@ -1,12 +1,5 @@
 {% extends 'base.html' %}
 {% block title %}Inicio - MultiAndamios{% endblock %}
-{% block nav %}
-<a href="{% url 'productos:catalogo_productos' %}">Productos</a>
-<a href="{% url 'usuarios:ver_carrito' %}">Carrito</a>
-{% if not user.is_authenticated %}
-<a href="/login/">Iniciar Sesión</a>
-{% endif %}
-{% endblock %}
 {% block content %}
 <div class="card card-welcome">
     <h1><span class="highlight">Bienvenido a</span> <span class="brand">MultiAndamios</span></h1>
