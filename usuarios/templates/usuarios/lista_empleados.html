@@ -239,30 +239,19 @@
                                         </a>
                                         <a href="{% url 'usuarios:editar_empleado' empleado.id %}" 
                                            class="btn btn-sm btn-primary" title="Editar">
-                                            ✏️
+                                            ✏️ Editar
                                         </a>
-                                        <a href="{% url 'usuarios:cambiar_password_empleado' empleado.id %}" 
-                                           class="btn btn-sm btn-warning" title="Cambiar contraseña">
-                                            🔑
-                                        </a>
-                                        <form method="post" action="{% url 'usuarios:activar_desactivar_empleado' empleado.id %}" 
-                                              style="display: inline;">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-secondary" 
-                                                    title="{% if empleado.is_active %}Desactivar{% else %}Activar{% endif %}"
-                                                    onclick="return confirm('¿Está seguro de {% if empleado.is_active %}desactivar{% else %}activar{% endif %} a {{ empleado.username }}?')">
-                                                {% if empleado.is_active %}⏸️{% else %}▶️{% endif %}
-                                            </button>
-                                        </form>
                                         <form method="post" action="{% url 'usuarios:eliminar_empleado' empleado.id %}" 
                                               style="display: inline;">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-danger" 
+                                                    title="Eliminar empleado"
+                                                    onclick="return confirm('¿Está seguro de eliminar a {{ empleado.username }}? Esta acción no se puede deshacer.')">
+                                                🗑️ Eliminar
+                                            </button>
+                                        </form> 
                                                     title="Eliminar"
                                                     onclick="return confirm('¿Está seguro de eliminar al empleado {{ empleado.username }}? Esta acción no se puede deshacer.')">
-                                                🗑️
-                                            </button>
-                                        </form>
                                     </div>
                                 </td>
                             </tr>
