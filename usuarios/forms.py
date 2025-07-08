@@ -271,3 +271,57 @@ class UsuarioAdminChangeForm(UserChangeForm):
                  'puede_gestionar_productos', 'puede_gestionar_pedidos', 'puede_gestionar_recibos',
                  'puede_gestionar_clientes', 'puede_ver_reportes', 'puede_gestionar_inventario',
                  'puede_procesar_pagos', 'activo', 'last_login', 'date_joined')
+
+class ClienteCompletoForm(forms.Form):
+    """Formulario para crear un cliente completo con usuario desde el panel admin."""
+    
+    # Datos del usuario
+    username = forms.CharField(
+        label='Nombre de usuario',
+        max_length=150,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    first_name = forms.CharField(
+        label='Nombre',
+        max_length=150,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    last_name = forms.CharField(
+        label='Apellido',
+        max_length=150,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    email = forms.EmailField(
+        label='Correo electrónico',
+        required=False,
+        widget=forms.EmailInput(attrs={'class': 'form-control'})
+    )
+    numero_identidad = forms.CharField(
+        label='Número de identidad',
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    password = forms.CharField(
+        label='Contraseña',
+        widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+    
+    # Datos del cliente
+    telefono = forms.CharField(
+        label='Teléfono',
+        max_length=50,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    direccion = forms.CharField(
+        label='Dirección',
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if Usuario.objects.filter(username=username).exists():
+            raise forms.ValidationError('Este nombre de usuario ya existe.')
+        return username
