@@ -27,26 +27,32 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Botón hamburguesa (solo visible en móviles) -->
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menú" aria-expanded="false">
+        <span class="hamburger-icon">☰</span>
+    </button>
+    
+    <!-- Overlay para cerrar menú -->
+    <div class="mobile-menu-overlay" id="mobile-menu-overlay"></div>
+    
     <!-- Navegación principal (se convierte en menú lateral en móviles) -->
-    <nav class="main-navigation" role="navigation" aria-label="Menú principal">
+    <nav class="main-navigation" id="main-navigation" role="navigation" aria-label="Menú principal">
+        <div class="mobile-header">
+            <h2>🏗️ MultiAndamios</h2>
+            <button class="mobile-menu-close" id="mobile-menu-close" aria-label="Cerrar menú">✕</button>
+        </div>
         {% if user.is_authenticated %}
-            <a href="{% url 'inicio' %}" class="nav-button">
+            <a href="{% url 'usuarios:inicio_cliente' %}" class="nav-button">
                 🏠 INICIO
             </a>
-            <a href="{% url 'productos:lista' %}" class="nav-button">
+            <a href="{% url 'productos:catalogo_productos' %}" class="nav-button">
                 🚧 PRODUCTOS
             </a>
-            <a href="{% url 'pedidos:lista' %}" class="nav-button">
-                📋 PEDIDOS
+            <a href="{% url 'usuarios:ver_carrito' %}" class="nav-button">
+                � CARRITO <span class="carrito-count">{{ carrito_count|default:0 }}</span>
             </a>
-            <a href="{% url 'pedidos:mis_pedidos' %}" class="nav-button">
-                ✅ MIS PEDIDOS
-            </a>
-            <a href="{% url 'pedidos:pendientes' %}" class="nav-button">
+            <a href="{% url 'usuarios:pedidos_pendientes' %}" class="nav-button">
                 ⏳ PENDIENTES
-            </a>
-            <a href="{% url 'productos:carrito' %}" class="nav-button">
-                🛒 CARRITO <span class="carrito-count">{{ carrito_count|default:0 }}</span>
             </a>
             {% if user.is_staff %}
             <a href="{% url 'admin:index' %}" class="nav-button">
