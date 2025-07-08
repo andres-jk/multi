@@ -195,30 +195,15 @@
                         <div class="card-body">
                             <div class="btn-group" role="group">
                                 <a href="{% url 'usuarios:editar_empleado' empleado.id %}" class="btn btn-primary">
-                                    <i class="fas fa-edit"></i> Editar Empleado
+                                    ✏️ Editar Empleado
                                 </a>
-                                <a href="{% url 'usuarios:cambiar_password_empleado' empleado.id %}" class="btn btn-warning">
-                                    <i class="fas fa-key"></i> Cambiar Contraseña
+                                <a href="{% url 'usuarios:lista_empleados' %}" class="btn btn-secondary">
+                                    📋 Ver Todos los Empleados
                                 </a>
-                                {% if empleado.is_active %}
-                                    <form method="post" action="{% url 'usuarios:activar_desactivar_empleado' empleado.id %}" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-secondary" onclick="return confirm('¿Está seguro de desactivar este empleado?')">
-                                            <i class="fas fa-ban"></i> Desactivar
-                                        </button>
-                                    </form>
-                                {% else %}
-                                    <form method="post" action="{% url 'usuarios:activar_desactivar_empleado' empleado.id %}" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="fas fa-check"></i> Activar
-                                        </button>
-                                    </form>
-                                {% endif %}
                                 <form method="post" action="{% url 'usuarios:eliminar_empleado' empleado.id %}" class="d-inline">
                                     {% csrf_token %}
-                                    <button type="submit" class="btn btn-danger" onclick="return confirm('¿Está seguro de eliminar este empleado? Esta acción no se puede deshacer.')">
-                                        <i class="fas fa-trash"></i> Eliminar
+                                    <button type="submit" class="btn btn-danger" onclick="return confirm('¿Está seguro de eliminar al empleado {{ empleado.first_name }} {{ empleado.last_name }}? Esta acción no se puede deshacer.')">
+                                        🗑️ Eliminar Empleado
                                     </button>
                                 </form>
                             </div>
