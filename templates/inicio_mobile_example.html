@@ -1,0 +1,350 @@
+{% extends "base_mobile.html" %}
+{% load static %}
+
+{% block title %}Inicio - MultiAndamios{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Estilos específicos para la página de inicio móvil */
+    .hero-section {
+        padding: 40px 20px;
+        text-align: center;
+        background: linear-gradient(135deg, #F9C552 0%, #E6B84A 100%);
+        border-radius: 12px;
+        margin: 20px 0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    .hero-title {
+        font-size: 28px;
+        color: #1A1228;
+        margin-bottom: 15px;
+        font-weight: bold;
+    }
+    
+    .hero-subtitle {
+        font-size: 16px;
+        color: #1A1228;
+        opacity: 0.8;
+        margin-bottom: 25px;
+    }
+    
+    .quick-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin: 30px 0;
+    }
+    
+    .quick-action-btn {
+        padding: 20px;
+        background: #1A1228;
+        color: #F9C552;
+        text-decoration: none;
+        border-radius: 12px;
+        text-align: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .quick-action-btn:hover {
+        background: #2A2238;
+        transform: translateY(-2px);
+        color: #F9C552;
+        text-decoration: none;
+    }
+    
+    .quick-action-icon {
+        font-size: 24px;
+        display: block;
+        margin-bottom: 8px;
+    }
+    
+    .quick-action-text {
+        font-size: 14px;
+        font-weight: bold;
+    }
+    
+    .stats-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        margin: 20px 0;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .stat-item {
+        padding: 15px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .stat-number {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1A1228;
+        display: block;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .recent-section {
+        margin: 30px 0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        color: #1A1228;
+        margin-bottom: 15px;
+        padding-left: 10px;
+        border-left: 4px solid #F9C552;
+    }
+    
+    .recent-item {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-left: 3px solid #F9C552;
+    }
+    
+    .recent-item-title {
+        font-weight: bold;
+        color: #1A1228;
+        margin-bottom: 5px;
+    }
+    
+    .recent-item-meta {
+        font-size: 12px;
+        color: #666;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 480px) {
+        .hero-title {
+            font-size: 24px;
+        }
+        
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .quick-action-btn {
+            padding: 25px 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mobile-optimized-page">
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <h1 class="hero-title">🏗️ MultiAndamios</h1>
+        <p class="hero-subtitle">Alquiler profesional de andamios y equipos de construcción</p>
+        
+        {% if user.is_authenticated %}
+            <p class="welcome-text">¡Bienvenido, {{ user.get_full_name|default:user.username }}!</p>
+        {% else %}
+            <a href="{% url 'usuarios:login' %}" class="btn btn-primary btn-lg">
+                Iniciar Sesión
+            </a>
+        {% endif %}
+    </section>
+    
+    {% if user.is_authenticated %}
+    <!-- Quick Actions -->
+    <section class="quick-actions-section">
+        <div class="quick-actions">
+            <a href="{% url 'productos:lista' %}" class="quick-action-btn">
+                <span class="quick-action-icon">🚧</span>
+                <span class="quick-action-text">Ver Productos</span>
+            </a>
+            
+            <a href="{% url 'productos:carrito' %}" class="quick-action-btn">
+                <span class="quick-action-icon">🛒</span>
+                <span class="quick-action-text">Mi Carrito</span>
+            </a>
+            
+            <a href="{% url 'pedidos:mis_pedidos' %}" class="quick-action-btn">
+                <span class="quick-action-icon">📋</span>
+                <span class="quick-action-text">Mis Pedidos</span>
+            </a>
+            
+            <a href="{% url 'pedidos:nuevo' %}" class="quick-action-btn">
+                <span class="quick-action-icon">➕</span>
+                <span class="quick-action-text">Nuevo Pedido</span>
+            </a>
+        </div>
+    </section>
+    
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <h2 class="section-title">Resumen</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-number">{{ productos_count|default:0 }}</span>
+                <div class="stat-label">Productos Disponibles</div>
+            </div>
+            
+            <div class="stat-item">
+                <span class="stat-number">{{ pedidos_activos|default:0 }}</span>
+                <div class="stat-label">Pedidos Activos</div>
+            </div>
+            
+            <div class="stat-item">
+                <span class="stat-number">{{ carrito_items|default:0 }}</span>
+                <div class="stat-label">Items en Carrito</div>
+            </div>
+            
+            <div class="stat-item">
+                <span class="stat-number">{{ pedidos_completados|default:0 }}</span>
+                <div class="stat-label">Pedidos Completados</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Recent Activity -->
+    {% if recent_pedidos %}
+    <section class="recent-section">
+        <h2 class="section-title">Actividad Reciente</h2>
+        {% for pedido in recent_pedidos %}
+        <div class="recent-item">
+            <div class="recent-item-title">
+                Pedido #{{ pedido.id }} - {{ pedido.get_estado_display }}
+            </div>
+            <div class="recent-item-meta">
+                {{ pedido.fecha_pedido|date:"d/m/Y" }} - ${{ pedido.total|floatformat:0 }}
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Quick Links -->
+    <section class="quick-links-section">
+        <h2 class="section-title">Enlaces Útiles</h2>
+        <div class="quick-actions">
+            <a href="{% url 'chatbot:chat' %}" class="quick-action-btn">
+                <span class="quick-action-icon">💬</span>
+                <span class="quick-action-text">Chatbot</span>
+            </a>
+            
+            <a href="{% url 'usuarios:perfil' %}" class="quick-action-btn">
+                <span class="quick-action-icon">👤</span>
+                <span class="quick-action-text">Mi Perfil</span>
+            </a>
+        </div>
+    </section>
+    
+    {% else %}
+    
+    <!-- Not Authenticated Section -->
+    <section class="auth-section">
+        <h2 class="section-title">Acceso al Sistema</h2>
+        <div class="quick-actions">
+            <a href="{% url 'usuarios:login' %}" class="quick-action-btn">
+                <span class="quick-action-icon">🔐</span>
+                <span class="quick-action-text">Iniciar Sesión</span>
+            </a>
+            
+            <a href="{% url 'usuarios:registro' %}" class="quick-action-btn">
+                <span class="quick-action-icon">📝</span>
+                <span class="quick-action-text">Registrarse</span>
+            </a>
+        </div>
+        
+        <div class="info-section">
+            <h3 class="section-title">¿Por qué elegir MultiAndamios?</h3>
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">✅</span>
+                    <span class="feature-text">Equipos de alta calidad</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🚚</span>
+                    <span class="feature-text">Entrega rápida y confiable</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">💰</span>
+                    <span class="feature-text">Precios competitivos</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🛡️</span>
+                    <span class="feature-text">Equipos certificados y seguros</span>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // JavaScript específico para la página de inicio móvil
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        // Animación de entrada para elementos
+        const elements = document.querySelectorAll('.quick-action-btn, .stat-item, .recent-item');
+        elements.forEach((el, index) => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                el.style.transition = 'all 0.5s ease';
+                el.style.opacity = '1';
+                el.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+        
+        // Feedback táctil para botones
+        const buttons = document.querySelectorAll('.quick-action-btn');
+        buttons.forEach(button => {
+            button.addEventListener('touchstart', function() {
+                this.style.transform = 'scale(0.95)';
+            });
+            
+            button.addEventListener('touchend', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+        
+        // Loading indicator para navegación
+        const navLinks = document.querySelectorAll('.quick-action-btn');
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                // Agregar spinner de loading
+                const icon = this.querySelector('.quick-action-icon');
+                const originalIcon = icon.textContent;
+                
+                icon.innerHTML = '<div class="spinner"></div>';
+                
+                // Restaurar después de un tiempo (en caso de que la navegación falle)
+                setTimeout(() => {
+                    icon.textContent = originalIcon;
+                }, 3000);
+            });
+        });
+        
+        console.log('Página de inicio móvil cargada correctamente');
+    });
+</script>
+{% endblock %}

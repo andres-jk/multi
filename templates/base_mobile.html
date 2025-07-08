@@ -1,0 +1,116 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="MultiAndamios - Alquiler de andamios y equipos de construcción">
+    <meta name="theme-color" content="#F9C552">
+    
+    <title>{% block title %}MultiAndamios - Alquiler de Andamios{% endblock %}</title>
+    
+    <!-- CSS Principal -->
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme-colors.css' %}">
+    
+    <!-- CSS Mobile Responsive -->
+    <link rel="stylesheet" href="{% static 'css/mobile-responsive.css' %}">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MultiAndamios">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navegación principal (se convierte en menú lateral en móviles) -->
+    <nav class="main-navigation" role="navigation" aria-label="Menú principal">
+        {% if user.is_authenticated %}
+            <a href="{% url 'inicio' %}" class="nav-button">
+                🏠 INICIO
+            </a>
+            <a href="{% url 'productos:lista' %}" class="nav-button">
+                🚧 PRODUCTOS
+            </a>
+            <a href="{% url 'pedidos:lista' %}" class="nav-button">
+                📋 PEDIDOS
+            </a>
+            <a href="{% url 'pedidos:mis_pedidos' %}" class="nav-button">
+                ✅ MIS PEDIDOS
+            </a>
+            <a href="{% url 'pedidos:pendientes' %}" class="nav-button">
+                ⏳ PENDIENTES
+            </a>
+            <a href="{% url 'productos:carrito' %}" class="nav-button">
+                🛒 CARRITO <span class="carrito-count">{{ carrito_count|default:0 }}</span>
+            </a>
+            {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}" class="nav-button">
+                ⚙️ ADMINISTRACIÓN
+            </a>
+            {% endif %}
+            <a href="{% url 'usuarios:logout' %}" class="nav-button">
+                🚪 CERRAR SESIÓN
+            </a>
+        {% else %}
+            <a href="{% url 'usuarios:login' %}" class="nav-button">
+                🔐 INICIAR SESIÓN
+            </a>
+            <a href="{% url 'usuarios:registro' %}" class="nav-button">
+                📝 REGISTRARSE
+            </a>
+        {% endif %}
+    </nav>
+    
+    <!-- Contenido principal -->
+    <main class="main-content" role="main">
+        {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+                        {{ message }}
+                        <button type="button" class="close" data-dismiss="alert" aria-label="Cerrar">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-content">
+            <p>&copy; 2025 MultiAndamios. Todos los derechos reservados.</p>
+            <p>🏗️ Alquiler profesional de andamios y equipos de construcción</p>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script src="{% static 'js/mobile-menu.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+    
+    <!-- JavaScript para mejorar UX en móviles -->
+    <script>
+        // Prevenir zoom accidental en iOS
+        document.addEventListener('touchstart', function() {}, {passive: true});
+        
+        // Mejorar rendimiento en móviles
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Registrar service worker si está disponible
+                console.log('Service Worker disponible');
+            });
+        }
+        
+        // Debug para desarrollo
+        console.log('MultiAndamios Mobile - Viewport:', window.innerWidth + 'x' + window.innerHeight);
+    </script>
+</body>
+</html>

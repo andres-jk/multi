@@ -29,23 +29,13 @@ SOLUCIÓN FINAL: PROBLEMA DE DEPARTAMENTOS Y MUNICIPIOS EN CHECKOUT
 
 🚨 PASO CRÍTICO PRIMERO - CONFIGURAR ALLOWED_HOSTS:
 
-⚠️ ERROR ACTUAL: DisallowedHost 'dalej.pythonanywhere.com'
-
-SOLUCIÓN INMEDIATA:
-
 0. EDITAR SETTINGS.PY:
    nano multiandamios/settings.py
    
-   Buscar la línea que dice:
-   ALLOWED_HOSTS = []
-   
-   Cambiar EXACTAMENTE a:
+   Cambiar ALLOWED_HOSTS a:
    ALLOWED_HOSTS = ['dalej.pythonanywhere.com', 'localhost', '127.0.0.1']
    
    Guardar: Ctrl + X, Y, Enter
-
-   O USAR COMANDO AUTOMÁTICO:
-   sed -i "s/ALLOWED_HOSTS = \[\]/ALLOWED_HOSTS = ['dalej.pythonanywhere.com', 'localhost', '127.0.0.1']/" multiandamios/settings.py
 
 ⚠️ SEGUNDO, RESOLVER CONFLICTO DE MERGE:
 
