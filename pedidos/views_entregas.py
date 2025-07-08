@@ -220,9 +220,9 @@ def actualizar_ubicacion(request):
         
         entrega = get_object_or_404(EntregaPedido, id=entrega_id)
         
-        # Verificar permisos
-        if request.user.rol == 'recibos_obra' and entrega.empleado_entrega != request.user:
-            return JsonResponse({'error': 'Sin permisos'}, status=403)
+        # Verificar permisos - permitir a todos los empleados de recibos_obra actualizar cualquier entrega
+        if request.user.rol not in ['recibos_obra', 'admin']:
+            return JsonResponse({'error': 'Sin permisos para actualizar ubicación'}, status=403)
         
         # Actualizar ubicación
         entrega.actualizar_ubicacion(

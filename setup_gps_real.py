@@ -1,4 +1,60 @@
-{% extends 'base.html' %}
+#!/usr/bin/env python3
+"""
+Script para configurar el GPS funcional en MultiAndamios
+Crea la configuración necesaria para GPS en tiempo real
+"""
+
+import os
+import django
+
+# Configurar Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'multiandamios.settings')
+django.setup()
+
+from django.conf import settings
+
+def setup_gps_configuration():
+    """Configura el sistema GPS para funcionamiento real"""
+    
+    print("🔧 CONFIGURANDO SISTEMA GPS FUNCIONAL")
+    print("=" * 50)
+    
+    # 1. Verificar si existe configuración GPS en settings
+    print("📋 Verificando configuración actual...")
+    
+    if hasattr(settings, 'GOOGLE_MAPS_API_KEY'):
+        print(f"✅ Google Maps API Key configurada")
+    else:
+        print("❌ Google Maps API Key NO configurada")
+    
+    # 2. Mostrar los pasos necesarios
+    print("\n📌 PASOS PARA ACTIVAR GPS FUNCIONAL:")
+    print("1. Obtener API Key de Google Maps:")
+    print("   - Ve a: https://console.cloud.google.com/")
+    print("   - Crea un proyecto o selecciona uno existente")
+    print("   - Habilita 'Maps JavaScript API' y 'Geolocation API'")
+    print("   - Crea credenciales -> API Key")
+    print("   - Restringe la API Key a tu dominio")
+    
+    print("\n2. Configurar en Django:")
+    print("   - Agregar en multiandamios/settings.py:")
+    print("     GOOGLE_MAPS_API_KEY = 'tu_api_key_aqui'")
+    
+    print("\n3. Para GPS en tiempo real sin Google Maps (alternativa):")
+    print("   - Usar solo geolocalización del navegador")
+    print("   - Implementar mapa con OpenStreetMap (gratuito)")
+    print("   - Guardar coordenadas en base de datos")
+    
+    return True
+
+def create_alternative_gps_solution():
+    """Crea una solución GPS alternativa sin Google Maps"""
+    
+    print("\n🌍 CREANDO SOLUCIÓN GPS ALTERNATIVA (SIN GOOGLE MAPS)")
+    print("=" * 50)
+    
+    # Template mejorado para GPS con OpenStreetMap
+    gps_template_content = '''{% extends 'base.html' %}
 {% load humanize %}
 
 {% block title %}📍 Ubicación en Tiempo Real - Entrega #{{ entrega.pedido.id_pedido }}{% endblock %}
@@ -268,4 +324,35 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 </script>
-{% endblock %}
+{% endblock %}'''
+    
+    return gps_template_content
+
+if __name__ == "__main__":
+    setup_gps_configuration()
+    
+    # Crear template mejorado
+    template_content = create_alternative_gps_solution()
+    
+    print("\n💾 Creando template GPS mejorado...")
+    
+    # Crear el template actualizado
+    template_path = 'pedidos/templates/entregas/seguimiento_gps_real.html'
+    os.makedirs(os.path.dirname(template_path), exist_ok=True)
+    
+    with open(template_path, 'w', encoding='utf-8') as f:
+        f.write(template_content)
+    
+    print(f"✅ Template creado: {template_path}")
+    
+    print("\n🎯 PRÓXIMOS PASOS:")
+    print("1. Agregar campos de GPS al modelo Entrega si no existen")
+    print("2. Crear vista para actualizar ubicación GPS")
+    print("3. Probar la funcionalidad en el navegador")
+    print("4. Configurar auto-actualización para empleados")
+    
+    print("\n✨ El GPS funcionará con:")
+    print("   - Geolocalización del navegador (sin API keys)")
+    print("   - Mapa OpenStreetMap (gratuito)")
+    print("   - Actualización automática cada 30 segundos")
+    print("   - Almacenamiento en base de datos")
