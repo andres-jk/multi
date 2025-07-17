@@ -327,3 +327,15 @@ class ClienteCompletoForm(forms.Form):
         if Usuario.objects.filter(username=username).exists():
             raise forms.ValidationError('Este nombre de usuario ya está en uso.')
         return username
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email and Usuario.objects.filter(email=email).exists():
+            raise forms.ValidationError('Este correo electrónico ya está registrado.')
+        return email
+    
+    def clean_numero_identidad(self):
+        numero_identidad = self.cleaned_data.get('numero_identidad')
+        if numero_identidad and Usuario.objects.filter(numero_identidad=numero_identidad).exists():
+            raise forms.ValidationError('Este número de identidad ya está registrado.')
+        return numero_identidad

@@ -5,6 +5,7 @@ from django.http import HttpResponse, FileResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.conf import settings
+from django.db import transaction, IntegrityError
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
@@ -19,7 +20,6 @@ from .models import Pedido, DetallePedido
 from usuarios.models import Cliente, Usuario
 from productos.models import Producto
 from django.db.models import Q
-from django.db import transaction
 from usuarios.forms import ClienteForm, ClienteCompletoForm, ClienteCompletoForm
 
 def es_staff(user):
@@ -1255,6 +1255,11 @@ def agregar_cliente(request):
         form = ClienteCompletoForm(request.POST)
         if form.is_valid():
             try:
+                # Verificar si ya existe un usuario con ese username
+                if Usuario.objects.filter(username=form.cleaned_data['username']).exists():
+                    messages.error(request, f'Ya existe un usuario con el nombre de usuario "{form.cleaned_data["username"]}". Por favor, elija otro.')
+                    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                
                 # Crear el usuario
                 usuario = Usuario.objects.create_user(
                     username=form.cleaned_data['username'],
@@ -1267,6 +1272,12 @@ def agregar_cliente(request):
                 usuario.numero_identidad = form.cleaned_data.get('numero_identidad', '')
                 usuario.save()
                 
+                # Verificar si ya existe un cliente para este usuario (doble verificación)
+                if Cliente.objects.filter(usuario=usuario).exists():
+                    messages.error(request, f'Ya existe un cliente asociado al usuario "{usuario.username}".')
+                    usuario.delete()  # Eliminar el usuario creado si ya existe un cliente
+                    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                
                 # Crear el cliente asociado al usuario
                 cliente = Cliente.objects.create(
                     usuario=usuario,
@@ -1277,8 +1288,32 @@ def agregar_cliente(request):
                 messages.success(request, f'Cliente {usuario.first_name} {usuario.last_name} ({usuario.username}) creado exitosamente.')
                 return redirect('pedidos:lista_clientes')
                 
+            except IntegrityError as e:
+                if 'UNIQUE constraint failed: usuarios_cliente.usuario_id' in str(e):
+                    messages.error(request, 'Error: Ya existe un cliente asociado a este usuario. No se puede crear un cliente duplicado.')
+                elif 'UNIQUE constraint failed: usuarios_usuario.username' in str(e):
+                    messages.error(request, f'Error: El nombre de usuario "{form.cleaned_data["username"]}" ya está en uso. Por favor, elija otro.')
+                else:
+                    messages.error(request, f'Error de integridad de datos: {str(e)}')
+                
+                # Si se creó el usuario pero falló la creación del cliente, limpiarlo
+                try:
+                    usuario_creado = Usuario.objects.get(username=form.cleaned_data['username'])
+                    if not Cliente.objects.filter(usuario=usuario_creado).exists():
+                        usuario_creado.delete()
+                except Usuario.DoesNotExist:
+                    pass
+                    
             except Exception as e:
-                messages.error(request, f'Error al crear el cliente: {str(e)}')
+                messages.error(request, f'Error inesperado al crear el cliente: {str(e)}')
+                
+                # Limpiar usuario si se creó pero falló algo más
+                try:
+                    usuario_creado = Usuario.objects.get(username=form.cleaned_data['username'])
+                    if not Cliente.objects.filter(usuario=usuario_creado).exists():
+                        usuario_creado.delete()
+                except Usuario.DoesNotExist:
+                    pass
     else:
         form = ClienteCompletoForm()
         
