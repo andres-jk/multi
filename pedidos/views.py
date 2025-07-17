@@ -1285,6 +1285,12 @@ def agregar_cliente(request):
                     usuario.numero_identidad = form.cleaned_data.get('numero_identidad', '')
                     usuario.save()
                     
+                    # Verificar si ya existe un cliente para este usuario antes de crear
+                    if hasattr(usuario, 'cliente') and usuario.cliente:
+                        messages.error(request, 'Este usuario ya tiene un cliente asociado.')
+                        usuario.delete()  # Eliminar el usuario recién creado
+                        return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                    
                     # Crear el cliente asociado al usuario
                     cliente = Cliente.objects.create(
                         usuario=usuario,
@@ -1297,8 +1303,15 @@ def agregar_cliente(request):
                     
             except IntegrityError as e:
                 error_message = str(e)
-                if 'usuarios_cliente.usuario_id' in error_message:
-                    messages.error(request, 'Error: Ya existe un cliente asociado a este usuario.')
+                if 'usuarios_cliente.usuario_id' in error_message or 'UNIQUE constraint failed' in error_message:
+                    messages.error(request, 'Error: Ya existe un cliente asociado a este usuario. Esto puede indicar un problema en la base de datos.')
+                    # Intentar limpiar el usuario creado si existe
+                    try:
+                        usuario_temp = Usuario.objects.get(username=form.cleaned_data['username'])
+                        if not hasattr(usuario_temp, 'cliente') or not usuario_temp.cliente:
+                            usuario_temp.delete()
+                    except Usuario.DoesNotExist:
+                        pass
                 elif 'usuarios_usuario.username' in error_message:
                     messages.error(request, f'Error: El nombre de usuario "{form.cleaned_data["username"]}" ya está en uso.')
                 elif 'usuarios_usuario.email' in error_message:
