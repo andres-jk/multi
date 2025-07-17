@@ -1255,65 +1255,63 @@ def agregar_cliente(request):
         form = ClienteCompletoForm(request.POST)
         if form.is_valid():
             try:
-                # Verificar si ya existe un usuario con ese username
-                if Usuario.objects.filter(username=form.cleaned_data['username']).exists():
-                    messages.error(request, f'Ya existe un usuario con el nombre de usuario "{form.cleaned_data["username"]}". Por favor, elija otro.')
-                    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
-                
-                # Crear el usuario
-                usuario = Usuario.objects.create_user(
-                    username=form.cleaned_data['username'],
-                    password=form.cleaned_data['password']
-                )
-                usuario.first_name = form.cleaned_data.get('first_name', '')
-                usuario.last_name = form.cleaned_data.get('last_name', '')
-                usuario.email = form.cleaned_data.get('email', '')
-                usuario.rol = 'cliente'
-                usuario.numero_identidad = form.cleaned_data.get('numero_identidad', '')
-                usuario.save()
-                
-                # Verificar si ya existe un cliente para este usuario (doble verificación)
-                if Cliente.objects.filter(usuario=usuario).exists():
-                    messages.error(request, f'Ya existe un cliente asociado al usuario "{usuario.username}".')
-                    usuario.delete()  # Eliminar el usuario creado si ya existe un cliente
-                    return render(request, 'pedidos/agregar_cliente.html', {'form': form})
-                
-                # Crear el cliente asociado al usuario
-                cliente = Cliente.objects.create(
-                    usuario=usuario,
-                    telefono=form.cleaned_data.get('telefono', ''),
-                    direccion=form.cleaned_data.get('direccion', '')
-                )
-                
-                messages.success(request, f'Cliente {usuario.first_name} {usuario.last_name} ({usuario.username}) creado exitosamente.')
-                return redirect('pedidos:lista_clientes')
-                
+                with transaction.atomic():
+                    # Verificar si ya existe un usuario con ese username
+                    if Usuario.objects.filter(username=form.cleaned_data['username']).exists():
+                        form.add_error('username', 'Ya existe un usuario con este nombre de usuario.')
+                        return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                    
+                    # Verificar email si se proporciona
+                    email = form.cleaned_data.get('email')
+                    if email and Usuario.objects.filter(email=email).exists():
+                        form.add_error('email', 'Ya existe un usuario con este correo electrónico.')
+                        return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                    
+                    # Verificar número de identidad si se proporciona
+                    numero_identidad = form.cleaned_data.get('numero_identidad')
+                    if numero_identidad and Usuario.objects.filter(numero_identidad=numero_identidad).exists():
+                        form.add_error('numero_identidad', 'Ya existe un usuario con este número de identidad.')
+                        return render(request, 'pedidos/agregar_cliente.html', {'form': form})
+                    
+                    # Crear el usuario
+                    usuario = Usuario.objects.create_user(
+                        username=form.cleaned_data['username'],
+                        password=form.cleaned_data['password']
+                    )
+                    usuario.first_name = form.cleaned_data.get('first_name', '')
+                    usuario.last_name = form.cleaned_data.get('last_name', '')
+                    usuario.email = form.cleaned_data.get('email', '')
+                    usuario.rol = 'cliente'
+                    usuario.numero_identidad = form.cleaned_data.get('numero_identidad', '')
+                    usuario.save()
+                    
+                    # Crear el cliente asociado al usuario
+                    cliente = Cliente.objects.create(
+                        usuario=usuario,
+                        telefono=form.cleaned_data.get('telefono', ''),
+                        direccion=form.cleaned_data.get('direccion', '')
+                    )
+                    
+                    messages.success(request, f'Cliente {usuario.first_name} {usuario.last_name} ({usuario.username}) creado exitosamente.')
+                    return redirect('pedidos:lista_clientes')
+                    
             except IntegrityError as e:
-                if 'UNIQUE constraint failed: usuarios_cliente.usuario_id' in str(e):
-                    messages.error(request, 'Error: Ya existe un cliente asociado a este usuario. No se puede crear un cliente duplicado.')
-                elif 'UNIQUE constraint failed: usuarios_usuario.username' in str(e):
-                    messages.error(request, f'Error: El nombre de usuario "{form.cleaned_data["username"]}" ya está en uso. Por favor, elija otro.')
+                error_message = str(e)
+                if 'usuarios_cliente.usuario_id' in error_message:
+                    messages.error(request, 'Error: Ya existe un cliente asociado a este usuario.')
+                elif 'usuarios_usuario.username' in error_message:
+                    messages.error(request, f'Error: El nombre de usuario "{form.cleaned_data["username"]}" ya está en uso.')
+                elif 'usuarios_usuario.email' in error_message:
+                    messages.error(request, f'Error: El correo electrónico "{form.cleaned_data["email"]}" ya está registrado.')
+                elif 'usuarios_usuario.numero_identidad' in error_message:
+                    messages.error(request, f'Error: El número de identidad "{form.cleaned_data["numero_identidad"]}" ya está registrado.')
                 else:
-                    messages.error(request, f'Error de integridad de datos: {str(e)}')
-                
-                # Si se creó el usuario pero falló la creación del cliente, limpiarlo
-                try:
-                    usuario_creado = Usuario.objects.get(username=form.cleaned_data['username'])
-                    if not Cliente.objects.filter(usuario=usuario_creado).exists():
-                        usuario_creado.delete()
-                except Usuario.DoesNotExist:
-                    pass
+                    messages.error(request, f'Error de integridad de datos: {error_message}')
                     
             except Exception as e:
                 messages.error(request, f'Error inesperado al crear el cliente: {str(e)}')
-                
-                # Limpiar usuario si se creó pero falló algo más
-                try:
-                    usuario_creado = Usuario.objects.get(username=form.cleaned_data['username'])
-                    if not Cliente.objects.filter(usuario=usuario_creado).exists():
-                        usuario_creado.delete()
-                except Usuario.DoesNotExist:
-                    pass
+        else:
+            messages.error(request, 'Por favor, corrija los errores en el formulario.')
     else:
         form = ClienteCompletoForm()
         
