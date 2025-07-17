@@ -527,7 +527,7 @@ def actualizar_perfil(request):
     
     if request.method == 'POST':
         # Instanciar formularios con los datos del POST y las instancias existentes
-        usuario_form = UsuarioForm(request.POST, instance=request.user)
+        usuario_form = PerfilForm(request.POST, instance=request.user)
         cliente_form = ClienteForm(request.POST, instance=cliente)
         
         if usuario_form.is_valid() and cliente_form.is_valid():
@@ -547,7 +547,7 @@ def actualizar_perfil(request):
             return render(request, 'usuarios/actualizar_perfil.html', context)
     else:
         # Para GET, instanciar formularios con los datos existentes
-        usuario_form = UsuarioForm(instance=request.user)
+        usuario_form = PerfilForm(instance=request.user)
         cliente_form = ClienteForm(instance=cliente)
     
     context = {

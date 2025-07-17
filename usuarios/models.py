@@ -52,7 +52,7 @@ class Usuario(AbstractUser):
         return self.username
 
 class Cliente(models.Model):
-    usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name='cliente', null=True, blank=True)
+    usuario = models.OneToOneField(Usuario, on_delete=models.CASCADE, related_name='cliente')
     telefono = models.CharField(max_length=50)
     direccion = models.CharField(max_length=255, blank=True, null=True)
 
