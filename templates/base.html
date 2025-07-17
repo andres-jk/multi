@@ -17,24 +17,344 @@
     
     {% block extra_css %}{% endblock %}
     <style>
+        /* --- GENERAL STYLES --- */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+        
+        body.no-scroll {
+            overflow: hidden;
+        }
+        
+        .main-header {
+            background: transparent;
+            box-shadow: none;
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            z-index: 100;
+            width: auto;
+            padding: 0;
+        }
+        
         /* --- NAV BAR LAYOUT --- */
         .nav-bar {
-            width: 75%;
+            width: auto;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 60px;
             background: transparent;
             position: relative;
+            padding: 0;
         }
-
+        
+        .header-logo-space {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo {
+            max-height: 50px;
+            width: auto;
+        }
+        
+        /* --- HAMBURGER MENU --- */
+        .hamburger {
+            display: flex !important;
+            flex-direction: column;
+            cursor: pointer;
+            padding: 12px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            position: relative;
+            width: 50px;
+            height: 50px;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .hamburger:hover {
+            background: rgba(255, 255, 255, 1);
+            border-color: #ccc;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background-color: #1A1228;
+            margin: 3px 0;
+            transition: 0.3s;
+            border-radius: 2px;
+        }
+        
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(-45deg) translate(-5px, 6px);
+            background-color: #FF6B6B;
+        }
+        
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+        
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(45deg) translate(-5px, -6px);
+            background-color: #FF6B6B;
+        }
+        
+        /* --- MOBILE MENU --- */
+        .mobile-menu {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: -320px;
+            width: 320px;
+            height: 100vh;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            box-shadow: 2px 0 20px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow-y: auto;
+        }
+        
+        .mobile-menu.active {
+            left: 0;
+        }
+        
+        .mobile-menu-header {
+            background: linear-gradient(135deg, #FFD600 0%, #FFC400 100%);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .mobile-menu-header h3 {
+            margin: 0;
+            color: #1A1228;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .mobile-menu-header h3 i {
+            margin-right: 10px;
+        }
+        
+        .close-menu {
+            background: none;
+            border: none;
+            color: #1A1228;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        
+        .close-menu:hover {
+            background: rgba(26, 18, 40, 0.1);
+            transform: scale(1.1);
+        }
+        
+        .mobile-menu-overlay {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .mobile-menu-overlay.active {
+            display: block;
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .mobile-menu-links {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+        
+        .mobile-menu-links a {
+            color: #1A1228;
+            text-decoration: none;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        
+        .mobile-menu-links a:hover {
+            background: linear-gradient(135deg, #FFD600 0%, #FFC400 100%);
+            color: #1A1228;
+            transform: translateX(10px);
+            box-shadow: 0 4px 12px rgba(255, 214, 0, 0.3);
+        }
+        
+        .mobile-menu-links a.active {
+            background: linear-gradient(135deg, #FFD600 0%, #FFC400 100%);
+            color: #1A1228;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(255, 214, 0, 0.3);
+        }
+        
+        .mobile-menu-links a i {
+            margin-right: 15px;
+            width: 24px;
+            text-align: center;
+            color: #F9C552;
+            font-size: 18px;
+        }
+        
+        .mobile-menu-links a:hover i,
+        .mobile-menu-links a.active i {
+            color: #1A1228;
+        }
+        
+        .mobile-dropdown {
+            margin-bottom: 8px;
+        }
+        
+        .mobile-dropdown-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            cursor: pointer;
+            color: #1A1228;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            background: transparent;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .mobile-dropdown-toggle:hover {
+            background: linear-gradient(135deg, #FFD600 0%, #FFC400 100%);
+            transform: translateX(10px);
+            box-shadow: 0 4px 12px rgba(255, 214, 0, 0.3);
+        }
+        
+        .mobile-dropdown-toggle i.fa-chevron-down {
+            transition: transform 0.3s ease;
+            color: #F9C552;
+        }
+        
+        .mobile-dropdown-toggle:hover i.fa-chevron-down {
+            color: #1A1228;
+        }
+        
+        .mobile-dropdown-toggle i.fa-chevron-down.rotate {
+            transform: rotate(180deg);
+        }
+        
+        .mobile-dropdown-menu {
+            display: none;
+            background: rgba(248, 249, 250, 0.8);
+            margin-left: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 8px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .mobile-dropdown-menu.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .mobile-dropdown-menu a {
+            padding: 12px 20px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            margin-bottom: 0;
+            border-radius: 0;
+        }
+        
+        .mobile-dropdown-menu a:last-child {
+            border-bottom: none;
+        }
+        
+        .mobile-dropdown-menu a:hover {
+            background: rgba(255, 214, 0, 0.5);
+            transform: translateX(5px);
+        }
+        
+        /* --- RESPONSIVE DESIGN --- */
+        .hamburger {
+            display: flex;
+        }
+        
+        .mobile-menu {
+            display: block;
+        }
+        
+        .header-logo-space {
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-menu {
+                width: 100%;
+                right: -100%;
+            }
+            
+            .mobile-menu.active {
+                right: 0;
+            }
+            
+            .nav-bar {
+                padding: 0.5rem 1rem;
+            }
+        }
+        
+        /* Media query removida para mostrar hamburguesa en todos los dispositivos */
+        
         /* Estilos del carrito */
         .carrito-link {
             position: relative;
             padding-right: 45px !important;
         }
         
-        #carrito-count {
+        #carrito-count,
+        #carrito-count-mobile {
             position: absolute;
             top: -8px;
             right: -8px;
@@ -47,7 +367,8 @@
             display: none;
         }
         
-        #carrito-count.has-items {
+        #carrito-count.has-items,
+        #carrito-count-mobile.has-items {
             display: inline-block;
         }
         
@@ -520,6 +841,11 @@
             justify-content: flex-start;
             align-items: center;
         }
+        
+        /* OVERRIDE: Ocultar menú normal para mostrar solo hamburguesa */
+        .nav-links {
+            display: none !important;
+        }
         .nav-btn-space {
             min-width: 90px;
             text-align: center;
@@ -705,12 +1031,29 @@
     
     <header class="main-header">
         <nav class="nav-bar">
-            <div class="header-logo-space">
-                <img src="{% static 'logo_multiandamios.png' %}" alt="Logo" class="logo">
+            <!-- Botón Hamburguesa -->
+            <div class="hamburger" id="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
-            <div class="nav-links">
+        </nav>
+        
+        <!-- Overlay del menú móvil -->
+        <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+        
+        <!-- Menú Móvil -->
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-header">
+                <h3><i class="fas fa-bars"></i> Menú</h3>
+                <button class="close-menu" id="closeMenu">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mobile-menu-links">
                 <a href="{% url 'usuarios:inicio_cliente' %}" {% if request.path == '/' %}class="active"{% endif %}><i class="fas fa-home"></i> Inicio</a>
                 <a href="{% url 'productos:catalogo_productos' %}" {% if '/productos/' in request.path %}class="active"{% endif %}><i class="fas fa-toolbox"></i> Productos</a>
+                
                 {% if user.is_authenticated %}
                     {% if user.is_staff or user.rol == 'admin' or user.rol == 'empleado' %}
                     <a href="{% url 'pedidos:lista_pedidos' %}" {% if '/panel/' in request.path and not '/panel/admin/' in request.path %}class="active"{% endif %}><i class="fas fa-list-ul"></i> Pedidos</a>
@@ -718,7 +1061,7 @@
                     
                     {% if user.rol == 'cliente' %}
                     <a href="{% url 'pedidos:mis_pedidos' %}" {% if '/panel/mis-pedidos/' in request.path %}class="active"{% endif %}><i class="fas fa-clipboard-check"></i> Mis Pedidos</a>
-                    <a href="{% url 'usuarios:pedidos_pendientes' %}" {% if '/pedidos-pendientes/' in request.path %}class="active"{% endif %} class="nav-btn-link pending-orders-link">
+                    <a href="{% url 'usuarios:pedidos_pendientes' %}" {% if '/pedidos-pendientes/' in request.path %}class="active"{% endif %}">
                         <i class="fas fa-clock"></i> Pedidos Pendientes
                         <span class="pending-badge"></span>
                     </a>
@@ -726,17 +1069,18 @@
                     
                     <a href="{% url 'usuarios:ver_carrito' %}" {% if '/carrito/' in request.path %}class="active"{% endif %} class="carrito-link">
                         <i class="fas fa-shopping-cart"></i> Carrito
-                        <span id="carrito-count" class="{% get_carrito_total as total_items %}{% if total_items > 0 %}has-items{% endif %}">
+                        <span id="carrito-count-mobile" class="{% get_carrito_total as total_items %}{% if total_items > 0 %}has-items{% endif %}">
                             {% get_carrito_total %}
                         </span>
-                        <span id="carrito-total" class="cart-total">{% get_carrito_monto_total %}</span>
                     </a>
+                    
                     {% if user.is_staff %}
-                        <div class="dropdown">
-                            <a href="#" class="dropdown-toggle {% if '/panel/admin/' in request.path or '/recibos/lista/' in request.path or '/recibos/resumen/' in request.path or '/empleados/' in request.path %}active{% endif %}">
-                                <i class="fas fa-cogs"></i> Administración <i class="fas fa-chevron-down"></i>
-                            </a>
-                            <div class="dropdown-menu">
+                        <div class="mobile-dropdown">
+                            <div class="mobile-dropdown-toggle" id="adminDropdownToggle">
+                                <span><i class="fas fa-cogs"></i> Administración</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <div class="mobile-dropdown-menu" id="adminDropdownMenu">
                                 <a href="{% url 'pedidos:lista_clientes' %}"><i class="fas fa-users"></i> Clientes</a>
                                 {% if user.rol == 'admin' or user.is_superuser %}
                                 <a href="{% url 'usuarios:lista_empleados' %}"><i class="fas fa-user-tie"></i> Empleados</a>
@@ -758,7 +1102,7 @@
                     <a href="{% url 'usuarios:login' %}" {% if '/login/' in request.path %}class="active"{% endif %}><i class="fas fa-sign-in-alt"></i> Iniciar Sesión</a>
                 {% endif %}
             </div>
-        </nav>
+        </div>
     </header>
             
     <main class="container">
@@ -809,6 +1153,94 @@
                         menu.style.display = 'none';
                     });
                 }
+            });
+            
+            // Hamburger menu functionality
+            const hamburger = document.getElementById('hamburger');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+            const closeMenu = document.getElementById('closeMenu');
+            const adminDropdownToggle = document.getElementById('adminDropdownToggle');
+            const adminDropdownMenu = document.getElementById('adminDropdownMenu');
+            
+            // Debug: verificar que los elementos existan
+            console.log('Hamburger:', hamburger);
+            console.log('Mobile menu:', mobileMenu);
+            console.log('Overlay:', mobileMenuOverlay);
+            console.log('Close menu:', closeMenu);
+            
+            // Función para cerrar el menú
+            function closeMenuFunction() {
+                if (hamburger) hamburger.classList.remove('active');
+                if (mobileMenu) mobileMenu.classList.remove('active');
+                if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('active');
+                document.body.classList.remove('no-scroll');
+            }
+            
+            // Función para abrir el menú
+            function openMenuFunction() {
+                if (hamburger) hamburger.classList.add('active');
+                if (mobileMenu) mobileMenu.classList.add('active');
+                if (mobileMenuOverlay) mobileMenuOverlay.classList.add('active');
+                document.body.classList.add('no-scroll');
+            }
+            
+            // Toggle mobile menu
+            if (hamburger) {
+                hamburger.addEventListener('click', function() {
+                    console.log('Hamburger clicked');
+                    if (mobileMenu && mobileMenu.classList.contains('active')) {
+                        closeMenuFunction();
+                    } else {
+                        openMenuFunction();
+                    }
+                });
+            }
+            
+            // Close mobile menu with close button
+            if (closeMenu) {
+                closeMenu.addEventListener('click', function() {
+                    console.log('Close button clicked');
+                    closeMenuFunction();
+                });
+            }
+            
+            // Close mobile menu when overlay is clicked
+            if (mobileMenuOverlay) {
+                mobileMenuOverlay.addEventListener('click', function() {
+                    console.log('Overlay clicked');
+                    closeMenuFunction();
+                });
+            }
+            
+            // Close mobile menu when window is resized (opcional)
+            // window.addEventListener('resize', function() {
+            //     if (window.innerWidth > 768) {
+            //         hamburger.classList.remove('active');
+            //         mobileMenu.classList.remove('active');
+            //         mobileMenuOverlay.classList.remove('active');
+            //         document.body.classList.remove('no-scroll');
+            //     }
+            // });
+            
+            // Mobile dropdown functionality
+            if (adminDropdownToggle) {
+                adminDropdownToggle.addEventListener('click', function() {
+                    adminDropdownMenu.classList.toggle('active');
+                    const chevron = this.querySelector('i.fa-chevron-down');
+                    chevron.classList.toggle('rotate');
+                });
+            }
+            
+            // Close mobile menu when clicking on a link
+            const mobileMenuLinks = document.querySelectorAll('.mobile-menu-links a');
+            mobileMenuLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    hamburger.classList.remove('active');
+                    mobileMenu.classList.remove('active');
+                    mobileMenuOverlay.classList.remove('active');
+                    document.body.classList.remove('no-scroll');
+                });
             });
         });
     </script>
