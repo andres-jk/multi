@@ -1,9 +1,19 @@
+#!/bin/bash
+
+# 📁 TEMPLATE COMPLETO CORREGIDO PARA PYTHONANYWHERE
+# Ejecutar: bash subir_template_corregido.sh
+
+echo "📤 SUBIENDO TEMPLATE GPS CORREGIDO A PYTHONANYWHERE..."
+
+# Crear el archivo completo corregido
+cat > template_seguimiento_cliente_corregido.html << 'TEMPLATE_EOF'
 {% extends 'base.html' %}
 {% load humanize %}
 
 {% block title %}Seguimiento de Mi Pedido #{{ pedido.id_pedido }} - MultiAndamios{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
 .tracking-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -27,31 +37,31 @@
     box-shadow: 0 5px 15px rgba(0,0,0,0.08);
     margin-bottom: 20px;
     border: 2px solid #e9ecef;
-    color: #212529; /* Texto negro para mejor legibilidad */
+    color: #212529;
 }
 
 .status-card h3,
 .status-card h4,
 .status-card h5,
 .status-card strong {
-    color: #343a40; /* Títulos en gris oscuro */
+    color: #343a40;
 }
 
 .status-card .text-muted {
-    color: #6c757d !important; /* Texto auxiliar más oscuro */
+    color: #6c757d !important;
 }
 
 .status-card.active {
     border-color: #28a745;
     background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 100%);
-    color: #155724; /* Texto verde oscuro para mejor contraste */
+    color: #155724;
 }
 
 .status-card.current {
     border-color: #ffc107;
     background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%);
     animation: glow 2s ease-in-out infinite alternate;
-    color: #856404; /* Texto amarillo oscuro para mejor contraste */
+    color: #856404;
 }
 
 @keyframes glow {
@@ -71,18 +81,18 @@
     border-radius: 15px;
     padding: 25px;
     margin-bottom: 20px;
-    color: #212529; /* Texto negro */
+    color: #212529;
 }
 
 .delivery-info h3,
 .delivery-info h4,
 .delivery-info h5,
 .delivery-info strong {
-    color: #343a40; /* Títulos en gris oscuro */
+    color: #343a40;
 }
 
 .delivery-info .text-muted {
-    color: #6c757d !important; /* Texto auxiliar más oscuro */
+    color: #6c757d !important;
 }
 
 .info-item {
@@ -93,11 +103,11 @@
     background: white;
     border-radius: 10px;
     border-left: 4px solid #007bff;
-    color: #212529; /* Texto negro */
+    color: #212529;
 }
 
 .info-item strong {
-    color: #343a40; /* Labels en gris oscuro */
+    color: #343a40;
 }
 
 .info-item:last-child {
@@ -113,7 +123,7 @@
 .timeline {
     position: relative;
     padding: 20px 0;
-    color: #212529; /* Texto negro */
+    color: #212529;
 }
 
 .timeline::before {
@@ -674,7 +684,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Leaflet (OpenStreetMap) API -->
 {% if entrega.estado_entrega == 'en_camino' and puede_ver_ubicacion %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script>
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
@@ -684,3 +693,25 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endif %}
 
 {% endblock %}
+TEMPLATE_EOF
+
+echo "✅ Template corregido creado: template_seguimiento_cliente_corregido.html"
+echo ""
+echo "📤 Para subir a PythonAnywhere, ejecutar:"
+echo ""
+echo "1. Conectar SSH:"
+echo "   ssh dalej@ssh.pythonanywhere.com"
+echo ""
+echo "2. Navegar al proyecto:"
+echo "   cd /home/dalej/multiandamios"
+echo ""
+echo "3. Hacer backup:"
+echo "   cp pedidos/templates/entregas/seguimiento_cliente.html pedidos/templates/entregas/seguimiento_cliente_backup.html"
+echo ""
+echo "4. Subir nuevo template (copiar y pegar el contenido del archivo creado)"
+echo "   nano pedidos/templates/entregas/seguimiento_cliente.html"
+echo ""
+echo "5. Reiniciar aplicación:"
+echo "   touch /var/www/dalej_pythonanywhere_com_wsgi.py"
+echo ""
+echo "🧪 Probar en: https://dalej.pythonanywhere.com/panel/entregas/cliente/seguimiento/74/"

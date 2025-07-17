@@ -7,89 +7,322 @@
 <a href="{% url 'recibos:lista_recibos' %}">Recibos de Obra</a>
 <a href="/">Inicio</a>
 {% endblock %}
-{% block content %}
-<div class="card">
-    <h1 class="highlight">Agregar Nuevo Cliente</h1>
+
+{% block extra_css %}
+<style>
+/* Estilos específicos para el formulario de agregar cliente */
+.form-cliente {
+    background: #ffffff;
+    border: 2px solid #FFD600;
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 2rem auto;
+    max-width: 800px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.form-section {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-left: 4px solid #FFD600;
+}
+
+.form-section h3 {
+    color: #1A1228;
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-section h3::before {
+    content: "👤";
+    font-size: 1.2rem;
+}
+
+.form-section:nth-child(3) h3::before {
+    content: "📞";
+}
+
+.form-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-col {
+    flex: 1;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #1A1228;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="password"] {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: #ffffff;
+    color: #1A1228;
+}
+
+.form-group input:focus {
+    border-color: #FFD600;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 214, 0, 0.2);
+    background: #fffef7;
+}
+
+.form-group input:hover {
+    border-color: #FFC107;
+}
+
+.error {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    border-radius: 4px;
+    display: block;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px solid #e9ecef;
+}
+
+.btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.btn-primary {
+    background: #FFD600;
+    color: #1A1228;
+    box-shadow: 0 4px 15px rgba(255, 214, 0, 0.3);
+}
+
+.btn-primary:hover {
+    background: #FFC107;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 214, 0, 0.4);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+}
+
+.form-title {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #1A1228;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.form-title::after {
+    content: '';
+    display: block;
+    width: 100px;
+    height: 4px;
+    background: #FFD600;
+    margin: 1rem auto;
+    border-radius: 2px;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+        gap: 1rem;
+    }
     
-    <form method="post" class="form">
-        {% csrf_token %}
+    .form-cliente {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Animaciones */
+.form-cliente {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-section {
+    animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="form-cliente">
+        <h1 class="form-title">Agregar Nuevo Cliente</h1>
         
-        <div class="form-group">
-            <h3>Información del Usuario</h3>
-            <div class="row">
-                <div class="col">
-                    <label for="id_username">Nombre de usuario:</label>
-                    {{ form.username }}
-                    {% if form.username.errors %}
-                    <div class="error">{{ form.username.errors }}</div>
-                    {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-section">
+                <h3>Información del Usuario</h3>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_username">Nombre de usuario:</label>
+                            {{ form.username }}
+                            {% if form.username.errors %}
+                            <div class="error">{{ form.username.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_password">Contraseña:</label>
+                            {{ form.password }}
+                            {% if form.password.errors %}
+                            <div class="error">{{ form.password.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <div class="col">
-                    <label for="id_password">Contraseña:</label>
-                    {{ form.password }}
-                    {% if form.password.errors %}
-                    <div class="error">{{ form.password.errors }}</div>
-                    {% endif %}
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_first_name">Nombre:</label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                            <div class="error">{{ form.first_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_last_name">Apellidos:</label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                            <div class="error">{{ form.last_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <label for="id_first_name">Nombre:</label>
-                    {{ form.first_name }}
-                    {% if form.first_name.errors %}
-                    <div class="error">{{ form.first_name.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="col">
-                    <label for="id_last_name">Apellidos:</label>
-                    {{ form.last_name }}
-                    {% if form.last_name.errors %}
-                    <div class="error">{{ form.last_name.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <label for="id_email">Correo electrónico:</label>
-                    {{ form.email }}
-                    {% if form.email.errors %}
-                    <div class="error">{{ form.email.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="col">
-                    <label for="id_numero_identidad">Número de Identidad:</label>
-                    {{ form.numero_identidad }}
-                    {% if form.numero_identidad.errors %}
-                    <div class="error">{{ form.numero_identidad.errors }}</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <div class="form-group">
-            <h3>Información del Cliente</h3>
-            <div class="row">
-                <div class="col">
-                    <label for="id_telefono">Teléfono:</label>
-                    {{ form.telefono }}
-                    {% if form.telefono.errors %}
-                    <div class="error">{{ form.telefono.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="col">
-                    <label for="id_direccion">Dirección:</label>
-                    {{ form.direccion }}
-                    {% if form.direccion.errors %}
-                    <div class="error">{{ form.direccion.errors }}</div>
-                    {% endif %}
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_email">Correo electrónico:</label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                            <div class="error">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_numero_identidad">Número de Identidad:</label>
+                            {{ form.numero_identidad }}
+                            {% if form.numero_identidad.errors %}
+                            <div class="error">{{ form.numero_identidad.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="form-group">
-            <button type="submit" class="btn btn-primary">Guardar Cliente</button>
-            <a href="{% url 'pedidos:lista_clientes' %}" class="btn btn-secondary">Cancelar</a>
-        </div>
-    </form>
+            
+            <div class="form-section">
+                <h3>Información del Cliente</h3>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_telefono">Teléfono:</label>
+                            {{ form.telefono }}
+                            {% if form.telefono.errors %}
+                            <div class="error">{{ form.telefono.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="id_direccion">Dirección:</label>
+                            {{ form.direccion }}
+                            {% if form.direccion.errors %}
+                            <div class="error">{{ form.direccion.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{% url 'pedidos:lista_clientes' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
