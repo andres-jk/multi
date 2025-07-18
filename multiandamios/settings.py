@@ -29,7 +29,9 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    'testserver'  # Para tests
+    'testserver',  # Para tests
+    'dalej.pythonanywhere.com',  # PythonAnywhere domain
+    'www.dalej.pythonanywhere.com',
 ]
 
 # Configuraciones de seguridad para desarrollo
