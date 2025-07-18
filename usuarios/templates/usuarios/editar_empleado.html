@@ -30,6 +30,11 @@
         font-size: 16px;
     }
     
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    
     .form-check {
         margin-bottom: 10px;
     }
@@ -42,12 +47,226 @@
         font-weight: normal;
     }
     
-    .permissions-section {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 8px;
-        margin: 20px 0;
+    .btn-primary {
+        background: #007bff;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
     }
+    
+    .btn-primary:hover {
+        background: #0056b3;
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+        padding: 12px 24px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-secondary:hover {
+        background: #545b62;
+    }
+    
+    .help-text {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .required {
+        color: #dc3545;
+    }
+    
+    .errorlist {
+        color: #dc3545;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+    
+    .errorlist li {
+        margin-bottom: 2px;
+    }
+    
+    .password-help {
+        background: #e9ecef;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .password-help h6 {
+        margin-bottom: 10px;
+        color: #495057;
+    }
+    
+    .password-help ul {
+        margin-bottom: 0;
+        padding-left: 20px;
+    }
+    
+    .password-help li {
+        margin-bottom: 2px;
+        font-size: 13px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="form-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2>Editar Empleado</h2>
+                    <a href="{% url 'usuarios:lista_empleados' %}" class="btn btn-secondary">
+                        ← Volver a la lista
+                    </a>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Información Personal -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                                {{ form.first_name }}
+                                {% if form.first_name.errors %}
+                                    <div class="errorlist">
+                                        {% for error in form.first_name.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                                {{ form.last_name }}
+                                {% if form.last_name.errors %}
+                                    <div class="errorlist">
+                                        {% for error in form.last_name.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Email -->
+                    <div class="form-group">
+                        <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="errorlist">
+                                {% for error in form.email.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Rol -->
+                    <div class="form-group">
+                        <label for="{{ form.rol.id_for_label }}">{{ form.rol.label }}</label>
+                        {{ form.rol }}
+                        {% if form.rol.errors %}
+                            <div class="errorlist">
+                                {% for error in form.rol.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Estado -->
+                    <div class="form-group">
+                        <div class="form-check">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                {{ form.is_active.label }}
+                            </label>
+                        </div>
+                        {% if form.is_active.errors %}
+                            <div class="errorlist">
+                                {% for error in form.is_active.errors %}
+                                    <div>{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Cambiar Contraseña -->
+                    <div class="password-help">
+                        <h6>Cambiar Contraseña</h6>
+                        <p>Deje estos campos vacíos si no desea cambiar la contraseña.</p>
+                        <ul>
+                            <li>La contraseña debe tener al menos 8 caracteres.</li>
+                            <li>No puede ser demasiado similar a su información personal.</li>
+                            <li>No puede ser una contraseña comúnmente utilizada.</li>
+                            <li>No puede ser completamente numérica.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+                                {{ form.password1 }}
+                                {% if form.password1.errors %}
+                                    <div class="errorlist">
+                                        {% for error in form.password1.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+                                {{ form.password2 }}
+                                {% if form.password2.errors %}
+                                    <div class="errorlist">
+                                        {% for error in form.password2.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div class="form-group mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            Actualizar Empleado
+                        </button>
+                        <a href="{% url 'usuarios:lista_empleados' %}" class="btn btn-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
     
     .permissions-grid {
         display: grid;

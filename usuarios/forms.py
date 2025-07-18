@@ -177,13 +177,14 @@ class EmpleadoForm(forms.ModelForm):
     password1 = forms.CharField(
         label='Contraseña',
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        required=False,
-        help_text='Dejar en blanco para mantener la contraseña actual (solo al editar)'
+        required=True,
+        help_text='Contraseña para el nuevo empleado'
     )
     password2 = forms.CharField(
         label='Confirmar contraseña',
         widget=forms.PasswordInput(attrs={'class': 'form-control'}),
-        required=False
+        required=True,
+        help_text='Confirme la contraseña'
     )
     
     class Meta:
@@ -230,6 +231,17 @@ class EmpleadoForm(forms.ModelForm):
             'is_staff': 'Es empleado/administrador',
             'is_active': 'Usuario activo',
         }
+    
+    def __init__(self, *args, **kwargs):
+        self.instance_exists = kwargs.get('instance') is not None
+        super().__init__(*args, **kwargs)
+        
+        # Si estamos editando, hacer la contraseña opcional
+        if self.instance_exists:
+            self.fields['password1'].required = False
+            self.fields['password2'].required = False
+            self.fields['password1'].help_text = 'Dejar en blanco para mantener la contraseña actual'
+            self.fields['password2'].help_text = 'Dejar en blanco para mantener la contraseña actual'
         
     def clean_password2(self):
         password1 = self.cleaned_data.get('password1')
@@ -238,6 +250,10 @@ class EmpleadoForm(forms.ModelForm):
         if password1 or password2:
             if password1 != password2:
                 raise forms.ValidationError('Las contraseñas no coinciden.')
+        
+        # Si estamos creando un usuario nuevo, la contraseña es obligatoria
+        if not self.instance_exists and not password1:
+            raise forms.ValidationError('La contraseña es obligatoria para usuarios nuevos.')
         
         return password2
     

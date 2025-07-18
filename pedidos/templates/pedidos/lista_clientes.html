@@ -22,27 +22,24 @@
             <!-- Filtros desplegables -->
             <div style="display: flex; gap: 10px; align-items: center;">
                 <label for="estado" style="font-weight: bold;">Estado:</label>
-                <select name="estado" id="estado" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
+                <select name="estado" id="estado" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
                     {% for value, label in estados %}
                         <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
                 
                 <label for="rol" style="font-weight: bold;">Rol:</label>
-                <select name="rol" id="rol" onchange="this.form.submit()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
+                <select name="rol" id="rol" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; background-color: white;">
                     {% for value, label in roles %}
                         <option value="{{ value }}" {% if rol_filtro == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
                 
+                <button type="submit" style="padding: 8px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">Filtrar</button>
+                
                 <!-- Botón para limpiar filtros -->
                 <a href="{% url 'pedidos:lista_clientes' %}" style="padding: 8px 12px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">Limpiar</a>
             </div>
-            
-            <!-- Mantener búsqueda al cambiar filtros -->
-            {% if busqueda %}
-                <input type="hidden" name="busqueda_identidad" value="{{ busqueda }}" />
-            {% endif %}
         </form>
         
         <a href="{% url 'pedidos:agregar_cliente' %}" class="btn" style="background-color: #FFC107; color: #000; padding: 10px 15px; font-weight: bold; text-decoration: none; border-radius: 4px;">Agregar Cliente</a>

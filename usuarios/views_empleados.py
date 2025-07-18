@@ -31,38 +31,28 @@ def lista_empleados(request):
 def crear_empleado(request):
     """Vista para crear un nuevo empleado"""
     if request.method == 'POST':
-        try:
-            # Crear usuario básico
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            first_name = request.POST.get('first_name')
-            last_name = request.POST.get('last_name')
-            password = request.POST.get('password1')
-            rol = request.POST.get('rol', 'empleado')
-            
-            # Verificar que el username no exista
-            if Usuario.objects.filter(username=username).exists():
-                messages.error(request, f'Ya existe un usuario con el nombre "{username}"')
-                return render(request, 'usuarios/crear_empleado.html')
-            
-            # Crear el usuario
-            empleado = Usuario.objects.create_user(
-                username=username,
-                email=email,
-                first_name=first_name,
-                last_name=last_name,
-                password=password,
-                rol=rol,
-                is_staff=True if rol in ['admin', 'empleado'] else False
-            )
-            
-            messages.success(request, f'Empleado "{empleado.get_full_name()}" creado exitosamente')
-            return redirect('usuarios:lista_empleados')
-            
-        except Exception as e:
-            messages.error(request, f'Error al crear empleado: {str(e)}')
+        form = EmpleadoForm(request.POST)
+        if form.is_valid():
+            try:
+                # Crear el usuario
+                empleado = form.save(commit=False)
+                empleado.is_staff = True if empleado.rol in ['admin', 'empleado'] else False
+                empleado.save()
+                
+                messages.success(request, f'Empleado "{empleado.get_full_name()}" creado exitosamente')
+                return redirect('usuarios:lista_empleados')
+                
+            except Exception as e:
+                messages.error(request, f'Error al crear empleado: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrija los errores en el formulario.')
+    else:
+        form = EmpleadoForm()
     
-    return render(request, 'usuarios/crear_empleado.html')
+    context = {
+        'form': form,
+    }
+    return render(request, 'usuarios/crear_empleado.html', context)
 
 @login_required
 @user_passes_test(es_administrador)
@@ -82,27 +72,25 @@ def editar_empleado(request, empleado_id):
     empleado = get_object_or_404(Usuario, id=empleado_id, rol__in=['empleado', 'recibos_obra'])
     
     if request.method == 'POST':
-        try:
-            empleado.first_name = request.POST.get('first_name', empleado.first_name)
-            empleado.last_name = request.POST.get('last_name', empleado.last_name)
-            empleado.email = request.POST.get('email', empleado.email)
-            empleado.rol = request.POST.get('rol', empleado.rol)
-            empleado.is_active = request.POST.get('is_active') == 'on'
-            empleado.is_staff = True if empleado.rol in ['admin', 'empleado'] else False
-            
-            # Cambiar contraseña si se proporciona
-            new_password = request.POST.get('new_password')
-            if new_password:
-                empleado.set_password(new_password)
-            
-            empleado.save()
-            messages.success(request, f'Empleado "{empleado.get_full_name()}" actualizado exitosamente')
-            return redirect('usuarios:lista_empleados')
-            
-        except Exception as e:
-            messages.error(request, f'Error al actualizar empleado: {str(e)}')
+        form = EmpleadoForm(request.POST, instance=empleado)
+        if form.is_valid():
+            try:
+                empleado_actualizado = form.save(commit=False)
+                empleado_actualizado.is_staff = True if empleado_actualizado.rol in ['admin', 'empleado'] else False
+                empleado_actualizado.save()
+                
+                messages.success(request, f'Empleado "{empleado_actualizado.get_full_name()}" actualizado exitosamente')
+                return redirect('usuarios:lista_empleados')
+                
+            except Exception as e:
+                messages.error(request, f'Error al actualizar empleado: {str(e)}')
+        else:
+            messages.error(request, 'Por favor corrija los errores en el formulario.')
+    else:
+        form = EmpleadoForm(instance=empleado)
     
     context = {
+        'form': form,
         'empleado': empleado,
     }
     return render(request, 'usuarios/editar_empleado.html', context)
