@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chatbot Frontend</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        
+        /* Estilos del chatbot copiados */
+        .chat-bot-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #F9C552, #e6b143);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(249, 197, 82, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+        
+        .chat-bot-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(249, 197, 82, 0.6);
+        }
+        
+        .chat-bot-button i {
+            color: #1A1228;
+            font-size: 24px;
+        }
+        
+        .chat-notification {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #FF99BA;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(249, 197, 82, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(249, 197, 82, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 197, 82, 0); }
+        }
+        
+        .chat-bot-window {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+            transform: translateY(20px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .chat-bot-window.active {
+            transform: translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <h1>🤖 Test Frontend del Chatbot</h1>
+    
+    <div id="status"></div>
+    
+    <h2>Elementos del Chatbot:</h2>
+    
+    <!-- Botón del chatbot -->
+    <div class="chat-bot-button" id="chatButton">
+        <i class="fas fa-comment-dots"></i>
+        <span class="chat-notification">1</span>
+    </div>
+    
+    <!-- Ventana del chatbot -->
+    <div class="chat-bot-window" id="chatWindow">
+        <div style="padding: 20px;">
+            <h3>Chat Test</h3>
+            <p>Esta es una ventana de prueba del chatbot.</p>
+            <button onclick="testChatAPI()">Probar API</button>
+            <div id="apiResult" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+    
+    <h2>Tests:</h2>
+    <button onclick="runTests()">Ejecutar Tests</button>
+    <div id="testResults"></div>
+    
+    <script>
+        // Función CSRF
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Test de elementos DOM
+        function runTests() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<h3>Resultados de Tests:</h3>';
+            
+            const tests = [
+                { name: 'Botón del chatbot', element: 'chatButton' },
+                { name: 'Ventana del chatbot', element: 'chatWindow' },
+                { name: 'Font Awesome', test: () => document.querySelector('link[href*="font-awesome"]') !== null },
+                { name: 'JavaScript funcionando', test: () => true }
+            ];
+            
+            tests.forEach(test => {
+                let passed = false;
+                
+                if (test.element) {
+                    const element = document.getElementById(test.element);
+                    passed = element !== null && element.style.display !== 'none';
+                    
+                    if (passed) {
+                        results.innerHTML += `<div class="status success">✅ ${test.name}: Elemento encontrado</div>`;
+                    } else {
+                        results.innerHTML += `<div class="status error">❌ ${test.name}: Elemento no encontrado</div>`;
+                    }
+                } else if (test.test) {
+                    passed = test.test();
+                    const status = passed ? 'success' : 'error';
+                    const icon = passed ? '✅' : '❌';
+                    results.innerHTML += `<div class="status ${status}">${icon} ${test.name}: ${passed ? 'OK' : 'FALLO'}</div>`;
+                }
+            });
+        }
+        
+        // Test de API
+        function testChatAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = 'Probando API...';
+            
+            fetch('/chatbot/api/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ message: 'test frontend' })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    resultDiv.innerHTML = '<div class="status success">✅ API funcionando: ' + data.response.substring(0, 50) + '...</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="status error">❌ Error API: ' + data.status + '</div>';
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = '<div class="status error">❌ Error de red: ' + error.message + '</div>';
+            });
+        }
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatButton = document.getElementById('chatButton');
+            const chatWindow = document.getElementById('chatWindow');
+            
+            if (chatButton) {
+                chatButton.addEventListener('click', function() {
+                    console.log('Botón del chat clickeado');
+                    if (chatWindow) {
+                        chatWindow.classList.toggle('active');
+                    }
+                });
+                
+                document.getElementById('status').innerHTML = 
+                    '<div class="status success">✅ Chat button listener configurado</div>';
+            } else {
+                document.getElementById('status').innerHTML = 
+                    '<div class="status error">❌ No se pudo configurar el chat button</div>';
+            }
+            
+            // Auto-ejecutar tests
+            setTimeout(runTests, 500);
+        });
+    </script>
+</body>
+</html>
