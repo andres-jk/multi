@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Chatbot</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Test del Chatbot</h1>
+    <div id="test-area">
+        <input type="text" id="testInput" placeholder="Escribe un mensaje de prueba">
+        <button onclick="testChatbot()">Probar</button>
+        <div id="result"></div>
+    </div>
+    
+    <script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function testChatbot() {
+        const message = document.getElementById('testInput').value;
+        const resultDiv = document.getElementById('result');
+        
+        if (!message) {
+            alert('Escribe un mensaje');
+            return;
+        }
+        
+        resultDiv.innerHTML = 'Enviando...';
+        
+        fetch('/chatbot/api/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                message: message
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            resultDiv.innerHTML = `
+                <h3>Respuesta:</h3>
+                <p><strong>Status:</strong> ${data.status}</p>
+                <p><strong>Mensaje:</strong> ${data.response}</p>
+            `;
+        })
+        .catch(error => {
+            resultDiv.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+            console.error('Error:', error);
+        });
+    }
+    </script>
+</body>
+</html>
