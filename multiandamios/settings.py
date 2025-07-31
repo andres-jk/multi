@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'usuarios',
     'productos',
-    'pedidos',
+    'pedidos.apps.PedidosConfig',
     'recibos',
     'chatbot',
 ]
