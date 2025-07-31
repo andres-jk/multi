@@ -49,8 +49,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.humanize',  # Agregar esta línea
-    'usuarios',    'productos',
+    'django.contrib.humanize',
+    'usuarios',
+    'productos',
     'pedidos',
     'recibos',
     'chatbot',
