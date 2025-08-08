@@ -331,7 +331,7 @@ form, .search-form, .login-form, .admin-productos-form {
     margin-bottom: 0.7rem;
     box-shadow: 0 2px 8px rgba(255,214,0,0.08);
 }
-s
+
 /* Separaciones internas para listas y acciones */
 .styled-list, .carrito-actions, .featured-products {
     padding: 1rem 0;
